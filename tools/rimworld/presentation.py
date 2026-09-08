@@ -1,5 +1,28 @@
 """Agent-facing output only. Full observations, risk fingerprints and provenance stay durable."""
 
+import json
+
+
+def _value_key(value):
+    # JSON encoding distinguishes false/0 and nested type changes.
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+
+
+def _value_paths(value, path='#'):
+    """Index exact already-visible values; references never cross a response."""
+    result = {}
+    def visit(node, pointer):
+        if isinstance(node, (dict, list)):
+            key = _value_key(node)
+            if key not in result or len(pointer) < len(result[key]):
+                result[key] = pointer
+            entries = node.items() if isinstance(node, dict) else enumerate(node)
+            for name, child in entries:
+                escaped = str(name).replace('~', '~0').replace('/', '~1')
+                visit(child, pointer + '/' + escaped)
+    visit(value, path)
+    return result
+
 
 def present(value):
     if isinstance(value,list): return [present(v) for v in value]
@@ -30,15 +53,23 @@ def present(value):
     if 'changed_fields' in delta or value.get('unchanged'):
         result['previous']=delta.get('previous_evidence')
     bodies=[value.get(k,{}) for k in ('data','health','needs','status','known_subset')]
-    warnings={k:v for k,v in value.get('warnings',{}).items() if not any(isinstance(b,dict) and k in b for b in bodies)}
+    warnings={k:v for k,v in value.get('warnings',{}).items() if not any(isinstance(b,dict) and k in b and _value_key(b[k]) == _value_key(v) for b in bodies)}
     if warnings:result['warnings']=warnings
-    # Preserve all active risks on unchanged reads. For changed/full reads whose
-    # facts are already present, report classification without duplicating values.
+    # Classification remains explicit. Reference an exact value already shown
+    # in this observation instead of copying it. Unchanged/partial/delta reads
+    # retain any value absent from their visible body, including novel risks.
+    paths = _value_paths(result) if value.get('risks') else {}
     risks=[]
     for risk in value.get('risks',[]):
         card={'kind':risk['kind'],'severity':risk['severity']}
-        if value.get('unchanged') or 'changed_fields' in delta or 'counts' in value or value['completeness']!='known':
-            card['value']={k:v for k,v in risk['value'].items() if k not in ('conditions_digest','detail')} if isinstance(risk['value'],dict) else risk['value']
+        risk_value = ({k:v for k,v in risk['value'].items() if k not in ('conditions_digest','detail')}
+                      if isinstance(risk.get('value'),dict) else risk.get('value'))
+        pointer = paths.get(_value_key(risk_value))
+        if pointer is not None and len(_value_key({'value_ref':pointer})) < len(_value_key({'value':risk_value})):
+            card['value_ref'] = pointer
+        else:
+            card['value'] = risk_value
+        if risk.get('scope',{}).get('id'): card['subject']=risk['scope']['id']
         risks.append(card)
     if risks:result['risks']=risks
     safety=value.get('safety')
