@@ -1,6 +1,13 @@
 {
   "offline_tests": 145,
-  "fresh_clone": "pending final clean clone; earlier140-test candidate passed",
+  "fresh_clone": {
+    "revision": "9d0d805",
+    "tests_passed": 145,
+    "test_seconds": 4.057,
+    "synthetic_demo": "passed",
+    "offline_capability_discovery": "passed",
+    "unscoped_mechanics_search": "passed"
+  },
   "synthetic_new_resume": "passed",
   "replay": {
     "base_mcp_bytes": 34426,
