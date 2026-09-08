@@ -117,3 +117,11 @@ class ShapeLineage(Workspace):
         self.camp.ingest('get_quest',{}, {'b':1},origin='fixture',session_id='new')
         r=self.camp.ingest('get_quest',{}, {'a':{'x':1}},origin='fixture',session_id='new')
         self.assertIn('$/a/x:number',r['structure_changes']['added_paths'])
+
+class ZeroRejections(unittest.TestCase):
+    def test_zero_rejections_do_not_interrupt_but_nonzero_and_unknown_do(self):
+        from tools.rimworld.safety import signals
+        def risks(value):
+            o=normalize('manage_area',{}, {'ok':True,'rejected':value},'c','s','fixture')
+            return [x for x in signals(o) if x['kind']=='rejected']
+        self.assertFalse(risks(0));self.assertTrue(risks(1));self.assertTrue(risks('unknown'))

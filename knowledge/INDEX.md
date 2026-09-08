@@ -18,7 +18,6 @@ Disputed and retired lessons are warnings/history, not active recommendations.
 
 - [An accepted order needs an observed outcome](lessons/accepted-is-not-completed.md) — provisional; control, combat, medicine
 - [Timestamped facts must survive a context handoff](lessons/facts-need-freshness.md) — provisional; memory
-- [Enemy abilities can invalidate a familiar formation](lessons/fire-changes-the-defense.md) — provisional; combat, construction
 - [Missing observations must remain unknown](lessons/missing-is-not-empty.md) — provisional; memory, control
 - [Remembering a problem is not resolving it](lessons/recurrence-needs-a-next-action.md) — provisional; memory, recruitment, economy
 - [A rescue includes safe transport and follow-through](lessons/rescue-is-a-route.md) — provisional; medicine, combat

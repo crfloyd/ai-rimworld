@@ -32,3 +32,5 @@ Before compaction or ending, use `handoff --reason ... --next ... --uncertaintie
 For runner maintenance, read [PLAN.md](PLAN.md), [TODO.md](TODO.md), [VALIDATION.md](VALIDATION.md) and [HANDOFF.md](HANDOFF.md). Development and offline testing never imply permission to interrupt a live campaign.
 
 The agent owns strategic judgments. The layer must optimize evidence quality, knowledge gain, speed and useful context, not prescribe a finite set of acceptable outcomes. Shared mechanics are accessible to every agent using this project without a campaign; they never become live facts or permission.
+
+Read [knowledge-boundary.md](docs/knowledge-boundary.md) before shared knowledge edits: general mechanics may be shared; campaign discoveries and tactical learning remain local under this user’s discovery policy.

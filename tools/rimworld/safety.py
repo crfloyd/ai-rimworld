@@ -10,6 +10,7 @@ from .observations import freshness
 def signals(obs):
     d = obs['data']; result = []
     def add(kind, value, severity='review', acknowledgeable=True):
+        if kind in ('rejected', 'failedCells') and type(value) in (int, float) and value == 0: return
         if value is None or value is False or value == [] or value == {} or value == '': return
         global_signal = kind in ('_threatWarning', '_dialogOpen', 'notification', 'alert')
         identity_scope = {'mapIndex': obs.get('map_index')} if global_signal else obs['scope']
