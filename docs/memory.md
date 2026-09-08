@@ -58,13 +58,13 @@ After reconnecting, bind a fresh live status to the same authorized world, then 
 
 ## Storage and retrieval costs
 
-observations.jsonl remains authority. reference/observation-index/ stores rebuildable byte pointers; current projections no longer include every historical observation ID. Active action, issue and event views incrementally fold journals. Full details are retrieved on demand. Unchanged observations return deltas plus active risks, not another full status dump. Missing keys are marked not-returned, never inferred as deletions. Large spatial lists return counts, risk details and an explicit full-position pointer; retrieve before tactical positioning.
+observations.jsonl remains authority. reference/observation-index/ stores rebuildable byte pointers; current projections no longer include every historical observation ID. Active action, issue and event views incrementally fold journals. Full details are retrieved on demand. Unchanged observations return deltas plus active risks, not another full status dump. Missing keys are marked not-returned, never inferred as deletions. Spatial lists preserve every property using lossless tables when smaller; use scoped spatial retrieval for positioning.
 
 Shared handoff snapshots contain full lesson records even when the normal topic view is compact. Important risks and unresolved decisions are not removed to meet a word count. Full historical journals and original screenshots remain available for the prose book.
 
 If a derived observation index/projection is lost, rebuild reconstructs it from the original journal without rewriting observations. Corrupt/truncated authoritative journals still fail visibly; rebuilding never skips damaged evidence.
 
-## 0.3.1 indexed working views and presentation
+## Indexed working views and presentation
 
 Latest observations by exact semantic scope now live in the rebuildable `reference/facts.sqlite` index. Its replay offset and facts commit together; originals remain in observations.jsonl/raw. Removing this derived index or invoking rebuild replays original evidence. The small .projection.json is a diagnostic checkpoint, not the latest-fact authority. Historical scopes are retained without rewriting every payload on ingestion. Routine views select relevant tools and unresolved risks through the index; full retrieval and handoff retain evidence access.
 
@@ -73,3 +73,5 @@ CLI observation output defaults to a lean presentation: game facts or changed fi
 Review deadlines participate in scheduling, including unknown-clock review. Rebuild also reconstructs action indexes; missing action entries can recover from the original journal on demand. Health risk fingerprints track exact condition changes while routine risk cards avoid copying full health bodies. Real `bleedRatePerDay` and damage deltas from status as well as waits are recognized.
 
 CLI `--full-output` exposes structured fingerprints/provenance; `retrieve --observation ID` is always full. Small first reads retain a deliberate evidence-reference overhead. List patches are exact replacements against their named previous observation, not persistent row identities. Monitor returns and immutable handoffs reset presentation baselines so the next query shows full facts before resuming deltas. Internal monitor observations are not presumed to have been read by the agent.
+
+Shared sourced mechanics are independent of adopted tactical lessons. Use `mechanics` for cross-run game reference and `recall` to join matching mechanics, local lessons and unresolved intentions. Results retain applicability/status/evidence and do not certify present state. Output model coverage is separate from query completeness; a parsed unmodeled response is explicitly labeled. See [the mechanics bank](../knowledge/mechanics/README.md).

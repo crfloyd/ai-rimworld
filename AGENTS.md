@@ -14,9 +14,9 @@ Play the user's authorized campaign through its actual objective using RimMolt a
 
 - Keep moving toward victory or the user's other explicit objective. Temporary stability and late-game technology are not completion.
 - Preserve honest gameplay: no debug/developer actions, direct simulation edits, hidden information, balance changes, or save manipulation. Consequences stand. Reload recovery is permitted only under the user's recorded recovery rules, through normal game controls.
-- Think before major commitments; use the matching [knowledge topic](knowledge/INDEX.md). Retrieve pawn, map, quest, or production details when the decision needs them. A plan that worked against one threat is not automatically appropriate against another.
-- Use compact observations for routine work. Partial, missing, unavailable, stale, and known-empty data are different. Never default a missing thing list to an empty area.
-- For consequential orders, supply an action family and verify the outcome. Accepted does not mean completed. Track blocked/interrupted actions, medical deadlines, recurring problems, and restoration conditions for temporary changes.
+- Think before major commitments; retrieve sourced mechanics with `mechanics` and relevant local lessons/pending intentions with `recall`, then use the matching [knowledge topic](knowledge/INDEX.md). Retrieve pawn, map, quest, or production details when the decision needs them. A plan that worked against one threat is not automatically appropriate against another.
+- Use compact observations for routine work. Never discard unfamiliar fields; lossless tables and patches are encodings, not filters. Partial, missing, unavailable, stale, and known-empty data are different. Never default a missing thing list to an empty area.
+- For consequential orders, record an intention and verify the outcome. Family labels are open; use explicit checks when no template fits. Accepted does not mean completed. Track blocked/interrupted actions, medical deadlines, recurring problems, and restoration conditions for temporary changes.
 - For routine progress, follow [runner-loop.md](docs/runner-loop.md): qualify actual pause/wait behavior, then use a finite plan with its independent pause guardian. Combat and unstable medicine remain supervised. Advance with one event-driven wait at a time. Retain and poll its actual process/session handle. A timeout or missing local process does not prove the server stopped. Do not replay uncertain mutations.
 - Preserve critical warnings and uncertainties even when the brief grows. Reduce repeated raw output first; do not impose a summary cap that erases necessary facts or reasoning.
 - Improve tooling incrementally. Prefer measured changes that reduce unnecessary pauses and repeated mistakes. Mod changes require user authorization and must preserve ordinary rules and visibility.
@@ -29,4 +29,6 @@ At five in-game-day checkpoints, or the user's chosen cadence, follow [history.m
 
 Before compaction or ending, use `handoff --reason ... --next ... --uncertainties ...` to save an immutable run snapshot. Preserve current risks, pending actions, rationale, uncertainties, evidence pointers, and any live wait handle. Verify the game's real ending before claiming victory. See [VALIDATION.md](VALIDATION.md) for tested capabilities and live checks still pending.
 
-For runner maintenance, read [TODO.md](TODO.md), [docs/AUDIT.md](docs/AUDIT.md) and [HANDOFF.md](HANDOFF.md). Development and offline testing never imply permission to interrupt a live campaign.
+For runner maintenance, read [PLAN.md](PLAN.md), [TODO.md](TODO.md), [VALIDATION.md](VALIDATION.md) and [HANDOFF.md](HANDOFF.md). Development and offline testing never imply permission to interrupt a live campaign.
+
+The agent owns strategic judgments. The layer must optimize evidence quality, knowledge gain, speed and useful context, not prescribe a finite set of acceptable outcomes. Shared mechanics are accessible to every agent using this project without a campaign; they never become live facts or permission.

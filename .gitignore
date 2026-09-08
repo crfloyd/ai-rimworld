@@ -13,3 +13,4 @@ releases/
 knowledge/.knowledge.lock
 docs/api/evidence/decompiled/
 knowledge/mechanics/.bank.lock
+.evidence/

@@ -1,0 +1,12 @@
+{
+  "offline_tests": 140,
+  "fresh_clone": "pending",
+  "synthetic_new_resume": "passed",
+  "replay": {
+    "base_mcp_bytes": 34426,
+    "runner_bytes": 29059,
+    "previous_runner_bytes": 21410,
+    "reason_for_increase": "Full pawn properties restored; prior count-only view omitted these. Bytes are not model tokens or decision quality."
+  },
+  "live": "pending"
+}

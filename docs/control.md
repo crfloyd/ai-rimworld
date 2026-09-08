@@ -30,7 +30,7 @@ Reconnect invalidates the previous binding. A later status mismatch clears the b
 
 ## Actions and verification
 
-Request records cover every MCP call. Consequential mutations use an action family and remain requested/accepted/started/blocked/interrupted/unknown until verified completed or consciously abandoned with evidence. The families provide review guidance, not a claim that the server exposes action lifecycle events.
+Request records cover every MCP call. Mutations are tracked by default with a free-form intention family and remain requested/accepted/started/blocked/interrupted/unknown until verified completed or consciously abandoned with evidence. The families provide review guidance, not a claim that the server exposes action lifecycle events.
 
 Example order shape (use real IDs and an option read from the current menu):
 
@@ -71,7 +71,7 @@ The bridge intentionally does not guess pixels or expose a direct simulation cas
 
 ## Tooling rollback
 
-Preserve the preceding tooling distribution before changing live control. Restore tooling files only if needed, then reconcile the existing game state. Never restore game saves as a tooling rollback. This release does not modify RimWorld or RimMolt files.
+Commit the preceding tooling revision before changing live control. Restore tooling files only if needed, then reconcile the existing game state. Never restore game saves as a tooling rollback. This release does not modify RimWorld or RimMolt files.
 
 ## Audit-hardened execution
 
@@ -80,3 +80,5 @@ See [runner-loop.md](runner-loop.md) for observe/act, finite routine continuatio
 Both automatic and manual action completion check origin, subject/semantic scope, freshness and all outcome predicates. A visual verification event must name its action_id, current session_id, live origin, original source and observed_outcome. Accepted orders remain unresolved until that evidence exists. Same-game session reconciliation is explicit; a new MCP session alone never certifies continuity or success.
 
 Only typed hard issue deadlines cap supervised advance. Batches inspect Critical alerts and every bundle child, including coverage failures. Exact reviewed acknowledgements expire and do not cover changed risks. A finite monitor owns its lease; another cooperating process cannot reconnect or interleave calls. Process exit, timeout, a local lock, or an old screenshot never proves the game is paused.
+
+All 113 captured capabilities have conservative default effects in api/effects.json. Discovery uses the selected catalog and never authorizes an operation. `act` may explicitly set track:false for low-impact work, retaining the request journal. New families use general verification guidance or supplied checks; no strategic family whitelist is imposed.

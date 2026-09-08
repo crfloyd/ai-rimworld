@@ -81,3 +81,7 @@ Use `tools/benchmark.py` for an isolated synthetic persistence/output benchmark.
 ## 0.3.1 live integration notes
 
 Use lowercase pawn with verbose:true for explicit hostility. A successful fire scan with an explicit integer fireCount=0 is known-empty even when fires is omitted; unknown or positive-count responses without rows still fail coverage. A monitor stop returns stop details and a packet_path to its stored complete snapshot, rather than repeatedly emitting that snapshot. All queries after a monitor/handoff get a fresh presentation baseline on their next read. The Continuance lab established real zero-gap stop behavior, not healthy autonomous progress or failure recovery; see LAB-2026-09-08.md.
+
+## Agent-directed coverage
+
+watch_patients adds explicit non-colonists to medical coverage without changing the colony roster. Essential safety queries run every cycle. Supplementary queries can set every_cycles; skipped reads are not reused as fresh evidence. Unmodeled queries need reviewed_evidence naming a same-session exact query the agent inspected; structural additions return control. This is observation scheduling, not automated strategy. Existing critical-risk stops remain conservative and require supervised play for unstable recovery.

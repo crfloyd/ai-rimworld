@@ -1,42 +1,15 @@
-# RimMolt API review — 8 September 2026
+# API reference
 
-This reference supports decisions about intelligent, efficient play. It inventories the captured API rather than treating the runner's existing capabilities or outcome templates as the limits of the game. The colony was not contacted or advanced during this review.
-
-## Read selectively
-
-- [Full API reference](API-REFERENCE.md): every catalog tool, exact declared inputs, observed response variants, and implementation pointers.
-- [Machine inventory](inventory.json): nested response field paths/types, counts, provenance, source registrations, and explicit coverage gaps. This is evidence, not a strict generated output validator.
-- [Shared transport and model behavior](MODELS.md): envelopes, side effects, event limitations, and dynamic output.
-- [Runner findings and recommended design](RUNNER-REVIEW.md): what can be lost today and how to avoid limiting reasoning to predefined outcomes.
-- [Offline probes](evidence/runner-probes.json): reproducible demonstrations of unknown-field handling in runner 0.3.1. The invented fields are tests, not reported game hazards.
-- [Provenance](evidence/provenance.json): installed assembly, catalog, runner files, decompilation tool and evidence hashes.
-
-The saved corpus contains 2,224 evidence records after merging 30 matching RPC overlaps. Sixty-nine tools have standalone observations; 44 do not. All 113 tools have source registration/handler pointers.
-
-Do not load the full reference in routine play. Find a tool in the index and retrieve its entry and relevant model notes. Before consequential decisions, retrieve the actual current records and applicable lessons. API availability is not evidence that an action is legal for this run, currently enabled, or strategically useful.
-
-## What “complete” means here
-
-The captured catalog contains 113 tools. Every declared input is retained. None declares an output schema or tool annotations. Recorded responses and the installed implementation extend the picture, but cannot establish all future values, mod integrations, reflected UI controls, or every runtime branch. Observed requiredness must never be inferred from presence frequency. Empty arrays supply no element model.
-
-The decompiled implementation is preserved for inspection, with tool handlers mapped by the inventory. It is derived from the installed DLL, not original authored source and not a verified rebuild. Missing game assembly references produce some decompiler warnings. Source extraction and spot review are explicitly different from manually validating every handler branch in the game. The catalog capture and currently installed DLL are separately fingerprinted; a current disk assembly is not proof of the exact bytes previously loaded by the game process.
-
-A subagent built the catalog/corpus/handler inventory. The primary agent independently reviewed shared server behavior and the runner, reproduced information-loss cases, and checked the integrated inventory. No runner behavior or game/mod/save/configuration files were changed by this review.
-
-## Reproduce this snapshot offline
-
-The generator is specific to the captured Continuance corpus; it does not select or control a live campaign. Run from the project root into a fresh temporary output directory:
+The complete captured input catalog lives in [catalog.json](../../api/catalog.json); [effect classifications](../../api/effects.json) describe conservative default handling. Agent-selected dynamic actions still require inspecting current menus and run permissions. No tool grants permission to cheat or use hidden targeting.
 
 ```sh
-python3 -B docs/api/generator.py --root . --source docs/api/evidence/decompiled --out /tmp/rimmolt-api-regenerated
+./rw capabilities "caravan"
+./rw capabilities --tool form_caravan
+./rw --run continuance capabilities --tool get_pawn
 ```
 
-Compare inventory.json and API-REFERENCE.md with the saved copies. A changed campaign corpus intentionally changes the generated result; use the recorded source hashes when comparing this historical review. The generator performs no network or game calls. Decompiled sources are evidence only: do not build or install them.
+Without a run, discovery uses the shipped snapshot. With a run, it reads that run's last captured catalog. Both are offline and explicitly dated. Reconnect under owned control to discover actual current tools. Unknown tools remain visible but require effect review before execution.
 
-[Validation results](evidence/validation.json) confirm exact 113-tool coverage, handler pointers, byte-identical regeneration, local links and unchanged runner sources. The runtime test suite and live game were not run for this documentation-only change.
+[Observed response shapes](../../api/observed-shapes.json) preserve field paths/types and source handler pointers for all 113 tools. Sixty-nine have standalone response evidence; 44 do not. None declares an output schema. Empty arrays and observed omissions cannot establish complete contracts. Runtime output preserves unfamiliar properties instead of filtering them through this historical field inventory.
 
-To rerun the synthetic information-handling probes without contacting the game:
-
-```sh
-python3 -B docs/api/evidence/runner-probes.py --root . --output /tmp/rimmolt-probes.json
-```
+[Shared model behavior](MODELS.md) explains wrappers, event limits and visibility. The full 113-tool review, source provenance, 2,224-record inventory and reproduction scripts are preserved in Git commit 15c7708. They were removed from the active tree once their useful interface information moved into api/; they are historical evidence, not runtime dependencies. The original installed-DLL hash was 3dc82a89bd53d13dc263be26d473a11605623cfe92827460864616445e03e53a.

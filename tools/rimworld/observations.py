@@ -191,7 +191,7 @@ def normalize(tool, args, payload, campaign_id, session_id, origin="live",
             "source_captured_at": source_captured_at or (captured if origin in ("live", "fixture") else None),
             "tick": observed_tick, "tick_basis": tick_basis, "map_index": explicit_map,
             "completeness": state, "missing": missing, "malformed": malformed,
-            "coverage": {"model": "reviewed fields; semantics require agent judgment" if types else "unmodeled",
+            "coverage": {"model": "reviewed-fields" if types else "unmodeled",
                          "kind": "aggregate" if args.get("summary") else "requested scope",
                          "known_empty_basis": empty_basis, "expected": expected_fields(tool, args, data),
                          "present": [k for k in data if not k.startswith("_")],
@@ -307,6 +307,9 @@ def delta_view(previous, current):
         result["risks"] = signals(current)
         result["unchanged"] = not change["changed_fields"] and not change["not_returned_now"]
         result["view"] = "delta; omitted unchanged fields remain in previous evidence"
+    if previous is not None and previous["completeness"] == current["completeness"] == "known":
+        for key,source in (("model","model"),("query_kind","kind")):
+            if previous.get("coverage",{}).get(source)==current.get("coverage",{}).get(source):result.pop(key,None)
     if previous is not None:
         added=sorted(structure(current["data"]) - structure(previous["data"]))
         if added: result["structure_changes"] = {"added_paths":added,"basis":previous["id"],"meaning":"New response shape, not automatically a hazard"}

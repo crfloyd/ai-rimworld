@@ -209,7 +209,7 @@ class Monitor:
                         heartbeat('inspection')
                         result = c.call(token, query['tool'], query.get('args', {}))
                         if result.get('structure_changes'):notices.append({'tool':query['tool'],'evidence':result['id'],'novelty':result['structure_changes']})
-                        if result.get('model')=='unmodeled' and not query.get('reviewed_evidence'):
+                        if campaign.observation(result['id']).get('coverage',{}).get('model')=='unmodeled' and not query.get('reviewed_evidence'):
                             notices.append({'tool':query['tool'],'evidence':result['id'],'reason':'Unmodeled query needs agent shape review'})
                         if query.get('reviewed_evidence'):
                             from .observations import structure
