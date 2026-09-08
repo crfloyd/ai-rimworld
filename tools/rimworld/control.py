@@ -8,7 +8,7 @@ from pathlib import Path
 from .core import (Error, alive, append_json, atomic_json, digest, identifier, lock,
                    now, read_json, require_fields, canonical)
 from .mcp import Client, Uncertain, endpoint_key, validate
-from .observations import decode, path_value, MISSING, freshness, pause_confirmed
+from .observations import decode, path_value, MISSING, freshness, pause_confirmed, same_value
 from .safety import assess, deadlines
 
 
@@ -44,6 +44,24 @@ def receipt_status(tool, args, data, completeness):
         if all(isinstance(data.get(k), list) for k in (field, "alreadyInState", "skipped")):
             if data["skipped"]: return "blocked"
             if data[field] or data["alreadyInState"]: return "accepted"
+    # These normal zone setters return a zone record, not an `ok` envelope.
+    # Recognize the receipt; this does not prove a broader hauling objective.
+    if 'id' in args and same_value(data.get('id'), args['id']):
+        if tool == 'rename_zone' and isinstance(args.get('name'),str) and data.get('label') == args['name']:
+            return 'accepted'
+        if tool == 'set_stockpile_priority' and data.get('kind') == 'stockpile' and data.get('priority') == args.get('priority') and isinstance(args.get('priority'),str):
+            return 'accepted'
+        if tool == 'set_stockpile_filter' and data.get('kind') == 'stockpile' and isinstance(data.get('filter'),dict):
+            applied = data.get('applied')
+            if isinstance(applied,list) and all(isinstance(v,str) for v in applied):
+                if any(v.startswith('unknown:') for v in applied): return 'blocked'
+                expected = sum(args.get(k) is True for k in ('allowAll','disallowAll'))
+                expected += sum(len([v for v in args.get(k,'').split(',') if v.strip()]) for k in ('allow','disallow'))
+                expected += int(any(k in args for k in ('hpMin','hpMax')))
+                expected += int(any(k in args for k in ('qualityMin','qualityMax')))
+                recognized = all(v in ('allowAll','disallowAll','hpRange','qualityRange') or
+                                 (v.startswith(('+','-')) and len(v)>1) for v in applied)
+                if expected and len(applied) == expected and recognized: return 'accepted'
     return "unknown"
 
 
