@@ -9,7 +9,7 @@ from pathlib import Path
 from .core import (Error, append_json, atomic_json, atomic_text, canonical, contained,
                    identifier, journal, journal_entries, lock, now, read_json, require_fields, slug)
 from .facts import Facts, initialize, entries
-from .observations import bundle_children, changed, compact, evidence_index, delta_view, freshness, matches, normalize
+from .observations import bundle_children, changed, compact, evidence_index, delta_view, freshness, matches, normalize, structure
 
 
 OPEN = {"requested", "accepted", "started", "unknown", "blocked", "interrupted"}
@@ -264,6 +264,12 @@ class Campaign:
             if reset_at:
                 before = {key: (None if obs and obs["captured_at"] <= reset_at else obs)
                           for key, obs in before.items()}
+            for obs in (main, *children):
+                prior = before[obs['key']]
+                inherited = set(prior.get('seen_structure', structure(prior['data']))) if (
+                    prior and prior['session_id'] == obs['session_id'] and
+                    prior['completeness'] == 'known' and not prior.get('presentation_legacy')) else set()
+                obs['seen_structure'] = sorted(inherited | structure(obs['data']))
             raw = "raw/" + main["id"] + ".json"
             atomic_json(self.path / raw, {"tool": tool, "args": args, "payload": payload,
                                          "metadata": main})
@@ -377,7 +383,7 @@ class Campaign:
         if status not in ACTION_STATES:
             raise Error("Unknown action state.")
         with lock(self.path / ".memory.lock"):
-            actions = self._actions(open_only=True)
+            actions = self._actions()
             if action_id not in actions:
                 raise Error("Unknown action.")
             record = actions[action_id]
@@ -405,7 +411,7 @@ class Campaign:
                 from .outcomes import satisfied
                 supported = satisfied(self, action, state) if action.get("check") else None
                 if not supported or evidence not in supported:
-                    raise Error("Completion needs matching outcome predicates or an explicit scoped visual verification event.")
+                    raise Error("Completion needs matching outcome predicates or an explicit scoped reviewed verification event.")
             else:
                 actor = action.get("args", {}).get("id")
                 if actor and actor not in (obs["args"].get("id"), obs["data"].get("id")):
@@ -414,7 +420,7 @@ class Campaign:
         events, _ = journal(self.path / "events.jsonl")
         event = next((e for e in events if e["id"] == evidence), None)
         if not event or event.get("kind") != "verification":
-            raise Error("Use an observation ID or an explicit visual verification event.")
+            raise Error("Use an observation ID or an explicit scoped verification event.")
         require_fields(event, ("source", "action_id", "observed_outcome", "origin", "session_id"))
         if event["action_id"] != action["id"] or event["origin"] != action.get("origin", "live"):
             raise Error("Verification event must identify this action and its origin.")

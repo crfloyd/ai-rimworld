@@ -102,3 +102,18 @@ class IndexView(unittest.TestCase):
         from tools.rimworld.mcp import validate
         with self.assertRaisesRegex(Error,'allowed fields.*id'):
             validate({'type':'object','properties':{'id':{'type':'integer'}}},{'questId':22})
+
+class ShapeLineage(Workspace):
+    def test_reappearing_shape_is_not_novel_but_values_remain(self):
+        first=self.ingest('wait_for_event',{}, {'ok':True,'pausedAfter':True,'ticksWaited':1,'cause':'timeout','novel':{'x':1}})
+        self.ingest('wait_for_event',{}, {'ok':True,'pausedAfter':True,'ticksWaited':1,'cause':'timeout'})
+        last=self.ingest('wait_for_event',{}, {'ok':True,'pausedAfter':True,'ticksWaited':1,'cause':'timeout','novel':{'x':2}})
+        self.assertNotIn('structure_changes',last)
+        self.assertEqual(last['data']['novel'],{'x':2})
+        new=self.ingest('wait_for_event',{}, {'ok':True,'pausedAfter':True,'ticksWaited':1,'cause':'timeout','novel':{'x':'changed type'}})
+        self.assertIn('$/novel/x:string',new['structure_changes']['added_paths'])
+    def test_session_change_does_not_inherit_shape_lineage(self):
+        self.camp.ingest('get_quest',{}, {'a':{'x':1}},origin='fixture',session_id='old')
+        self.camp.ingest('get_quest',{}, {'b':1},origin='fixture',session_id='new')
+        r=self.camp.ingest('get_quest',{}, {'a':{'x':1}},origin='fixture',session_id='new')
+        self.assertIn('$/a/x:number',r['structure_changes']['added_paths'])

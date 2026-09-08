@@ -330,8 +330,8 @@ def delta_view(previous, current):
         for key,source in (("model","model"),("query_kind","kind")):
             if previous.get("coverage",{}).get(source)==current.get("coverage",{}).get(source):result.pop(key,None)
     if previous is not None:
-        added=sorted(structure(current["data"]) - structure(previous["data"]))
-        if added: result["structure_changes"] = {"added_paths":added,"basis":previous["id"],"meaning":"New response shape, not automatically a hazard"}
+        added=sorted(structure(current["data"]) - set(previous.get("seen_structure", structure(previous["data"]))))
+        if added: result["structure_changes"] = {"added_paths":added,"basis":previous["id"],"meaning":"Previously unseen response shape in this observation lineage; not automatically a hazard"}
     result["delta"] = change
     # Lossless positional patches against a named prior observation, not guessed
     # entity identity. Full evidence remains retrievable; changed values survive.

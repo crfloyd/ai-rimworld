@@ -1,9 +1,7 @@
-# Open implementation work
+# Validation boundaries and future work
 
-Current authority: [PLAN.md](PLAN.md), [HANDOFF.md](HANDOFF.md), [VALIDATION.md](VALIDATION.md).
+The enhancement plan is complete; see [PLAN.md](PLAN.md) and [VALIDATION.md](VALIDATION.md). No abandoned implementation branch or duplicate runtime remains.
 
-- [ ] P6 fresh-clone checks, knowledge/index validation and before/after output measurements; resolve any integration regressions.
-- [ ] P7 supervised Continuance play: fresh ownership/binding, observe/action/verify/recall, short medical waits, meaningful colony progress, fix findings and repeat affected checks.
-- [ ] Save exact live evidence, honest timing/limits and final immutable paused handoff; commit final project state.
+Future gameplay should extend evidence where relevant: combat reaction and multi-map travel, gravship construction/victory, actual new-game/Prepare Carefully UI, and interrupted-worker recovery. These were not exercised by the five-hour recovery lab. Do not claim unattended arbitrary-threat handling or improved win rate.
 
-No game-win or universal expert-play claim is implied by tooling tests. Expand mechanics when sourced decisions demand it. Source event limitations still require explicit prisoner/other-pawn observations. Do not use reduced context size as the sole acceptance criterion.
+Continue adding sourced mechanics as decisions demand them. Agent-selected queries, medical detail and novel fields can legitimately be large. Further speed work needs measured end-to-end loops; tiny RPC latency does not establish fast agent response. Colony work is tracked in its own STRATEGY/ISSUES/actions and immutable handoff.
