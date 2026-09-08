@@ -1,0 +1,31 @@
+{
+  "id": "medical-tend-factors",
+  "title": "Tending quality is distinct from infection and surgery conditions",
+  "kind": "game_mechanic",
+  "topics": [
+    "medicine",
+    "tending",
+    "surgery"
+  ],
+  "summary": "Tend quality, treatment speed, infection chance and surgery success depend on different factors.",
+  "body": "The Medical Tend Quality stat depends on medical skill, manipulation and sight, with role and bed effects. A normal bed does not itself improve tend quality. Lighting affects tending speed and surgery rather than this quality stat; cleanliness and indoors affect infection/surgery rather than directly improving the stat. Inspect the doctor, medicine and patient conditions. Treatment having been ordered is not evidence that a wound is tended, immunity is ahead, or the patient is recovered.",
+  "sources": [
+    {
+      "source": "https://rimworldwiki.com/wiki/Medical_Tend_Quality",
+      "checked_at": "2026-09-08",
+      "supports": "Factors in medical tend quality and distinctions from lighting/cleanliness effects",
+      "authority": "Community wiki; check current game UI for consequential details"
+    }
+  ],
+  "applicability": {
+    "game_versions": [
+      "1.6"
+    ],
+    "required_dlc": [],
+    "mod_caveat": "Gameplay mods can change these mechanics; inspect relevant in-game definitions."
+  },
+  "status": "sourced",
+  "reviewed_at": "2026-09-08",
+  "review": "Read linked wiki on review date; paraphrased narrow supported claims. Not exhaustive and not independent corroboration.",
+  "revision": "05f69ad0d8c82dd496b28de667c13b2770727086b7ce33f5d66051e417123e5c"
+}

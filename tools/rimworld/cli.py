@@ -34,6 +34,14 @@ def parser():
     p.add_argument("--campaign", "--run", dest="campaign", help="Explicit named run in campaigns/.")
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="command", required=True)
+    q = sub.add_parser("mechanics", help="Shared sourced knowledge; no run required, no game contact.")
+    q.add_argument("query", nargs="?", default=""); q.add_argument("--id"); q.add_argument("--limit", type=int, default=8)
+    q.add_argument("--file", type=Path, help="Save a reviewed sourced mechanics record, never campaign state.")
+    q = sub.add_parser("capabilities", help="Offline API discovery; run optional, no game contact.")
+    q.add_argument("query", nargs="?", default=""); q.add_argument("--tool")
+    q = sub.add_parser("spatial", help="Select full recorded entity properties by ID or rectangle.")
+    q.add_argument("--observation", required=True); q.add_argument("--rect", nargs=4, type=int)
+    q.add_argument("--ids", nargs="+")
     q = sub.add_parser("init", help="Create local campaign records; never starts a game.")
     q.add_argument("name"); q.add_argument("--spec", type=Path, required=True)
     q = sub.add_parser("new", help="Create a named run from the agreed specification; no game action.")
@@ -145,6 +153,14 @@ def parser():
 
 
 def run(args):
+    if args.command == "mechanics":
+        from .mechanics import search,save
+        if args.file:return save(args.root,read_json(args.file))
+        env=Campaign(args.root,args.campaign).meta.get('setup',{}) if args.campaign else None
+        return search(args.root,args.query,args.id,args.limit,env)
+    if args.command == "capabilities":
+        from .capabilities import discover
+        return discover(args.root,args.query,args.tool,Campaign(args.root,args.campaign) if args.campaign else None)
     if args.command in ("runs", "list"):
         return list_runs(args.root)
     if args.command in ("init", "new", "resume"):
@@ -199,6 +215,9 @@ def run(args):
     if command == "ingest":
         return campaign.ingest(args.tool, obj(args.args), read_json(args.response), origin=args.origin,
                                tick=args.tick, seconds=args.seconds, source_captured_at=args.source_captured_at)
+    if command == "spatial":
+        from .capabilities import spatial
+        return spatial(campaign.observation(args.observation),args.rect,args.ids)
     if command == "retrieve":
         return campaign.observation(args.observation) if args.observation else campaign.retrieve(args.tool, args.entity)
     if command == "retire":

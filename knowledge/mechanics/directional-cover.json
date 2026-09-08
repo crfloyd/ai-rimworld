@@ -1,0 +1,31 @@
+{
+  "id": "directional-cover",
+  "title": "Cover depends on firing geometry",
+  "kind": "game_mechanic",
+  "topics": [
+    "combat",
+    "cover",
+    "positioning"
+  ],
+  "summary": "A nearby wall or barricade does not give the same protection from every direction.",
+  "body": "Cover effectiveness varies with attack angle and decreases at very close range. Walls can provide corner firing positions. Inspect actual positions and current game targeting information before choosing a firing line; cover labels or entity counts alone cannot establish protection. This record does not calculate line of sight or authorize use of hidden hostile AI job targets.",
+  "sources": [
+    {
+      "source": "https://rimworldwiki.com/wiki/Cover",
+      "checked_at": "2026-09-08",
+      "supports": "Directional and point-blank limitations of cover",
+      "authority": "Community wiki; check current game UI for consequential details"
+    }
+  ],
+  "applicability": {
+    "game_versions": [
+      "1.6"
+    ],
+    "required_dlc": [],
+    "mod_caveat": "Gameplay mods can change these mechanics; inspect relevant in-game definitions."
+  },
+  "status": "sourced",
+  "reviewed_at": "2026-09-08",
+  "review": "Read linked wiki on review date; paraphrased narrow supported claims. Not exhaustive and not independent corroboration.",
+  "revision": "c77e70c01ecb475282713ca2a230425e7f6e28afd6560161752014fb79cd3803"
+}

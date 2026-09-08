@@ -1,0 +1,35 @@
+{
+  "id": "gravship-foundation",
+  "title": "Gravship construction and flight prerequisites",
+  "kind": "game_mechanic",
+  "topics": [
+    "construction",
+    "travel",
+    "victory",
+    "odyssey",
+    "gravship"
+  ],
+  "summary": "A pilot console alone is not a flight-capable gravship; inspect connected substructure and the engine.",
+  "body": "A gravship carries structures on supported substructure connected to its grav engine. The minimum flight components include the engine, connected substructure, a thruster, a chemfuel tank and a pilot console. Build and inspect the foundation before planning rooms. The wiki identifies range and supported-area limits; query the current engine and placement interface instead of assuming a design fits. Orbital travel additionally requires protection from vacuum. This record describes prerequisites, not a launch authorization or a victory condition.",
+  "sources": [
+    {
+      "source": "https://rimworldwiki.com/wiki/Gravship",
+      "checked_at": "2026-09-08",
+      "supports": "Connected structure, minimum flight parts and vacuum preparation",
+      "authority": "Community wiki; check current game UI for consequential details"
+    }
+  ],
+  "applicability": {
+    "game_versions": [
+      "1.6"
+    ],
+    "required_dlc": [
+      "Odyssey"
+    ],
+    "mod_caveat": "Gameplay mods can change these mechanics; inspect relevant in-game definitions."
+  },
+  "status": "sourced",
+  "reviewed_at": "2026-09-08",
+  "review": "Read linked wiki on review date; paraphrased narrow supported claims. Not exhaustive and not independent corroboration.",
+  "revision": "5111ff24f97e4ae181cbfc0bb5920831a34889fc7818b332628971a403510bc7"
+}

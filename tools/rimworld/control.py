@@ -12,19 +12,6 @@ from .observations import decode, path_value, MISSING, freshness, pause_confirme
 from .safety import assess, deadlines
 
 
-INSPECT = {
-    "get_status", "get_map", "get_area", "get_pawn", "get_alerts", "get_resources",
-    "get_conditions", "get_research", "get_quest", "get_resource_readout", "list_power_grids", "list_bills", "list_animals", "get_world", "get_window_ui", "list_windows",
-    "list_colonists", "list_things", "list_wildlife", "list_fires", "list_quests",
-    "list_architect", "list_recipes", "get_info_card", "room_graph", "get_goal",
-}
-UI_READ = {"inspect_thing", "read_letter"}
-MUTATE = {
-    "build", "designate", "order_pawn", "draft", "set_work_priority", "set_schedule",
-    "set_research", "add_bill", "set_bill", "remove_bill", "manage_gear", "manage_area",
-    "set_allowed_area", "assign_building", "do_thing_action", "window_action",
-    "quest_action", "world_target", "use_permit", "save_game", "set_medical_care",
-}
 DENY = {"load_game", "delete_save", "debug", "dev_mode", "set_difficulty",
         "spawn_item", "spawn_pawn", "trigger_incident", "edit_pawn"}
 
@@ -40,13 +27,9 @@ def effect(tool, args):
         return "advance"
     if tool == "order_pawn" and not any(k in args for k in ("command", "index")):
         return "inspection-ui"
-    if tool in INSPECT:
-        return "inspection-pausing"
-    if tool in UI_READ:
-        return "inspection-ui"
-    if tool in MUTATE:
-        return "mutation"
-    return "unclassified"
+    if tool == "manage_area" and args.get("op") == "list": return "inspection-ui"
+    from .capabilities import default_effects
+    return default_effects().get(tool, "unclassified")
 
 
 def receipt_status(tool, args, data, completeness):

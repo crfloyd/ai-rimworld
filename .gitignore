@@ -12,3 +12,4 @@ releases/
 *.sqlite-shm
 knowledge/.knowledge.lock
 docs/api/evidence/decompiled/
+knowledge/mechanics/.bank.lock

@@ -1,0 +1,32 @@
+{
+  "id": "food-storage-losses",
+  "title": "Food spoilage and deterioration are different",
+  "kind": "game_mechanic",
+  "topics": [
+    "economy",
+    "food",
+    "freezer",
+    "construction"
+  ],
+  "summary": "Freezing and shelter address different ways stored food can be lost.",
+  "body": "Perishable food can spoil at warm temperatures; exposed items can also lose hit points through deterioration. A frozen meal outdoors can still deteriorate, while a sheltered warm meal can still spoil. Before diagnosing a food shortage, inspect storage temperature, roof/shelter, actual food type and its remaining shelf life, along with production and consumption. Do not infer adequate reserves from a meal count alone.",
+  "sources": [
+    {
+      "source": "https://rimworldwiki.com/wiki/Food",
+      "checked_at": "2026-09-08",
+      "supports": "Separate spoilage and environmental deterioration",
+      "authority": "Community wiki; check current game UI for consequential details"
+    }
+  ],
+  "applicability": {
+    "game_versions": [
+      "1.6"
+    ],
+    "required_dlc": [],
+    "mod_caveat": "Gameplay mods can change these mechanics; inspect relevant in-game definitions."
+  },
+  "status": "sourced",
+  "reviewed_at": "2026-09-08",
+  "review": "Read linked wiki on review date; paraphrased narrow supported claims. Not exhaustive and not independent corroboration.",
+  "revision": "be283b9af099463b905d9102c9f7909e2325a7fc04a5c3763bb68ed157d50554"
+}

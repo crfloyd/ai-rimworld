@@ -1,0 +1,35 @@
+{
+  "id": "grav-engine-versus-gravcore",
+  "title": "Grav engine and gravcore are distinct",
+  "kind": "game_mechanic",
+  "topics": [
+    "construction",
+    "victory",
+    "odyssey",
+    "gravcore",
+    "gravship"
+  ],
+  "summary": "The grav engine is the ship foundation; gravcores are scarce upgrade resources.",
+  "body": "Gravcores are resources used for gravtech buildings such as field extenders, signal jammers and power cells. The wiki lists quest-related acquisition and limited access after the main gravship quest concludes. A gravcore is not interchangeable with the engine that anchors a ship. Inspect the actual recipes and quest rewards before allocating one; do not assume a replacement engine or core can be crafted from ordinary resources.",
+  "sources": [
+    {
+      "source": "https://rimworldwiki.com/wiki/Gravcore",
+      "checked_at": "2026-09-08",
+      "supports": "Quest-related acquisition and gravtech crafting uses",
+      "authority": "Community wiki; check current game UI for consequential details"
+    }
+  ],
+  "applicability": {
+    "game_versions": [
+      "1.6"
+    ],
+    "required_dlc": [
+      "Odyssey"
+    ],
+    "mod_caveat": "Gameplay mods can change these mechanics; inspect relevant in-game definitions."
+  },
+  "status": "sourced",
+  "reviewed_at": "2026-09-08",
+  "review": "Read linked wiki on review date; paraphrased narrow supported claims. Not exhaustive and not independent corroboration.",
+  "revision": "6ced4a4b7b457297852b256c8e2684bf10e4b857dd782829d51f7c7001e7626b"
+}
