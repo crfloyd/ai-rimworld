@@ -91,3 +91,5 @@ Root HANDOFF.md describes tooling status and run-selection routing only. Campaig
 ### Timing runtime qualification
 
 Use the pinned pyenv runtime. Python versions before3.10 on macOS have process-local monotonic epochs. `measure` now records a system-clock backend marker; metrics rejects unqualified, mismatched, negative or nonfinite intervals instead of reporting misleading latency. Clock IDs must still identify the same host boot. Old invalid markers remain evidence, not valid timing samples. See [Python clock documentation](https://docs.python.org/3.13/library/time.html#time.monotonic).
+
+API continuity uses the stable `docs/api/README.md` pointer in startup guidance and handoffs. Carry only relevant tool names, interface uncertainties and exact evidence pointers alongside unresolved work; retrieve contracts on demand. Do not embed the complete API surface into observation packets or campaign snapshots.

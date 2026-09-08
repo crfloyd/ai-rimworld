@@ -12,7 +12,7 @@ Use the repository `.python-version` through `pyenv exec python` for Python comm
 2. Use this base project and one named directory under campaigns/. Run `rw runs` to list local records; `rw new NAME --spec FILE` creates fresh records and refuses overwrite; `rw resume NAME` locates existing memory without touching the game. Keep `--run NAME` explicit. See [README.md](README.md) for commands.
 3. Read the selected run's `CAMPAIGN.md`, `STATE.md`, `STRATEGY.md`, and open `ISSUES.md`. `STATE.md` is generated from evidence and is not a live observation. Read `rw resume NAME` for the immutable handoff and changes since it. Use `rw --run NAME packet` for focused unresolved work and `brief` to refresh the local view. Shared knowledge is reviewed advice; other runs never supply this run's current facts or permissions.
 4. Before contacting RimWorld, read [control.md](docs/control.md) and establish that the previous controller has handed off. All game reads may pause or change UI. Side conversations use saved records until they own control.
-5. Discover the current MCP catalog, inspect live status, and bind the reviewed game identity. Never inherit pawn IDs, coordinates, sessions, or settings from another campaign. Resume never authorizes a fresh start or tactical reload.
+5. Read the small [API index](docs/api/README.md) on fresh starts and after compaction. Use offline `./rw capabilities "TOPIC"` and `./rw --run NAME capabilities --tool TOOL` to retrieve contracts as needed; do not load the full manual into routine context. Discover the current MCP catalog under owned control, inspect live status, and bind the reviewed game identity. Never inherit pawn IDs, coordinates, sessions, or settings from another campaign. Resume never authorizes a fresh start or tactical reload.
 
 ## During play
 
@@ -31,7 +31,7 @@ Read [memory.md](docs/memory.md) before changing memory behavior. Current facts,
 
 At five in-game-day checkpoints, or the user's chosen cadence, follow [history.md](docs/history.md): an operational report with the next five-day and one-year aims, plus a prose chapter with original, well-framed screenshots. Capture fleeting scenes when safe. Write the colony's story rather than a diary of tool calls. Do not invent events, dialogue, feelings, or documentary images.
 
-Before compaction or ending, use `handoff --reason ... --next ... --uncertainties ...` to save an immutable run snapshot. Preserve current risks, pending actions, rationale, uncertainties, evidence pointers, and any live wait handle. Verify the game's real ending before claiming victory. See [VALIDATION.md](VALIDATION.md) for tested capabilities and live checks still pending.
+Before compaction or ending, use `handoff --reason ... --next ... --uncertainties ...` to save an immutable run snapshot. Preserve current risks, pending actions, rationale, uncertainties, evidence pointers, and any live wait handle. Include the API index pointer and only task-relevant tool names, unresolved interface gaps, and exact evidence/section pointers; do not copy the catalog or manual into handoffs. Verify the game's real ending before claiming victory. See [VALIDATION.md](VALIDATION.md) for tested capabilities and live checks still pending.
 
 For runner maintenance, read [PLAN.md](PLAN.md), [TODO.md](TODO.md), [VALIDATION.md](VALIDATION.md) and [HANDOFF.md](HANDOFF.md). Development and offline testing never imply permission to interrupt a live campaign.
 
