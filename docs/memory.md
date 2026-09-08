@@ -87,3 +87,7 @@ The first response in a new session is complete for its requested scope, includi
 Delta comparisons and row patches compare nested JSON types recursively. Boolean false is distinct from numeric zero, including inside lists/objects and row identities. Partial/unavailable responses still retain their coverage limits; full presentation never means missing scope was observed.
 
 Root HANDOFF.md describes tooling status and run-selection routing only. Campaign identities, permissions, current orders, tactical discoveries and uncertainties belong in the selected campaign's strategy and immutable handoffs. Root guidance never supersedes a campaign strategy.
+
+### Timing runtime qualification
+
+Use the pinned pyenv runtime. Python versions before3.10 on macOS have process-local monotonic epochs. `measure` now records a system-clock backend marker; metrics rejects unqualified, mismatched, negative or nonfinite intervals instead of reporting misleading latency. Clock IDs must still identify the same host boot. Old invalid markers remain evidence, not valid timing samples. See [Python clock documentation](https://docs.python.org/3.13/library/time.html#time.monotonic).

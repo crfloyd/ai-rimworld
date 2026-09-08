@@ -80,10 +80,10 @@ Once meaningful gaps are resolved, give a short statement of the agreed setup an
 From the base directory:
 
 ```sh
-python3 rw runs
-python3 rw new ember-coast --spec /absolute/path/agreed-campaign.json
-python3 rw resume ember-coast
-python3 rw --run ember-coast brief
+pyenv exec python rw runs
+pyenv exec python rw new ember-coast --spec /absolute/path/agreed-campaign.json
+pyenv exec python rw resume ember-coast
+pyenv exec python rw --run ember-coast brief
 ```
 
 runs (also list) reads small local metadata and summary files, not every colony's history. It shows last recorded time, evidence origin and outstanding counts when available. Missing or damaged records remain visible as unknown or errors. The listing is not live game state, and it never infers victory from a large day count.

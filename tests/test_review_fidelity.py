@@ -75,3 +75,27 @@ class ControllerDelivery(ControlFixture):
         self.assertNotIn('unchanged',result)
         self.assertEqual(len(self.calls),calls)
         self.assertTrue((self.control.path/'pending.json').exists())
+
+
+class ClockMeasurements(Workspace):
+    def test_selected_runtime_monotonic_clock_is_shared_with_child_process(self):
+        import subprocess,sys,time
+        before=time.monotonic()
+        child=float(subprocess.check_output([sys.executable,'-c','import time;print(time.monotonic())'],text=True))
+        after=time.monotonic()
+        self.assertLessEqual(before,child)
+        self.assertLessEqual(child,after)
+
+    def test_metrics_reject_legacy_negative_and_mismatched_clocks(self):
+        from tools.rimworld.metrics import metrics
+        cases=[('valid',10,12,'time.monotonic:system','time.monotonic:system'),
+               ('legacy',10,12,None,None),('negative',12,10,'time.monotonic:system','time.monotonic:system'),
+               ('mismatch',10,12,'time.monotonic:system','different-clock'),
+               ('nonfinite',10,float('inf'),'time.monotonic:system','time.monotonic:system')]
+        for loop,start,end,first_kind,last_kind in cases:
+            for edge,value,kind in [('start',start,first_kind),('end',end,last_kind)]:
+                self.camp.event({'kind':'measurement','summary':loop,'loop':loop,'phase':'review',
+                    'edge':edge,'monotonic':value,'clock_id':'same-host-boot','clock_kind':kind})
+        result=metrics(self.camp)
+        self.assertEqual([(x['loop'],x['seconds']) for x in result['marked_intervals']],[('valid',2)])
+        self.assertEqual(len(result['invalid_intervals']),4)

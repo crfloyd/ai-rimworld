@@ -2,6 +2,10 @@
 
 Play the user's authorized campaign through its actual objective using RimMolt and normal game controls. This workspace contains support tools and reusable knowledge; it does not prescribe a particular colony, difficulty, roster, or ending.
 
+## Runtime
+
+Use the repository `.python-version` through `pyenv exec python` for Python commands, or `./rw` from the repository root. Do not use the macOS system Python: versions before3.10 have incompatible cross-process monotonic clocks. Never change the global pyenv version for this project.
+
 ## First read and control
 
 1. Read [startup.md](docs/startup.md) to route new, resume, or discussion requests and conduct a brief setup interview. Extract answers from the player's prompt first; ask only about meaningful gaps, accept explicit delegation, and do not repeat answered questions or add blanket confirmation.

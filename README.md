@@ -2,7 +2,7 @@
 
 An information and control layer for agents playing RimWorld through ordinary RimMolt actions. The agent reasons about strategy. The layer discovers capabilities, gathers evidence, preserves uncertainty and history, retrieves sourced knowledge, and verifies explicitly defined outcomes.
 
-Requires Python 3 with standard-library SQLite FTS5 and an accessible RimMolt endpoint for live play. No external knowledge service or Python packages are required. Read [AGENTS.md](AGENTS.md), then [startup](docs/startup.md) for fresh play or an existing run.
+Uses the repository pyenv pin in `.python-version` (Python 3.11.13), with standard-library SQLite FTS5 and an accessible RimMolt endpoint for live play. Run commands from this repository with `pyenv exec python` or `./rw`; shell commands must not silently use macOS system Python. Python 3.10+ is required for comparable monotonic clocks across processes. No external knowledge service or Python packages are required. Read [AGENTS.md](AGENTS.md), then [startup](docs/startup.md) for fresh play or an existing run.
 
 ## Start, resume and inspect
 
@@ -41,8 +41,8 @@ Campaigns, controller files, caches, credentials and generated archives are excl
 [PLAN.md](PLAN.md) is the implementation plan, [HANDOFF.md](HANDOFF.md) the current continuation state, [TODO.md](TODO.md) the open work and [VALIDATION.md](VALIDATION.md) the tested claims and limits.
 
 ```sh
-python3 -B tools/check.py
-python3 -B tools/demo.py --output /tmp/rimworld-demo-UNIQUE
+pyenv exec python -B tools/check.py
+pyenv exec python -B tools/demo.py --output /tmp/rimworld-demo-UNIQUE
 ```
 
 Both are offline. Live validation requires actual owned game control and an explicit final pause/handoff. Passing fixtures cannot establish game victory or intelligent play.

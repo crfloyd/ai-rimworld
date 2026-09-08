@@ -3,6 +3,7 @@
 from . import __version__
 from collections import Counter
 import statistics
+import math
 from .core import journal
 from .control import effect
 
@@ -17,7 +18,7 @@ def metrics(campaign):
     action_status = Counter(a["status"] for a in campaign._actions().values())
     events, _ = journal(campaign.path / "events.jsonl")
     marks = [e for e in events if e.get("kind") == "measurement"]
-    intervals, unmatched = [], []
+    intervals, unmatched, invalid = [], [], []
     pairs = {}
     for mark in marks:
         key = (mark.get("loop"), mark.get("phase"))
@@ -28,8 +29,13 @@ def metrics(campaign):
         elif mark.get("edge") == "end":
             start = pairs.pop(key, None)
             if start and isinstance(mark.get("monotonic"), (int, float)) and isinstance(start.get("monotonic"), (int, float)):
-                if mark.get("clock_id") != start.get("clock_id"):
-                    unmatched += [start, mark]
+                duration = mark["monotonic"] - start["monotonic"]
+                qualified = start.get('clock_kind') in ('clock_gettime(CLOCK_MONOTONIC)', 'time.monotonic:system')
+                if (not qualified or mark.get('clock_kind') != start.get('clock_kind') or
+                        not mark.get('clock_id') or mark.get("clock_id") != start.get("clock_id") or
+                        not math.isfinite(duration) or duration < 0):
+                    invalid.append({'loop': key[0], 'phase': key[1], 'start': start['id'], 'end': mark['id'],
+                                    'reason': 'Unqualified/incompatible clock or invalid elapsed time; not a latency measurement'})
                 else:
                     intervals.append({"loop": key[0], "phase": key[1],
                                       "seconds": mark["monotonic"] - start["monotonic"],
@@ -62,7 +68,7 @@ def metrics(campaign):
             "repeated_inspection_signatures": [{"tool": k[0], "args": k[1], "count": v}
                                               for k, v in signatures.items() if v > 1],
             "action_status": dict(action_status), "marked_intervals": intervals,
-            "unmatched_markers": len(unmatched),
+            "unmatched_markers": len(unmatched), "invalid_intervals": invalid,
             "overdue_review_issues": [i["id"] for i in reviews if i["revisit_due"] is True],
             "recorded_recurring_issues": [i["id"] for i in reviews if i["recurring"]],
             "recorded_missed_deadlines": [e["id"] for e in events if e.get("kind") == "missed_deadline"],

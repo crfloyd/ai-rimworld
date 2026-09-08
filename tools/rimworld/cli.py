@@ -243,7 +243,7 @@ def run(args):
     if command == "measure":
         return campaign.event({"kind": "measurement", "summary": f"{args.phase} {args.edge}",
                                "loop": args.loop, "phase": args.phase, "edge": args.edge,
-                               "monotonic": time.monotonic(), "clock_id": args.clock_id,
+                               "monotonic": time.monotonic(), "clock_id": args.clock_id, "clock_kind": "time.monotonic:system",
                                "conditions": args.conditions, "version": __version__})
     if command == "shot":
         if args.op == "review":
