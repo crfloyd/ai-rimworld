@@ -30,12 +30,12 @@ Reconnect invalidates the previous binding. A later status mismatch clears the b
 
 ## Actions and verification
 
-Request records cover every MCP call. Mutations are tracked by default with a free-form intention family and remain requested/accepted/started/blocked/interrupted/unknown until verified completed or consciously abandoned with evidence. The families provide review guidance, not a claim that the server exposes action lifecycle events.
+Request records cover every MCP call. Ordinary calls are untracked by default and need no intent text; their requests/results are still durable. `call --track --intent ...`, `act`, or a supplied check creates a tracked strategic outcome with a free-form family. Such outcomes remain requested/accepted/started/blocked/interrupted/unknown until verified completed or consciously abandoned with evidence. An untracked request is never exempt from ownership, identity, pending-operation or uncertainty safeguards. The families provide review guidance, not a claim that the server exposes action lifecycle events.
 
 Example order shape (use real IDs and an option read from the current menu):
 
 ```sh
-python3 rw --campaign NAME call order_pawn --args '{"id":"PAWN_ID","targetId":"PATIENT_ID","command":"EXACT_MENU_LABEL"}' --family treatment --intent 'Control the patient bleeding' --check /absolute/path/reviewed-treatment-check.json --token TOKEN
+python3 rw --campaign NAME call order_pawn --args '{"id":"PAWN_ID","targetId":"PATIENT_ID","command":"EXACT_MENU_LABEL"}' --track --family treatment --intent 'Control the patient bleeding' --check /absolute/path/reviewed-treatment-check.json --token TOKEN
 ```
 
 A complete accepted response is not proof of treatment. Supply a check grounded in actual response fields; if this version lacks the required timing/detail, use a scoped visual verification event instead. Read health again at an appropriate interval, then:

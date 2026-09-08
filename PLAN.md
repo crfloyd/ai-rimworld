@@ -42,3 +42,9 @@ Ordered corrections, delivered incrementally:
 5. Comparison: held-out saved situations for retrieval/mistakes, then several comparable live intervals with development paused and consistent model/safety settings. Measure wall time, decision handoffs, wait RPC time, meaningful outcomes, and event-to-review delay. No tactical save reloads or claims of improved win rate from small samples.
 
 Acceptance: more useful play per decision with preserved reaction quality and accessible lessons. Byte reduction alone, unit tests, and individual fast RPCs do not satisfy P8. Stop adding infrastructure unless a measured decision or control bottleneck requires it. Review suggestions are advisory; authority remains the user's goals and actual evidence.
+
+## P8 experiment result and bounded correction
+
+Fresh-agent A and direct-MCP B are complete; see docs/PLAY-LOOP-EXPERIMENT.md. B used fewer calls and achieved modestly more game time, with significant scenario confounding. Original evidence and independent audits remain run-local. No causal superiority, combat or win-rate conclusion.
+
+Implemented correction: required startup now reads rules/current strategy/issues, ordinary requests use passive journaling rather than default goal tracking, and healing/new-condition changes are not blindly labeled critical damage. Explicit outcomes and uncertainty safeguards remain.180offline tests pass; live default-path check and another measured crossover remain separate validation. P8 is still active, not fulfilled by this commit. Do not add mechanisms merely because the baseline exposed ordinary strategic difficulty.

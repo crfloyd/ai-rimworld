@@ -208,6 +208,6 @@ def resume_snapshot(campaign, *, full=False):
                              'active_risk_records':len(snapshot['packet'].get('active_risks',[])),
                              'missing_coverage_records':len(snapshot['packet'].get('missing_coverage',[])),
                              'pending_action_records':len(snapshot['packet'].get('pending_actions',[])),
-                             'detail_required':'Read current STATE/ISSUES and relevant original evidence; index counts do not resolve risks or work.'}})},
+                             'detail_required':'Read current strategy/issues and retrieve relevant original evidence when needed; full STATE/packets are optional indexes, and counts do not resolve risks or work.'}})},
             'changed_since_handoff': changes,
-            'next': 'Read the snapshot and any changed current files; live status, control and mutable facts require revalidation.'}
+            'next': 'Use the returned handoff and changed-file flags; retrieve full historical detail only where the decision needs it. Live status, control and mutable facts require revalidation.'}

@@ -7,6 +7,27 @@ from .core import Error, digest, now, require_fields
 from .observations import freshness
 
 
+def pawn_change_severity(rows):
+    """The upstream pawnDamage field also contains healing and new drug effects."""
+    if not isinstance(rows, list) or not rows: return 'unknown'
+    uncertain = False
+    new_conditions = False
+    for row in rows:
+        if not isinstance(row, dict):
+            uncertain = True
+            continue
+        before, after = row.get('hpBefore'), row.get('hpAfter')
+        numeric = all(type(v) in (int,float) and math.isfinite(v) for v in (before,after))
+        if numeric and after < before: return 'critical'
+        if not numeric or set(row) - {'name','hpBefore','hpAfter','newInjuries'}:
+            uncertain = True
+        injuries = row.get('newInjuries', [])
+        if not isinstance(injuries,list) or any(not isinstance(v,str) for v in injuries):
+            uncertain = True
+        new_conditions = new_conditions or bool(injuries)
+    return 'unknown' if uncertain else 'review' if new_conditions else 'info'
+
+
 def signals(obs):
     d = obs['data']; result = []
     def add(kind, value, severity='review', acknowledgeable=True):
@@ -48,7 +69,8 @@ def signals(obs):
         if isinstance(delta, dict):
             for key, value in delta.items():
                 if key not in ('newItems', 'removedItems', 'newBuildings', 'removedBuildings'):
-                    add('delta:' + key, value, 'critical' if 'damage' in key.lower() else 'unknown', False)
+                    severity = pawn_change_severity(value) if key == 'pawnDamage' else ('critical' if 'damage' in key.lower() else 'unknown')
+                    add('delta:' + key, value, severity, severity in ('info','review'))
         elif delta: add('unmodeled_delta', delta, 'unknown', False)
     if obs['tool'] == 'list_colonists' and isinstance(d.get('colonists'), list):
         for pawn in d['colonists']:

@@ -233,7 +233,7 @@ class Control:
             atomic_json(p, rules)
             return rules[tool]
 
-    def call(self, token, tool, args, intent=None, family="general", check=None, setup=False, track=True):
+    def call(self, token, tool, args, intent=None, family="general", check=None, setup=False, track=False):
         with lock(self.path / "operation.lock"):
             self._owner(token)
             self._no_pending()
@@ -268,7 +268,11 @@ class Control:
             if type(track) is not bool: raise Error("track must be boolean.")
             mutation = kind in ("mutation", "advance")
             if mutation and not intent:
-                raise Error("Gameplay changes need an intended outcome.")
+                if track or check is not None or kind == "advance":
+                    raise Error("Tracked outcomes and advancement need an intended outcome.")
+                # Passive request bookkeeping is not a strategic goal. Ordinary
+                # MCP calls must not create an unfinished-goal backlog by default.
+                intent = "Ordinary MCP request: " + tool
             if mutation and tool != "set_speed":
                 # Dispatch itself can invalidate facts, even if the server response is later lost.
                 self.campaign.meta["mutable_facts_invalidated_at"] = now()

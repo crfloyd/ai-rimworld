@@ -120,6 +120,7 @@ def parser():
     q = sub.add_parser("call", help="Execute one ordinary MCP tool under an existing controller.")
     q.add_argument("tool"); q.add_argument("--args", default="{}"); q.add_argument("--token", required=True)
     q.add_argument("--intent"); q.add_argument("--family", default="general")
+    q.add_argument("--track", action="store_true", help="Track a strategic outcome; requires --intent. Requests are always journaled.")
     q.add_argument("--check", type=Path); q.add_argument("--setup", action="store_true")
     q = sub.add_parser("batch", help="Bounded serialized operations; stops at failures or new events.")
     q.add_argument("--file", type=Path, required=True); q.add_argument("--token", required=True)
@@ -320,7 +321,7 @@ def run(args):
         if args.tool == "wait_for_event":
             raise Error("Use advance so risk, deadlines and the wait owner are recorded.")
         return control.call(args.token, args.tool, obj(args.args), args.intent, args.family,
-                            read_json(args.check) if args.check else None, args.setup)
+                            read_json(args.check) if args.check else None, args.setup, track=args.track)
     if command == "monitor-stop": return control.stop_monitor(args.token, args.basis)
     if command == "monitor-reconcile": return control.reconcile_monitor(args.token, args.evidence, args.basis, args.worker_terminal)
     if command == "monitor-ready":
@@ -353,8 +354,8 @@ def run(args):
                     kind = rule["effect"]
             if kind in ("denied", "unclassified"):
                 raise Error("Batch contains a prohibited or unclassified tool.")
-            if kind == "mutation" and not step.get("intent"):
-                raise Error("Every batch mutation needs an intent.")
+            if kind == "mutation" and (step.get("track", False) or step.get("check") is not None) and not step.get("intent"):
+                raise Error("Tracked batch outcomes need an intent.")
             from .core import slug
             slug(step.get("family", "general"))
             for dependency in step.get("requires_completed", []):
@@ -365,7 +366,7 @@ def run(args):
         for step in steps:
             result = control.call(args.token, step["tool"], step.get("args", {}),
                                   step.get("intent"), step.get("family", "general"),
-                                  step.get("check"), step.get("setup", False), track=step.get("track",True))
+                                  step.get("check"), step.get("setup", False), track=step.get("track",False))
             results.append(result)
             from .safety import assess
             observations = [campaign.observation(result["id"])] + [campaign.observation(c["id"]) for c in result.get("bundle", [])]

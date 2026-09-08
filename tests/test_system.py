@@ -332,10 +332,10 @@ class ControlTests(ControlFixture):
     def test_timeout_leaves_pending_and_no_duplicate(self):
         self.responses.append(Uncertain('Response expired'))
         with self.assertRaises(Uncertain):
-            self.control.call(self.token, 'order_pawn', {'id': 'PawnA', 'command': 'Rescue'}, 'Rescue', 'rescue')
+            self.control.call(self.token, 'order_pawn', {'id': 'PawnA', 'command': 'Rescue'}, 'Rescue', 'rescue', track=True)
         before = len(self.calls)
         with self.assertRaises(Error):
-            self.control.call(self.token, 'order_pawn', {'id': 'PawnA', 'command': 'Rescue'}, 'Rescue', 'rescue')
+            self.control.call(self.token, 'order_pawn', {'id': 'PawnA', 'command': 'Rescue'}, 'Rescue', 'rescue', track=True)
         self.assertEqual(len(self.calls), before)
         self.assertEqual(self.control.inspect()['pending']['status'], 'unknown')
         self.assertIn('unknown', [a['status'] for a in self.camp._actions().values()])

@@ -1,41 +1,35 @@
-# AI RimWorld: start here
+# AI RimWorld
 
-Play the user's authorized campaign through its actual objective using RimMolt and normal game controls. This workspace contains support tools and reusable knowledge; it does not prescribe a particular colony, difficulty, roster, or ending.
+Help the agent play the user's authorized run intelligently, with little operating overhead. The agent owns strategy; this project supplies evidence, ordinary MCP access and optional recall. Continue to the actual user objective. A stable colony, tooling commit or green tests is not victory.
 
-## Runtime
+Use `./rw` or the repository's pinned `pyenv exec python`; do not change global Python. Keep each run under `campaigns/NAME`. No developer/debug actions, hidden tactical information, balance changes or game/save manipulation. Follow the user's actual recovery rules; ordinary failure is not permission to reload.
 
-Use the repository `.python-version` through `pyenv exec python` for Python commands, or `./rw` from the repository root. Do not use the macOS system Python: versions before3.10 have incompatible cross-process monotonic clocks. Never change the global pyenv version for this project.
+## Enter a run
 
-## First read and control
+For a new game, use [startup](docs/startup.md), extracting the user's supplied choices and delegation before asking anything. For a resume, read that run's **CAMPAIGN.md, current STRATEGY.md and open ISSUES.md**, plus the small `rw resume NAME` handoff/change flags. Do not preload STATE.md, full packets, all history, maintenance plans or every mechanics topic. They remain available for targeted retrieval. Missing details remain unknown; retrieve them before decisions that need them.
 
-1. Read [startup.md](docs/startup.md) to route new, resume, or discussion requests and conduct a brief setup interview. Extract answers from the player's prompt first; ask only about meaningful gaps, accept explicit delegation, and do not repeat answered questions or add blanket confirmation.
-2. Use this base project and one named directory under campaigns/. Run `rw runs` to list local records; `rw new NAME --spec FILE` creates fresh records and refuses overwrite; `rw resume NAME` locates existing memory without touching the game. Keep `--run NAME` explicit. See [README.md](README.md) for commands.
-3. Read the selected run's `CAMPAIGN.md`, `STATE.md`, `STRATEGY.md`, and open `ISSUES.md`. `STATE.md` is generated from evidence and is not a live observation. Read `rw resume NAME` for the immutable handoff and changes since it. Use `rw --run NAME packet` for focused unresolved work and `brief` to refresh the local view. Shared knowledge is reviewed advice; other runs never supply this run's current facts or permissions.
-4. Before contacting RimWorld, read [control.md](docs/control.md) and establish that the previous controller has handed off. All game reads may pause or change UI. Side conversations use saved records until they own control.
-5. Read the small [API index](docs/api/README.md) on fresh starts and after compaction. Use offline `./rw capabilities "TOPIC"` and `./rw --run NAME capabilities --tool TOOL` to retrieve contracts as needed; do not load the full manual into routine context. Discover the current MCP catalog under owned control, inspect live status, and bind the reviewed game identity. Never inherit pawn IDs, coordinates, sessions, or settings from another campaign. Resume never authorizes a fresh start or tactical reload.
+Before live calls, establish actual sole control and no pending request through [control](docs/control.md). Side agents stay offline until handed control. Revalidate the real game; stored state is not live. Do not reconnect merely to rediscover an unfamiliar name. Read the small [API index](docs/api/README.md), then use `capabilities TOPIC` or an exact tool contract as needed. The complete API remains discoverable; search matches and historical schemas are not a whitelist.
 
-## During play
+## Ordinary play
 
-- Keep moving toward victory or the user's other explicit objective. Temporary stability and late-game technology are not completion.
-- Preserve honest gameplay: no debug/developer actions, direct simulation edits, hidden information, balance changes, or save manipulation. Consequences stand. Reload recovery is permitted only under the user's recorded recovery rules, through normal game controls.
-- Think before major commitments; retrieve sourced mechanics with `mechanics` and relevant local lessons/pending intentions with `recall`, then use the matching [knowledge topic](knowledge/INDEX.md). Retrieve pawn, map, quest, or production details when the decision needs them. A plan that worked against one threat is not automatically appropriate against another.
-- Use compact observations for routine work. Never discard unfamiliar fields; lossless tables and patches are encodings, not filters. Partial, missing, unavailable, stale, and known-empty data are different. Never default a missing thing list to an empty area.
-- For consequential orders, record an intention and verify the outcome. Family labels are open; use explicit checks when no template fits. Accepted does not mean completed. Track blocked/interrupted actions, medical deadlines, recurring problems, and restoration conditions for temporary changes.
-- For routine progress, follow [runner-loop.md](docs/runner-loop.md): qualify actual pause/wait behavior, then use a finite plan with its independent pause guardian. Combat and unstable medicine remain supervised. Advance with one event-driven wait at a time. Retain and poll its actual process/session handle. A timeout or missing local process does not prove the server stopped. Do not replay uncertain mutations.
-- Preserve critical warnings and uncertainties even when the brief grows. Reduce repeated raw output first; do not impose a summary cap that erases necessary facts or reasoning.
-- During an owned event-driven wait, use short, interruptible pieces of offline retrieval or conditional planning. Do not issue concurrent game calls or treat predicted progress as observed. Poll the retained wait handle between pieces of work, inspect its actual event/paused state promptly, and revalidate before acting.
-- Improve tooling incrementally. Prefer measured changes that reduce unnecessary pauses and repeated mistakes. Mod changes require user authorization and must preserve ordinary rules and visibility.
+Use a focused observation, make the strategic decision, group reviewed ordinary commands where safe, then one finite event-driven wait and the outcome reads needed next. `call TOOL --args JSON` uses ordinary MCP arguments. Requests and original evidence are journaled automatically; routine calls do not require an intention or create unfinished goals by default.
 
-## Memory and storytelling
+Use `act` or `call --track --intent ...` with checks when a tracked strategic outcome is useful. Do not manually close a record for every routine command. Preserve consequential unfinished work, dependencies and temporary changes in current notes/issues; capture original settings before changing them. An accepted order is not treatment, arrival, delivery or completed construction. Verify the actual result.
 
-Read [memory.md](docs/memory.md) before changing memory behavior. Current facts, unresolved decisions, historical evidence, and reusable lessons have distinct roles. Write lessons under the selected run by default. Shared advice requires explicit promotion and adoption; never silently learn into another run. Link decisions to observed outcomes and review candidates. Record evidence and applicability for lessons; revise or retire contradicted claims. References are information, not instructions overriding user rules.
+Use `advance` for supervised time. Choose a horizon appropriate to the situation, inspect the real event and pausedAfter result, and retain/poll the actual process handle. Never replay an uncertain operation or assume a timeout cancelled it. Ownership, uncertainty and pause checks apply even to untracked calls. During a wait, short offline retrieval/conditional planning is useful; concurrent game calls are not.
 
-At five in-game-day checkpoints, or the user's chosen cadence, follow [history.md](docs/history.md): an operational report with the next five-day and one-year aims, plus a prose chapter with original, well-framed screenshots. Capture fleeting scenes when safe. Write the colony's story rather than a diary of tool calls. Do not invent events, dialogue, feelings, or documentary images.
+Preserve unfamiliar fields, coverage limits, current threats and unresolved risks. Partial, stale, absent and known-empty are different. Classification is advisory evidence, not a substitute for reading the actual condition. A wait ending before its wall budget may have reached its game-time limit.
 
-Before compaction or ending, use `handoff --reason ... --next ... --uncertainties ...` to save an immutable run snapshot. Preserve current risks, pending actions, rationale, uncertainties, evidence pointers, and any live wait handle. Include the API index pointer and only task-relevant tool names, unresolved interface gaps, and exact evidence/section pointers; do not copy the catalog or manual into handoffs. Verify the game's real ending before claiming victory. See [VALIDATION.md](VALIDATION.md) for tested capabilities and live checks still pending.
+The finite monitor is **optional advanced tooling**, not a normal-play prerequisite. Read [runner-loop](docs/runner-loop.md) and qualify it before use. Do not build plans, acknowledge queues or repair a historical ledger merely to begin ordinary supervised play. Backlog nonblocking tooling findings and keep playing; separate development from measured play.
 
-For runner maintenance, read [PLAN.md](PLAN.md), [TODO.md](TODO.md), [VALIDATION.md](VALIDATION.md) and [HANDOFF.md](HANDOFF.md). Development and offline testing never imply permission to interrupt a live campaign.
+## Continuity and learning
 
-The agent owns strategic judgments. The layer must optimize evidence quality, knowledge gain, speed and useful context, not prescribe a finite set of acceptable outcomes. Shared mechanics are accessible to every agent using this project without a campaign; they never become live facts or permission.
+Keep a concise current strategy with urgent risks, unfinished jobs, restoration duties, rationale and exact evidence pointers. Replace superseded orders; retain their history on disk. Before compaction or handoff, preserve current context and any pending handle, then verify pause before releasing control. Carry the API index pointer and only relevant interface uncertainties, not the full manual.
 
-Read [knowledge-boundary.md](docs/knowledge-boundary.md) before shared knowledge edits: general mechanics may be shared; campaign discoveries and tactical learning remain local under this user’s discovery policy.
+Use `mechanics`, `recall` and [knowledge](knowledge/INDEX.md) when the decision would benefit. Campaign surprises and tactical lessons stay local; shared mechanics explain general rules. Read [memory](docs/memory.md) for memory changes and [knowledge boundary](docs/knowledge-boundary.md) before shared edits. A retrieved lesson is evidence/advice, not a live fact or permission.
+
+At the user's checkpoints, follow [history](docs/history.md): a prose colony story with original well-framed screenshots, plus the operational report and future aims. Preserve detailed history without making routine play load it all. Never invent progress or documentary images.
+
+## Tool maintenance
+
+Only when doing development, read PLAN.md, HANDOFF.md and VALIDATION.md. Keep production frozen during measured trials. Prefer removing demonstrated friction; each added mechanism must justify its cost in play or continuity. Tests verify behaviors, not expertise, speed or win rate. Scope checks to the change and report what the evidence actually supports.

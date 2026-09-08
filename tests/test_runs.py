@@ -81,7 +81,7 @@ class RunEntryTests(unittest.TestCase):
         self.assertEqual(result['name'], 'ember')
         self.assertIsNone(result['last_recorded_day'])
         self.assertEqual(result['missing_files'], [])
-        self.assertEqual(len(result['read_first']), 4)
+        self.assertEqual([Path(p).name for p in result['read_first']], ['CAMPAIGN.md','STRATEGY.md','ISSUES.md'])
         self.assertFalse(result['live_game_checked'])
         self.assertEqual(self.snapshot(), before)
         self.assertFalse((self.root / '.runtime').exists())

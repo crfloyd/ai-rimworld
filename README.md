@@ -22,9 +22,9 @@ These commands do not query or start the game. A new campaign requires its own a
 
 ## Live work
 
-Follow the [control contract](docs/control.md) to claim handed-off ownership, connect, inspect and bind the actual game. Then use `observe` for explicit read packets and `act` for intended gameplay changes. Use `spatial --observation ID --rect MINX MAXX MINZ MAXZ` to inspect full recorded properties in a chosen area. Placement validity and line of sight still require current game information; the layer does not invent them.
+Follow the [control contract](docs/control.md) to claim handed-off ownership, connect, inspect and bind the actual game. Then use ordinary `call TOOL --args JSON` requests, or `observe` for grouped reads. Use `act` when a tracked strategic outcome helps. Use `spatial --observation ID --rect MINX MAXX MINZ MAXZ` to inspect full recorded properties in a chosen area. Placement validity and line of sight still require current game information; the layer does not invent them.
 
-Mutations create intention records by default. Any family label can be used; `outcome.checks` or `check` supplies arbitrary scoped predicates. Accepted never means completed. An explicit `track:false` in act is available for low-impact changes; the request remains journaled. Read `./rw COMMAND --help` for exact arguments.
+Ordinary calls journal requests/evidence without creating unfinished goals or requiring intent text. Opt into tracking with `call --track --intent ...`, a check, or `act`. Any family label can be used; `outcome.checks` or `check` supplies arbitrary scoped predicates. Accepted never means completed. Keep actual unfinished work and temporary changes in current notes; all uncertain requests still block replay. Read `./rw COMMAND --help` for exact arguments.
 
 [Finite observation plans](docs/runner-loop.md) execute agent-selected reads and bounded waits with an independent pause guardian. Essential coverage refreshes every cycle; supplementary queries may specify `every_cycles`. Additional `watch_patients` require their own health/needs coverage. New or unreviewed response structure returns control. Combat and unstable medicine remain supervised.
 

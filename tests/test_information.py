@@ -35,9 +35,9 @@ from test_system import ControlFixture,Workspace
 from tools.rimworld.outcomes import contract
 from tools.rimworld.knowledge import recall
 class Intentions(ControlFixture):
-    def test_general_mutation_is_tracked_without_claiming_completion(self):
+    def test_explicit_general_intention_is_tracked_without_claiming_completion(self):
         self.responses.append({'ok':True})
-        r=self.control.call(self.token,'order_pawn',{'id':'PawnA','command':'Ordinary task'},intent='Observe its actual outcome')
+        r=self.control.call(self.token,'order_pawn',{'id':'PawnA','command':'Ordinary task'},intent='Observe its actual outcome',track=True)
         actions=list(self.camp._actions().values())
         self.assertEqual(len(actions),1);self.assertEqual(actions[0]['status'],'accepted')
     def test_unknown_family_with_explicit_check(self):

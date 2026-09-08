@@ -1,4 +1,12 @@
-# Validation —0.4.0
+# Validation —0.5.0
+
+180offline tests pass for the simplified default interface: normal calls/batches need no intent and create no unfinished goals, while request evidence, ownership/identity checks and uncertain-operation replay blocking remain. Explicit/check-implied tracking still requires intent and real outcome proof. New health-change tests retain all values and unknown fields while distinguishing HP declines from healing/new effects.
+
+The [fresh-agent experiment](docs/PLAY-LOOP-EXPERIMENT.md) compared frozen a247fef with direct MCP. B advanced12%more ticks with24%fewer gameplay calls and36%fewer raw gameplay response bytes over similar active intervals. Scenarios differed; exact model context/handoffs, combat, compaction recovery and improved win rate are unproven. Changes to defaults came after those trials, so they require their own live evidence.
+
+## Earlier validation history
+
+#0.4.0
 
 145 offline tests pass, covering lossless unknown-field handling, partial/summary variants, null/missing distinctions, all113 capabilities, spatial selection, mechanics search/rebuild/applicability, free-form intentions, patient coverage, structure lineage and persistence. Synthetic new-run/resume workflow passes. Fresh-clone evidence is recorded in [VALIDATION-0.4.0.json](docs/VALIDATION-0.4.0.json).
 

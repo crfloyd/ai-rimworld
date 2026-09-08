@@ -2,9 +2,9 @@
 
 The agent owns strategy. The runner can execute a finite period of **routine** progress without calling the model after every quiet wait. Combat, unstable medicine, recruitment, travel decisions and victory commitments still need deliberate reasoning. A monitor does not decide tactics or silently change priorities.
 
-## Start with one focused packet
+## Ordinary supervised play first
 
-Use `rw --run NAME packet --topic TOPIC` for current risks, uncertainty, pending work, deadlines, checkpoint status, unresolved decisions and relevant reference pointers. Use `observe --queries JSON --token TOKEN` to perform a bounded set of ordinary reads in one agent exchange. It prevalidates all queries and never advances time. Reads can pause/change UI; the controller must own the game.
+Start from current strategy/issues and focused live observations. Ordinary `call` requests need no per-command goal bookkeeping. `rw --run NAME packet --topic TOPIC` is optional deeper retrieval, not mandatory preload. Use `observe --queries JSON --token TOKEN` to perform a bounded set of ordinary reads in one agent exchange. It prevalidates all queries and never advances time. Reads can pause/change UI; the controller must own the game.
 
 `act --json JSON --token TOKEN` accepts an intent, ordinary tool/arguments and an optional outcome contract. It avoids a separate temporary predicate file. For example, after verifying actual IDs and map coordinates:
 
@@ -19,9 +19,9 @@ Use `rw --run NAME packet --topic TOPIC` for current risks, uncertainty, pending
 
 The example command is deliberately not a guessed RimMolt order. Discover supported actions first. Movement, equipped/worn items, finished buildings and extinguished fires have reusable contracts. Rescue also requires fresh refuge hazard checks. Treatment requires a reviewed timestamp field and a newer tend time; a version lacking those fields stays unknown and needs scoped visual evidence. Combat has no universal completion shortcut. Missing fields never satisfy a contract. Every component of a compound contract must be fresh, from the right run/session/origin, and later than the accepted order.
 
-## Qualify the live session once
+## Optional finite monitor: qualify before use
 
-Before automatic continuation, establish ownership, connect, inspect and bind the correct loaded game. Perform a small supervised `advance` and a normal `pause`. Both must actually report paused. Then use:
+A finite monitor is optional and is not required for ordinary supervised play. Before choosing automatic continuation, establish ownership, connect, inspect and bind the correct loaded game. Perform a small supervised `advance` and a normal `pause`. Both must actually report paused. Then use:
 
 ```sh
 python3 rw --run NAME monitor-ready --token TOKEN --wait-evidence WAIT_OBS --pause-evidence PAUSE_OBS --review 'Explain the reviewed finite-wait and pause behavior, current mod settings, and remaining failure limits'

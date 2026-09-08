@@ -6,7 +6,7 @@ from pathlib import Path
 from .core import Error, read_json, slug
 
 
-READ_FIRST = ('CAMPAIGN.md', 'STATE.md', 'STRATEGY.md', 'ISSUES.md')
+READ_FIRST = ('CAMPAIGN.md', 'STRATEGY.md', 'ISSUES.md')
 
 
 def describe_run(root, name):
@@ -85,8 +85,8 @@ def resume_run(root, name, *, full=False):
     result['handoff'] = resume_snapshot(Campaign(root, name), full=full)
     result['live_game_checked'] = False
     result['next'] = (
-        f'Read this run\'s rules, state, strategy and issues; use --run {name} explicitly. '
-        'Refresh its local brief if needed. Establish actual controller handoff, then inspect '
+        f'Read this run\'s rules, current strategy and issues; use --run {name} explicitly. '
+        'Retrieve historical evidence only where the decision needs it; STATE/full packets are optional indexes. Establish actual controller handoff, then inspect '
         'and bind the authorized live game. This command did not load a save, resume time, '
         'change any file, or set a global active run.'
     )
