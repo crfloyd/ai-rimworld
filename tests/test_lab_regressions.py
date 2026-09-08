@@ -187,3 +187,16 @@ class Persistence(Workspace):
         self.assertIn('fireCount=0',o['coverage']['known_empty_basis'])
         for data in [{'ok':True},{'ok':True,'fireCount':1},{'ok':True,'fireCount':False},{'ok':False,'fireCount':0},{'ok':True,'fireCount':0,'truncated':True}]:
             self.assertNotEqual(normalize('list_fires',args,data,'c','s','fixture')['completeness'],'known')
+
+
+    def test_alert_priority_preserves_agent_review_without_guessing_unknowns(self):
+        from tools.rimworld.safety import signals
+        for priority, expected in [('High','review'), ('Medium','review'), ('Low','review'),
+                                   ('Critical','critical'), ('NewModPriority','unknown'),
+                                   (3,'unknown'), (None,'unknown')]:
+            alert={'label':'Arbitrary alert, not a strategy whitelist','priority':priority,'explanation':'Keep this evidence'}
+            obs=normalize('get_alerts',{}, {'activeAlerts':[alert]},'c','s','fixture')
+            found=[s for s in signals(obs) if s['kind']=='alert']
+            self.assertEqual(len(found),1)
+            self.assertEqual(found[0]['severity'],expected)
+            self.assertEqual(found[0]['value'],alert)

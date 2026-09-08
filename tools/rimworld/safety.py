@@ -32,7 +32,11 @@ def signals(obs):
     if isinstance(alerts, list):
         for alert in alerts:
             priority = str(alert.get('priority', 'unknown')).lower() if isinstance(alert, dict) else 'unknown'
-            severity = 'critical' if priority in ('critical', 'high', '3', '4') else 'review'
+            # RimMolt serializes Alert.Priority as its enum name. High is
+            # reviewable, not synonymous with Critical; unknown priorities
+            # must not acquire acknowledgement-based continuation permission.
+            severity = ('critical' if priority == 'critical' else
+                        'review' if priority in ('low', 'medium', 'high') else 'unknown')
             add('alert', alert, severity)
     if obs['tool'] == 'wait_for_event':
         if d.get('pausedAfter') is not True: add('pause_unconfirmed', {'pausedAfter': d.get('pausedAfter', 'missing')}, 'critical', False)

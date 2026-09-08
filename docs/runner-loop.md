@@ -85,3 +85,7 @@ Use lowercase pawn with verbose:true for explicit hostility. A successful fire s
 ## Agent-directed coverage
 
 watch_patients adds explicit non-colonists to medical coverage without changing the colony roster. Essential safety queries run every cycle. Supplementary queries can set every_cycles; skipped reads are not reused as fresh evidence. Unmodeled queries need reviewed_evidence naming a same-session exact query the agent inspected; structural additions return control. This is observation scheduling, not automated strategy. Existing critical-risk stops remain conservative and require supervised play for unstable recovery.
+
+### Alert priority fidelity
+
+RimMolt reports named UI priorities. High, Medium and Low alerts remain review signals: an agent must inspect and explicitly acknowledge the exact current evidence for a finite interval before automatic continuation can pass them. Critical alerts remain blocking even when acknowledged. Missing, numeric or unfamiliar priorities are unknown and blocking; the layer does not guess their ordering. Labels and explanations stay intact. This is priority handling, not a whitelist of acceptable colony events. Other threat, health, coverage and deadline checks still apply.
