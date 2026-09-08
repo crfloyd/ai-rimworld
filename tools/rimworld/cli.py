@@ -74,6 +74,8 @@ def parser():
     q = sub.add_parser("retire", help="Remove resolved detail from working context while preserving evidence.")
     q.add_argument("--observation", required=True); q.add_argument("--evidence", required=True)
     q.add_argument("--reason", required=True)
+    q = sub.add_parser("recall", help="Find relevant mechanics, local lessons and unresolved intentions.")
+    q.add_argument("query"); q.add_argument("--entity"); q.add_argument("--limit", type=int, default=8)
     q = sub.add_parser("context", help="Retrieve situation-specific lessons and evidence pointers.")
     q.add_argument("topic"); q.add_argument("--entity")
     q = sub.add_parser("issue")
@@ -222,6 +224,9 @@ def run(args):
         return campaign.observation(args.observation) if args.observation else campaign.retrieve(args.tool, args.entity)
     if command == "retire":
         return campaign.retire(args.observation, args.evidence, args.reason)
+    if command == "recall":
+        from .knowledge import recall
+        return recall(campaign,args.query,args.entity,args.limit)
     if command == "context":
         return context(campaign, args.topic, args.entity)
     if command == "issue":
@@ -292,7 +297,7 @@ def run(args):
         for dependency in spec.get("requires_completed", []):
             if campaign._actions().get(dependency, {}).get("status") != "completed":
                 raise Error("Required action is not verified complete: " + dependency)
-        return control.call(args.token, spec["tool"], spec.get("args", {}), spec["intent"], family, check)
+        return control.call(args.token, spec["tool"], spec.get("args", {}), spec["intent"], family, check, track=spec.get("track",True))
     if command == "observe":
         queries = json.loads(args.queries)
         if not isinstance(queries, list) or not 1 <= len(queries) <= 32:
@@ -349,9 +354,8 @@ def run(args):
                 raise Error("Batch contains a prohibited or unclassified tool.")
             if kind == "mutation" and not step.get("intent"):
                 raise Error("Every batch mutation needs an intent.")
-            from .memory import FAMILIES
-            if step.get("family", "general") not in FAMILIES:
-                raise Error("Batch contains an unknown action family.")
+            from .core import slug
+            slug(step.get("family", "general"))
             for dependency in step.get("requires_completed", []):
                 record = campaign._actions().get(dependency)
                 if not record or record["status"] != "completed":
@@ -360,7 +364,7 @@ def run(args):
         for step in steps:
             result = control.call(args.token, step["tool"], step.get("args", {}),
                                   step.get("intent"), step.get("family", "general"),
-                                  step.get("check"), step.get("setup", False))
+                                  step.get("check"), step.get("setup", False), track=step.get("track",True))
             results.append(result)
             from .safety import assess
             observations = [campaign.observation(result["id"])] + [campaign.observation(c["id"]) for c in result.get("bundle", [])]

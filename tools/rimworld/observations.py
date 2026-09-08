@@ -94,11 +94,49 @@ def expected_fields(tool, args, data):
     return []
 
 
+def visible_data(data, tool):
+    """Known non-player-visible RimMolt AI targeting is excluded, explicitly.
+
+    Full transport evidence remains raw. No unfamiliar property is excluded.
+    """
+    excluded = []
+    def visit(value, path=()):
+        if isinstance(value,dict):
+            out={}
+            for key,item in value.items():
+                if key == "targeting" and (tool in ("list_things","get_area") or "_threatWarning" in path):
+                    excluded.append("/".join((*path,key)))
+                else: out[key]=visit(item,(*path,key))
+            return out
+        if isinstance(value,list):return [visit(item,(*path,str(i))) for i,item in enumerate(value)]
+        return value
+    return visit(data),excluded
+
+
+def structure(value, path="$"):
+    """Structural novelty, independent of a finite list of important outcomes."""
+    if isinstance(value,dict):
+        result={path+":object"}
+        for k,v in value.items():
+            if k not in ("_mcpText","bundled"):
+                result |= structure(v,path+"/"+k.replace("~","~0").replace("/","~1"))
+        return result
+    if isinstance(value,list):
+        result={path+":array"}
+        for v in value:result |= structure(v,path+"/*")
+        return result
+    kind="null" if value is None else "boolean" if isinstance(value,bool) else "number" if isinstance(value,(int,float)) else "string"
+    return {path+":"+kind}
+
+
 def normalize(tool, args, payload, campaign_id, session_id, origin="live",
               tick=None, map_index=None, seconds=None, request_id=None, source_captured_at=None):
     if tick is not None and (type(tick) not in (int, float) or not math.isfinite(tick) or tick < 0):
         raise Error("Caller tick must be a finite nonnegative number.")
     data, forced = decode(payload)
+    data.pop("_mcpText",None)  # Duplicate transport text stays only in raw evidence.
+    data, excluded = visible_data(data,tool)
+    if excluded: data["_visibilityExclusions"] = {"reason":"Hostile AI targeting is not player-visible", "paths":excluded}
     empty_basis = None
     if tool == "list_fires" and data.get("ok") is True and type(data.get("fireCount")) is int and data["fireCount"] == 0 and "fires" not in data:
         data["fires"] = []
@@ -269,6 +307,9 @@ def delta_view(previous, current):
         result["risks"] = signals(current)
         result["unchanged"] = not change["changed_fields"] and not change["not_returned_now"]
         result["view"] = "delta; omitted unchanged fields remain in previous evidence"
+    if previous is not None:
+        added=sorted(structure(current["data"]) - structure(previous["data"]))
+        if added: result["structure_changes"] = {"added_paths":added,"basis":previous["id"],"meaning":"New response shape, not automatically a hazard"}
     result["delta"] = change
     # Lossless positional patches against a named prior observation, not guessed
     # entity identity. Full evidence remains retrievable; changed values survive.

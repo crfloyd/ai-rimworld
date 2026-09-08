@@ -30,3 +30,54 @@ class Information(unittest.TestCase):
         v=present(compact(self.obs('list_things',{'things':rows,'truncated':True})))
         self.assertEqual(unpack_rows(v['known_subset']['things']),rows)
         self.assertEqual(v['completeness'],'partial')
+
+from test_system import ControlFixture,Workspace
+from tools.rimworld.outcomes import contract
+from tools.rimworld.knowledge import recall
+class Intentions(ControlFixture):
+    def test_general_mutation_is_tracked_without_claiming_completion(self):
+        self.responses.append({'ok':True})
+        r=self.control.call(self.token,'order_pawn',{'id':'PawnA','command':'Ordinary task'},intent='Observe its actual outcome')
+        actions=list(self.camp._actions().values())
+        self.assertEqual(len(actions),1);self.assertEqual(actions[0]['status'],'accepted')
+    def test_unknown_family_with_explicit_check(self):
+        check=contract({'family':'new-mechanic','checks':[{'tool':'get_pawn','args':{'id':'p'},'all':[{'path':'someNewValue','op':'eq','value':3}]}]})
+        a=self.camp.action('normal_ui',{},'Complete newly discovered mechanic','new-mechanic',check,origin='fixture')
+        self.assertEqual(a['status'],'requested')
+        self.assertEqual(a['family'],'new-mechanic')
+    def test_recall_preserves_pending_question_without_claiming_freshness(self):
+        self.camp.action('normal_ui',{},'Investigate gravship foundation','ship-investigation',origin='fixture')
+        r=recall(self.camp,'gravship')
+        self.assertEqual(len(r['pending_intentions']),1)
+        self.assertFalse(r['live_checked'])
+
+from test_monitor import ScenarioSetup
+from tools.rimworld.monitor import create_plan,coverage
+from tools.rimworld.core import Error
+class ObservationPolicy(ScenarioSetup):
+    def test_additional_patient_requires_own_health_and_needs(self):
+        spec=copy.deepcopy(self.spec);spec['watch_patients']=['prisoner']
+        plan=create_plan(self.camp,spec);obs=[]
+        for query,data in zip(plan['queries'],self.safe_reads()):
+            r=self.camp.ingest(query['tool'],query.get('args',{}),data,origin='live')
+            obs += [self.camp.observation(x['id']) for x in [r,*r.get('bundle',[])]]
+        gaps=coverage(self.camp,obs,plan)
+        self.assertEqual({g['args']['tab'] for g in gaps if g.get('args',{}).get('id')=='prisoner'},{'health','needs'})
+    def test_mandatory_safety_cadence_cannot_silently_skip(self):
+        spec=copy.deepcopy(self.spec);spec['queries'][0]['every_cycles']=2
+        with self.assertRaises(Error):create_plan(self.camp,spec)
+
+class Novelty(unittest.TestCase):
+    def test_shape_notice_preserves_value(self):
+        old=normalize('get_status',{}, {'loaded':False},'c','s','fixture')
+        new=normalize('get_status',{}, {'loaded':False,'futureFeature':{'value':2}},'c','s','fixture')
+        v=present(delta_view(old,new))
+        self.assertIn('$/futureFeature/value:number',v['structure_changes']['added_paths'])
+        self.assertEqual(v['status']['futureFeature']['value'],2)
+    def test_known_hidden_targeting_exclusion_is_explicit_and_raw_unchanged(self):
+        d={'things':[{'id':'enemy','hostile':True,'targeting':'hidden AI goal','novelVisible':7}]}
+        obs=normalize('list_things',{},d,'c','s','fixture')
+        self.assertIn('targeting',d['things'][0])
+        self.assertNotIn('targeting',obs['data']['things'][0])
+        self.assertEqual(obs['data']['things'][0]['novelVisible'],7)
+        self.assertIn('_visibilityExclusions',obs['data'])

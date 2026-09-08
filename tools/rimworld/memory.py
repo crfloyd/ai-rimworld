@@ -356,15 +356,14 @@ class Campaign:
     def action(self, tool, args, intent, family="general", check=None, origin="live"):
         if origin not in ("live", "fixture"):
             raise Error("Actions must be live or explicitly synthetic fixture actions.")
-        if family not in FAMILIES:
-            raise Error("Unknown action family: " + family)
+        slug(family)  # Free-form label; templates are conveniences, not strategic limits.
         if not intent:
             raise Error("Record the intended outcome.")
         if check:
             from .outcomes import validate_check
             validate_check(check)
         record = {"id": identifier("action-"), "tool": tool, "args": args, "intent": intent,
-                  "family": family, "verification_guidance": FAMILIES[family],
+                  "family": family, "verification_guidance": FAMILIES.get(family, FAMILIES["general"]),
                   "check": check, "status": "requested", "requested_at": now(),
                   "session_id": self.meta.get("session_id") or "unbound", "origin": origin,
                   "binding_expected": (self.meta.get("binding") or {}).get("expected"),

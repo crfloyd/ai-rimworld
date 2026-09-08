@@ -16,7 +16,7 @@ def present(value):
     # Keep actual game facts and explicit omissions/uncertainty. Do not repeat
     # arguments, wall timestamps, origin, scope, raw path and empty metadata on
     # every read; the observation ID resolves all of them.
-    for key in ('data','health','needs','status','counts','total','terrain','known_subset','message','model','query_kind',
+    for key in ('data','health','needs','status','counts','total','terrain','known_subset','message','model','query_kind','structure_changes',
                 'omitted','list_changes','action_id','identity_mismatch','pause_guard','bundle'):
         if key in value and value[key] is not None: result[key]=present(value[key])
     if value['completeness']!='known':

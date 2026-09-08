@@ -222,3 +222,31 @@ def promote(campaign, lesson_id, generalized, review):
     campaign.event({"kind": "lesson_promotion", "summary": review,
                     "local_lesson": lesson_id, "shared_lesson": result["id"], "revision": result["revision"]})
     return result
+
+
+def recall(campaign, query, entity=None, limit=8):
+    """Evidence retrieval for an agent's question; no strategic decision or action."""
+    import re
+    from .mechanics import search
+    if type(limit) is not int or not 1 <= limit <= 100: raise Error("Use 1–100 recall results.")
+    terms = set(re.findall(r"\w+",query.lower()))
+    def score(value):
+        text = json.dumps(value,ensure_ascii=False).lower()
+        return sum(t in text for t in terms) + (3 if entity and entity.lower() in text else 0)
+    lessons = []
+    for path in (campaign.path/'knowledge/lessons').glob('*.json'):
+        value=read_json(path);rank=score(value)
+        if rank: lessons.append((rank,value,path))
+    lessons.sort(key=lambda v:(-v[0],v[1]['id']))
+    cards=[]
+    for rank,v,path in lessons[:limit]:
+        cards.append({k:v[k] for k in ('id','title','status','recommendation','exceptions','verify','evidence','applicability') if k in v})
+        cards[-1]['detail']=str(path)
+    actions=[a for a in campaign._actions(open_only=True).values() if score(a)]
+    issues=[i for i in campaign.issue_reviews() if i.get('critical') or i.get('revisit_due') or score(i)]
+    return {'query':query,'entity':entity,'live_checked':False,
+            'mechanics':search(campaign.root,query,limit=limit,environment=campaign.meta.get('setup',{})),
+            'local_lessons':cards,'remaining_lessons':max(0,len(lessons)-len(cards)),
+            'pending_intentions':[{k:a[k] for k in ('id','intent','family','status','check','reason') if k in a} for a in actions],
+            'unresolved_issues':issues,'strategy':str(campaign.path/'STRATEGY.md'),
+            'limits':'Keyword retrieval, not exhaustive reasoning. Use packet for all urgent state; retrieve missing evidence before decisions. Lessons remain hypotheses/advice at their recorded status.'}

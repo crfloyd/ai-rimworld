@@ -530,10 +530,10 @@ class MoreControlTests(ControlFixture):
             self.control.call(self.token, 'get_status', {})
         self.assertEqual(len(self.calls), before)
 
-    def test_generic_immediate_changes_do_not_accumulate_open_actions(self):
+    def test_explicit_untracked_low_impact_change_keeps_request_only(self):
         self.responses.append({'ok': True, 'executed': True})
         self.control.call(self.token, 'order_pawn', {'id': 'PawnA', 'command': 'Ordinary task'},
-                          intent='Low-impact work')
+                          intent='Low-impact work', track=False)
         self.assertFalse(self.camp._actions())
         self.assertFalse((self.control.path / 'pending.json').exists())
 

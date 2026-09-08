@@ -1,0 +1,34 @@
+{
+  "id": "odyssey-mechhive-ending",
+  "title": "Odyssey victory requires the Mechhive conclusion",
+  "kind": "game_mechanic",
+  "topics": [
+    "victory",
+    "odyssey",
+    "gravship",
+    "quests"
+  ],
+  "summary": "Flight is progression, not victory; the Mechhive quest leads to the credits ending.",
+  "body": "The wiki describes inspecting an installed grav engine to begin The Gravship quest, then completing seven subquests to reveal the Mechhive. Reaching it requires a gravship with a signal jammer. Three cerebrex stabilizers protect the core; destroying them brings immediate mechanoid attacks. The final core interaction offers endings that roll credits. Treat this as route research: inspect current quest prerequisites, prepare for orbital conditions and combat, and verify the actual credits before claiming victory. A pilot console or a successful launch is not the ending.",
+  "sources": [
+    {
+      "source": "https://rimworldwiki.com/wiki/The_Mechhive_(ending)",
+      "checked_at": "2026-09-08",
+      "supports": "Quest progression, access requirements, stabilizers and credits outcomes",
+      "authority": "Community wiki; runtime quest UI remains authority"
+    }
+  ],
+  "applicability": {
+    "game_versions": [
+      "1.6"
+    ],
+    "required_dlc": [
+      "Odyssey"
+    ],
+    "mod_caveat": "Quest mods and game updates may change requirements."
+  },
+  "status": "sourced",
+  "reviewed_at": "2026-09-08",
+  "review": "Read source; narrow paraphrase, not a claim that this colony has completed any prerequisite.",
+  "revision": "fa67fe734c279326ff7a99d08089ab4cdff3fd8b168d21354a7d7e40ed130ad8"
+}

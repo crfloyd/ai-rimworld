@@ -53,6 +53,7 @@ def create_plan(campaign, spec):
         if type(value) not in (int, float) or not math.isfinite(value) or not lo <= value <= hi:
             raise Error(f'{key} must be finite within {lo}–{hi}.')
         if key in ('max_cycles', 'wait_seconds') and type(value) is not int: raise Error(key + ' must be an integer.')
+    if not isinstance(spec.get('watch_patients',[]),list) or not all(isinstance(p,str) and p for p in spec.get('watch_patients',[])): raise Error('watch_patients must contain explicit additional pawn IDs.')
     if not isinstance(spec['queries'], list) or not 1 <= len(spec['queries']) <= 32: raise Error('Plan needs 1–32 bounded read queries.')
     if not all(isinstance(i, str) for i in spec['watch_pawns']) or not all(type(i) is int for i in spec['watch_maps']):
         raise Error('Record explicit pawn IDs and map indices reviewed for this run.')
@@ -61,6 +62,14 @@ def create_plan(campaign, spec):
     catalog = read_json(campaign.path / 'raw/catalog.json')
     for q in spec['queries']:
         require_fields(q, ('tool',))
+        every=q.get('every_cycles',1)
+        if type(every) is not int or not 1<=every<=20:raise Error('Query cadence must be 1–20 cycles.')
+        if every!=1 and q['tool'] in ('get_status','get_alerts','list_colonists','get_pawn','list_fires','list_things'):
+            raise Error('Safety coverage must be refreshed every cycle; stagger supplementary queries only.')
+        if q.get('reviewed_evidence'):
+            reviewed=campaign.observation(q['reviewed_evidence'])
+            if reviewed['tool']!=q['tool'] or reviewed['args']!=q.get('args',{}) or reviewed['origin']!='live' or reviewed['session_id']!=campaign.meta['session_id']:
+                raise Error('Query shape review must match this session and exact query.')
         if q['tool'] not in catalog['tools'] or not effect(q['tool'], q.get('args', {})).startswith('inspection'):
             raise Error('Continuation queries must be classified ordinary reads; actions belong in act/batch before the plan.')
         validate(catalog['tools'][q['tool']]['inputSchema'], q.get('args', {}))
@@ -89,7 +98,7 @@ def coverage(campaign, observations, plan):
         missing.append({'reason': 'Loaded game/map roster changed; reason about new context.'})
     if roster and {p.get('id') for p in roster.get('colonists', [])} != set(plan['watch_pawns']):
         missing.append({'reason': 'Colonist roster changed or IDs missing; recruitment/death/transfer needs review.'})
-    for pawn in plan['watch_pawns']:
+    for pawn in dict.fromkeys(plan['watch_pawns']+plan.get('watch_patients',[])):
         find('get_pawn', {'id': pawn, 'tab': 'health'})
         find('get_pawn', {'id': pawn, 'tab': 'needs'})
     for m in plan['watch_maps']:
@@ -194,11 +203,24 @@ class Monitor:
                 guardian.start()
                 while record['cycles'] < plan['max_cycles']:
                     observations = []
+                    notices=[]
                     for query in plan['queries']:
+                        if record['cycles'] % query.get('every_cycles',1): continue
                         heartbeat('inspection')
                         result = c.call(token, query['tool'], query.get('args', {}))
+                        if result.get('structure_changes'):notices.append({'tool':query['tool'],'evidence':result['id'],'novelty':result['structure_changes']})
+                        if result.get('model')=='unmodeled' and not query.get('reviewed_evidence'):
+                            notices.append({'tool':query['tool'],'evidence':result['id'],'reason':'Unmodeled query needs agent shape review'})
+                        if query.get('reviewed_evidence'):
+                            from .observations import structure
+                            baseline=campaign.observation(query['reviewed_evidence'])
+                            current=campaign.observation(result['id'])
+                            added=sorted(structure(current['data'])-structure(baseline['data']))
+                            if added:notices.append({'tool':query['tool'],'evidence':result['id'],'new_paths':added})
                         if result.get('identity_mismatch'): raise Error('Live identity changed.')
                         observations += [campaign.observation(result['id'])] + [campaign.observation(b['id']) for b in result.get('bundle', [])]
+                    if notices:
+                        stopped='new or unreviewed response structure';details={'notices':notices};break
                     gaps = coverage(campaign, observations, plan)
                     safety = assess(campaign, observations, permit_acknowledged=True)
                     blockers = [r for r in safety['risks'] if r['severity'] != 'info' and (not r['acknowledged'] or r['severity'] in ('critical', 'unknown'))]

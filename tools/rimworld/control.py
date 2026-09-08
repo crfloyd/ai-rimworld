@@ -209,7 +209,7 @@ class Control:
             atomic_json(p, rules)
             return rules[tool]
 
-    def call(self, token, tool, args, intent=None, family="general", check=None, setup=False):
+    def call(self, token, tool, args, intent=None, family="general", check=None, setup=False, track=True):
         with lock(self.path / "operation.lock"):
             self._owner(token)
             self._no_pending()
@@ -241,6 +241,7 @@ class Control:
                 raise Error("Inspect and bind the live game identity before controlling it.")
             if binding and binding["expected"].get("loaded") is False and kind in ("mutation", "advance") and not setup:
                 raise Error("Main-menu binding requires an explicit setup action; rebind after the colony loads.")
+            if type(track) is not bool: raise Error("track must be boolean.")
             mutation = kind in ("mutation", "advance")
             if mutation and not intent:
                 raise Error("Gameplay changes need an intended outcome.")
@@ -249,13 +250,13 @@ class Control:
                 self.campaign.meta["mutable_facts_invalidated_at"] = now()
                 atomic_json(self.campaign.path / "campaign.json", self.campaign.meta)
             # Durable request records cover every call; long-lived action records are for important outcomes.
-            tracked = mutation and (family != "general" or check is not None or kind == "advance")
+            tracked = mutation and (track or check is not None or kind == "advance")
             action = self.campaign.action(tool, args, intent, family, check) if tracked else None
             request_id = identifier("rpc-")
             pending = {"request_id": request_id, "pid": os.getpid(), "tool": tool,
                        "args": args, "kind": kind, "action_id": action["id"] if action else None,
                        "started_at": now(), "status": "inflight",
-                       "session_id": self.campaign.meta["session_id"]}
+                       "session_id": self.campaign.meta["session_id"], "track_intention": track}
             atomic_json(self.path / "pending.json", pending)
             client = self.client_factory(self.endpoint, read_json(self.path / "session.json"))
             started = time.monotonic()
@@ -309,6 +310,7 @@ class Control:
                     "persistence_seconds": persistence_seconds, "total_seconds": time.monotonic()-started,
                     "raw_bytes": len(canonical(payload).encode()), "context_bytes": len(canonical(present(result)).encode()),
                     "internal_view_bytes": len(canonical(result).encode()),
+                    "context_bytes_basis": "Candidate presentation, not proof of host delivery or model consumption",
                     "since_previous_call_seconds": gap if gap is not None and gap >= 0 else None,
                     "driver": "monitor" if lease.get("status") == "running" and lease.get("pid") == os.getpid() else "agent_operation"})
                 atomic_json(last_timing_path, {"ended_at": time.time(), "request_id": request_id})

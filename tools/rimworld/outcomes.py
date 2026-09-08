@@ -7,6 +7,9 @@ def eq(path, value): return {'path': path, 'op': 'eq', 'value': value}
 
 def contract(spec):
     require_fields(spec, ('family',))
+    if spec.get('checks'):
+        validate_check({'checks':spec['checks']})
+        return {'checks':spec['checks'],'contract':spec,'limitation':'Agent-supplied checks; fresh complete scoped evidence still required.'}
     family = spec['family']; checks = []
     if family in ('movement', 'rescue'):
         require_fields(spec, ('pawn', 'mapIndex', 'x', 'z'))
