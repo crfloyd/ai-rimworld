@@ -1,0 +1,10 @@
+{
+  "fixture": "30 recorded status/pawn responses from current live recovery; no live game calls",
+  "before_revision": "5af115e",
+  "tests": 147,
+  "base_bytes": 90869,
+  "before_bytes": 70149,
+  "after_bytes": 62688,
+  "change_percent": -10.6,
+  "limits": "Bytes not model tokens; no end-to-end speed claim. Null/absence/reorder/full novel properties reconstruct exactly."
+}

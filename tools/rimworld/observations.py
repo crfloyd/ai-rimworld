@@ -303,6 +303,41 @@ def evidence_index(observation):
     return view
 
 
+def make_list_patch(old, new):
+    """Lossless positional updates; choose small row edits only when useful."""
+    patch = {'length': len(new), 'replace': {}}
+    updates = {}
+    for i, value in enumerate(new):
+        prior = old[i]
+        if value == prior: continue
+        edit = None
+        if isinstance(prior, dict) and isinstance(value, dict) and prior.get('id') == value.get('id'):
+            edit = {'set': {k:v for k,v in value.items() if k not in prior or prior[k] != v},
+                    'remove': [k for k in prior if k not in value]}
+            if not edit['remove']: edit.pop('remove')
+            if 'id' in prior: edit['identity'] = prior['id']
+        if edit is not None and len(json.dumps(edit)) < len(json.dumps(value)):
+            updates[str(i)] = edit
+        else: patch['replace'][str(i)] = value
+    if updates: patch['update'] = updates
+    return patch
+
+
+def apply_list_patch(old, patch):
+    """Decode a patch against its named observation, including columnar baselines."""
+    result = copy.deepcopy(unpack_rows(old))
+    if not isinstance(result,list) or len(result) != patch['length']:
+        raise ValueError('Patch needs the exact baseline list length')
+    for key,value in patch.get('replace',{}).items(): result[int(key)] = copy.deepcopy(value)
+    for key,edit in patch.get('update',{}).items():
+        row = result[int(key)]
+        if not isinstance(row,dict) or ('identity' in edit and row.get('id') != edit['identity']):
+            raise ValueError('Patch row identity differs from baseline')
+        for name in edit.get('remove',[]): row.pop(name,None)
+        row.update(copy.deepcopy(edit.get('set',{})))
+    return result
+
+
 def changed(previous, current):
     """Actual changed values. Missing keys are not inferred to mean empty/deleted."""
     if previous is None:
@@ -336,11 +371,12 @@ def delta_view(previous, current):
     # Lossless positional patches against a named prior observation, not guessed
     # entity identity. Full evidence remains retrievable; changed values survive.
     if previous is not None and current["completeness"] == previous["completeness"] == "known":
+        unpatched = copy.deepcopy(result)
         patches = {}
         for key in change.get("changed_fields", []):
             old, new = previous["data"].get(key), current["data"].get(key)
             if isinstance(old, list) and isinstance(new, list) and len(old) == len(new) and old:
-                patch = {"length": len(new), "replace": {str(i): v for i, v in enumerate(new) if v != old[i]}}
+                patch = make_list_patch(old, new)
                 if len(json.dumps(patch)) < len(json.dumps(new)):
                     for body in ("data", "health", "needs", "status"):
                         if key in result.get(body, {}):
@@ -349,7 +385,10 @@ def delta_view(previous, current):
                             break
         if patches:
             result["list_changes"] = {"base": previous["id"], "fields": patches,
-                "basis": "Replace these zero-based indices in the previous observation; indices are not persistent entity IDs."}
+                "encoding": "row-fields-v1",
+                "basis": "Named baseline, zero-based rows: replace rows or set/remove response fields; identity checks prior id. Other fields persist."}
+        if len(json.dumps(result)) >= len(json.dumps(unpatched)):
+            result = unpatched
     return result
 
 

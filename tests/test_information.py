@@ -1,5 +1,5 @@
 import copy,json,unittest
-from tools.rimworld.observations import normalize,compact,delta_view,pack_rows,unpack_rows
+from tools.rimworld.observations import normalize,compact,delta_view,pack_rows,unpack_rows,apply_list_patch
 from tools.rimworld.presentation import present
 
 class Information(unittest.TestCase):
@@ -24,7 +24,7 @@ class Information(unittest.TestCase):
     def test_entity_changes_include_all_properties(self):
         old=self.obs('list_things',{'things':[{'id':str(i),'def':'Steel','x':i} for i in range(40)]})
         new=copy.deepcopy(old);new['id']='new';new['data']['things'][9]['novel']=True
-        v=present(delta_view(old,new));self.assertTrue(v['list_changes']['fields']['things']['replace']['9']['novel'])
+        v=present(delta_view(old,new));self.assertEqual(apply_list_patch(old['data']['things'],v['list_changes']['fields']['things']),new['data']['things'])
     def test_partial_known_rows_not_clipped(self):
         rows=[{'id':str(i),'new':i} for i in range(50)]
         v=present(compact(self.obs('list_things',{'things':rows,'truncated':True})))
@@ -125,3 +125,15 @@ class ZeroRejections(unittest.TestCase):
             o=normalize('manage_area',{}, {'ok':True,'rejected':value},'c','s','fixture')
             return [x for x in signals(o) if x['kind']=='rejected']
         self.assertFalse(risks(0));self.assertTrue(risks(1));self.assertTrue(risks('unknown'))
+
+class RowUpdates(unittest.TestCase):
+    def test_patch_preserves_absence_null_new_fields_and_reordering(self):
+        from tools.rimworld.observations import make_list_patch,apply_list_patch,pack_rows
+        old=[{'id':'p'+str(i),'biography':'long biography '*30,'mood':50,'optional':None} for i in range(20)]
+        new=copy.deepcopy(old);new[0]['mood']=49;del new[0]['optional'];new[1]['new_mod_value']=None
+        new[2],new[3]=new[3],new[2]
+        patch=make_list_patch(old,new)
+        self.assertEqual(apply_list_patch(pack_rows(old),patch),new)
+        self.assertIn('0',patch['update']);self.assertIn('2',patch['replace'])
+        bad=copy.deepcopy(old);bad[0]['id']='another'
+        with self.assertRaises(ValueError):apply_list_patch(bad,patch)

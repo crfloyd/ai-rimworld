@@ -94,7 +94,8 @@ class Persistence(Workspace):
         new=copy.deepcopy(old);new['data']['hediffs'][0]['severity']=4.123
         new_risk=next(r for r in signals(new) if r['kind']=='health_conditions')
         self.assertNotEqual(old_risk['id'],new_risk['id'])
-        self.assertEqual(delta_view(old,new)['list_changes']['fields']['hediffs']['replace']['0']['severity'],4.123)
+        from tools.rimworld.observations import apply_list_patch
+        self.assertEqual(apply_list_patch(old['data']['hediffs'],delta_view(old,new)['list_changes']['fields']['hediffs'])[0]['severity'],4.123)
         new['data']['bleedRatePerDay']=0.9
         self.assertEqual(next(r for r in signals(new) if r['kind']=='bleedRatePerDay')['severity'],'critical')
 
@@ -143,7 +144,8 @@ class Persistence(Workspace):
         new=copy.deepcopy(old);new['data']['hediffs'][0],new['data']['hediffs'][1]=new['data']['hediffs'][1],new['data']['hediffs'][0]
         delta=delta_view(old,new);reconstructed=copy.deepcopy(data['hediffs'])
         patch=delta['list_changes']['fields']['hediffs']
-        for index,value in patch['replace'].items():reconstructed[int(index)]=value
+        from tools.rimworld.observations import apply_list_patch
+        reconstructed=apply_list_patch(reconstructed,patch)
         self.assertEqual(reconstructed,new['data']['hediffs'])
         new['data']['hediffs'].append({'label':'New injury','severity':5})
         self.assertEqual(delta_view(old,new)['health']['hediffs'],new['data']['hediffs'])
