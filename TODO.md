@@ -6,11 +6,12 @@ Future gameplay should extend evidence where relevant: combat reaction and multi
 
 Continue adding sourced mechanics as decisions demand them. Agent-selected queries, medical detail and novel fields can legitimately be large. Further speed work needs measured end-to-end loops; tiny RPC latency does not establish fast agent response. Colony work is tracked in its own STRATEGY/ISSUES/actions and immutable handoff.
 
-## Active discovery findings — day38 lab continuation
+## Active discovery findings
 
-- Native UI: Options category labels appear in get_window_ui but are absent from tabs/buttons. window_action tab=Mod options rejects (obs-0116e2aef1e1416387d4161f61906e3c). Fullscreen aligned the CUA pointer visually, but repeated clicks still did not select the category. Cause unresolved; do not claim a coordinate fix. Options closed using verified MCP OK (obs-335c148595144068aeb7a785bed4e282). Allow AI screenshots remains disabled. Future improvement should support ordinary visible category selectors, without direct settings mutation.
-- Prisoner genes: list_genes uses a colonist-only resolver although prisoner Genes UI exists. Extend only to legitimately visible pawn data after checking the source and UI, not hidden information.
-- Carried objects: inspected ColonistTabs.cs gear builder exposes equipment/apparel/inventory but no carryTracker. Map enumeration covers spawned things. These scopes cannot establish that an absent crafted product is destroyed. Masterwork tribalwear subsequently verified spawned in storage in obs-84d970fdad8245f38aa6d76a3db28c2a; carrying as the earlier cause is unproven.
-- Absent tool-name diagnostics now direct local capability discovery; an incorrect name must not trigger unnecessary reconnect/rebind. No transport or gameplay behavior changed.
-
-- Alert-priority fidelity corrected: named High/Medium/Low are reviewable rather than automatically Critical; Critical and unknown priorities remain blockers. No label whitelist.148 tests pass. Live source evidence: RimMoltTools.GetActiveAlerts serializes Priority.ToString; prior layer promoted every High alert, including optional quest expiry. Finite-monitor field validation still pending; do not claim improved unattended capability.
+- Options category selectors appear only as labels in get_window_ui, absent from actionable tabs/buttons. Normal UI click delivery remains unqualified on the test host. Add generic visible-control support only after reproducing the mechanism; do not directly change settings as a workaround.
+- list_genes uses a colonist-only resolver although a prisoner Genes UI can exist. Any expansion must preserve ordinary player visibility.
+- Gear inspection exposes equipment/apparel/inventory but not held carry-tracker objects; map enumeration covers spawned objects. Their absence cannot establish destruction. Capture scope explicitly and consider a visible held-object observation.
+- Unknown tool-name guidance now directs local discovery, not unnecessary reconnect.
+- Named UI High/Medium/Low alerts require explicit review; Critical and unknown remain blockers. No strategy label whitelist. Finite-monitor live qualification remains pending.
+- Independent review confirmed session-baseline reuse and nested bool/number equality defects. Fixes and154 regression tests pass. Root handoff now routes campaign-local play state without containing it.
+- Next performance work: measure full loops and event-to-response, separating intentional game time from RPC/persistence, host orchestration and agent review. Smaller output alone is not a speed result.

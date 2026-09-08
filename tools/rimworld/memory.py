@@ -258,6 +258,8 @@ class Campaign:
         with lock(self.path / ".memory.lock"):
             state = self._load()
             before = {obs["key"]: state["facts"].get(obs["key"], {}).get("latest") for obs in (main, *children)}
+            before = {obs['key']: (prior if prior and prior.get('session_id') == obs['session_id'] else None)
+                      for obs in (main, *children) for prior in [before[obs['key']]]}
             # A monitor/handoff may have inspected facts without showing them to
             # the agent. Do not emit deltas against that unseen baseline.
             reset_at = self.meta.get("presentation_reset_at")

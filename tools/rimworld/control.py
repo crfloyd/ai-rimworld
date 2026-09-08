@@ -129,6 +129,9 @@ class Control:
             append_json(self.path / "history.jsonl", {"kind": "reconciled", "pending": pending,
                         "evidence": evidence, "reason": reason, "at": now(),
                         "basis": "operator-reviewed terminal server/process evidence"})
+            # A terminated worker may have persisted a response without delivering it.
+            self.campaign.meta['presentation_reset_at'] = now()
+            atomic_json(self.campaign.path / 'campaign.json', self.campaign.meta)
             (self.path / "pending.json").unlink()
             return {"reconciled": True, "replayed": False,
                     "action_status": "Reconcile the gameplay outcome separately; this does not mark it successful."}
@@ -149,6 +152,7 @@ class Control:
                 stale.unlink()
             # A reconnect invalidates the prior identity attestation.
             self.campaign.meta.update(session_id=identifier("session-"), binding=None,
+                                      presentation_reset_at=now(),
                                       endpoint=self.endpoint, catalog_digest=catalog["schema_digest"])
             atomic_json(self.campaign.path / "campaign.json", self.campaign.meta)
             return {"connected": True, "tools": len(tools), "catalog": "raw/catalog.json",
@@ -325,6 +329,9 @@ class Control:
                 return result
             except BaseException as exc:
                 # Even local persistence failure after a server response makes this request unsafe to replay.
+                # The observation may have been persisted without reaching the agent.
+                self.campaign.meta['presentation_reset_at'] = now()
+                atomic_json(self.campaign.path / 'campaign.json', self.campaign.meta)
                 pending.update(status="unknown", error=str(exc), elapsed_seconds=time.monotonic() - started)
                 atomic_json(self.path / "pending.json", pending)
                 if action and (self.campaign.action_record(action["id"]) or {}).get("status") not in ("completed", "abandoned"):

@@ -79,3 +79,11 @@ CLI `--full-output` exposes structured fingerprints/provenance; `retrieve --obse
 Shared sourced mechanics are independent of adopted tactical lessons. Use `mechanics` for cross-run game reference and `recall` to join matching mechanics, local lessons and unresolved intentions. Results retain applicability/status/evidence and do not certify present state. Output model coverage is separate from query completeness; a parsed unmodeled response is explicitly labeled. See [the mechanics bank](../knowledge/mechanics/README.md).
 
 Routine equal-length lists may use field updates against a named prior observation: replace gives complete rows; update gives set/remove fields plus identity when available. Untouched fields persist. Reordered IDs use complete replacement. Removed response properties do not prove removal from the game world. tools.rimworld.observations.apply_list_patch reconstructs the exact list, including columnar baselines; retrieve the baseline if unavailable.
+
+## Presentation continuity and scalar types
+
+The first response in a new session is complete for its requested scope, including bundled child observations. Reconnect, reconciliation of an uncertain request, and caught post-response failures reset presentation baselines without replaying the action. A presentation-version transition also emits a fresh baseline; raw history and normalization remain available. Handoff/monitor reset behavior still applies. A host losing an otherwise successful output without reporting that loss cannot be detected automatically: explicitly reset via a handoff before continuing from unseen evidence.
+
+Delta comparisons and row patches compare nested JSON types recursively. Boolean false is distinct from numeric zero, including inside lists/objects and row identities. Partial/unavailable responses still retain their coverage limits; full presentation never means missing scope was observed.
+
+Root HANDOFF.md describes tooling status and run-selection routing only. Campaign identities, permissions, current orders, tactical discoveries and uncertainties belong in the selected campaign's strategy and immutable handoffs. Root guidance never supersedes a campaign strategy.

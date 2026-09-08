@@ -185,7 +185,7 @@ def normalize(tool, args, payload, campaign_id, session_id, origin="live",
         data.setdefault("warning", message)
         data["_normalizationWarnings"] = [message]
     captured = now()
-    return {"normalizer_version": 4, "id": identifier("obs-"), "campaign_id": campaign_id, "session_id": session_id,
+    return {"normalizer_version": 4, "presentation_version": 1, "id": identifier("obs-"), "campaign_id": campaign_id, "session_id": session_id,
             "origin": origin, "tool": tool, "args": copy.deepcopy(args), "scope": scope,
             "key": tool + ":" + digest(scope)[:20], "captured_at": captured,
             "source_captured_at": source_captured_at or (captured if origin in ("live", "fixture") else None),
@@ -303,16 +303,27 @@ def evidence_index(observation):
     return view
 
 
+def same_value(left, right):
+    """JSON evidence equality, preserving nested scalar types (False is not 0)."""
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return left.keys() == right.keys() and all(same_value(left[k], right[k]) for k in left)
+    if isinstance(left, list):
+        return len(left) == len(right) and all(same_value(a, b) for a, b in zip(left, right))
+    return left == right
+
+
 def make_list_patch(old, new):
     """Lossless positional updates; choose small row edits only when useful."""
     patch = {'length': len(new), 'replace': {}}
     updates = {}
     for i, value in enumerate(new):
         prior = old[i]
-        if value == prior: continue
+        if same_value(value, prior): continue
         edit = None
-        if isinstance(prior, dict) and isinstance(value, dict) and prior.get('id') == value.get('id'):
-            edit = {'set': {k:v for k,v in value.items() if k not in prior or prior[k] != v},
+        if isinstance(prior, dict) and isinstance(value, dict) and same_value(prior.get('id'), value.get('id')):
+            edit = {'set': {k:v for k,v in value.items() if k not in prior or not same_value(prior[k], v)},
                     'remove': [k for k in prior if k not in value]}
             if not edit['remove']: edit.pop('remove')
             if 'id' in prior: edit['identity'] = prior['id']
@@ -331,7 +342,7 @@ def apply_list_patch(old, patch):
     for key,value in patch.get('replace',{}).items(): result[int(key)] = copy.deepcopy(value)
     for key,edit in patch.get('update',{}).items():
         row = result[int(key)]
-        if not isinstance(row,dict) or ('identity' in edit and row.get('id') != edit['identity']):
+        if not isinstance(row,dict) or ('identity' in edit and not same_value(row.get('id'), edit['identity'])):
             raise ValueError('Patch row identity differs from baseline')
         for name in edit.get('remove',[]): row.pop(name,None)
         row.update(copy.deepcopy(edit.get('set',{})))
@@ -343,12 +354,16 @@ def changed(previous, current):
     if previous is None:
         return {"first_observation": True}
     old, new = previous["data"], current["data"]
-    keys = [k for k in new if k not in ("_mcpText", "bundled") and (k not in old or new[k] != old[k])]
+    keys = [k for k in new if k not in ("_mcpText", "bundled") and (k not in old or not same_value(new[k], old[k]))]
     return {"changed_fields": keys, "not_returned_now": [k for k in old if k not in new and k != "_mcpText"],
             "previous_evidence": previous["id"]}
 
 
 def delta_view(previous, current):
+    # Deltas require the same evidence lineage, even for direct callers.
+    if previous is not None and any(not same_value(previous.get(k), current.get(k))
+                                    for k in ('campaign_id', 'session_id', 'origin', 'tool', 'scope', 'presentation_version')):
+        previous = None
     change = changed(previous, current)
     if previous is None or current["completeness"] != "known" or previous["completeness"] != "known":
         result = compact(current)
@@ -433,7 +448,7 @@ def matches(observation, check):
             answer = True if True in values else (None if None in values else False)
             answers.append((not answer) if op == "no_item" and answer is not None else answer)
         elif op == "eq":
-            answers.append(type(value) is type(expected) and value == expected)
+            answers.append(same_value(value, expected))
         elif op == "contains":
             answers.append(expected in value if isinstance(value, (list, str, dict)) else None)
         elif op == "exists":
