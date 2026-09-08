@@ -82,7 +82,7 @@ def expected_fields(tool, args, data):
         return ["resources"]
     if tool == "list_colonists":
         return ["colonists"]
-    if tool == "list_things": return ["things"]
+    if tool == "list_things": return ["groups"] if args.get("summary") else ["things"]
     if tool == "list_fires": return ["fires"]
     if tool == "list_wildlife":
         return ["animals"]
@@ -110,7 +110,7 @@ def normalize(tool, args, payload, campaign_id, session_id, origin="live",
         "get_status": {"loaded": bool, "paused": bool, "maps": list, "bundled": dict},
         "get_alerts": {"activeAlerts": list}, "get_resources": {"resources": list},
         "list_colonists": {"colonists": list}, "list_wildlife": {"animals": list},
-        "list_things": {"things": list}, "list_fires": {"fires": list},
+        "list_things": {"things": list, "groups": list}, "list_fires": {"fires": list},
         "wait_for_event": {"cause": str, "ticksWaited": (int, float), "pausedAfter": bool},
     }.get(tool, {})
     if tool == "get_pawn":
@@ -147,13 +147,15 @@ def normalize(tool, args, payload, campaign_id, session_id, origin="live",
         data.setdefault("warning", message)
         data["_normalizationWarnings"] = [message]
     captured = now()
-    return {"normalizer_version": 3, "id": identifier("obs-"), "campaign_id": campaign_id, "session_id": session_id,
+    return {"normalizer_version": 4, "id": identifier("obs-"), "campaign_id": campaign_id, "session_id": session_id,
             "origin": origin, "tool": tool, "args": copy.deepcopy(args), "scope": scope,
             "key": tool + ":" + digest(scope)[:20], "captured_at": captured,
             "source_captured_at": source_captured_at or (captured if origin in ("live", "fixture") else None),
             "tick": observed_tick, "tick_basis": tick_basis, "map_index": explicit_map,
             "completeness": state, "missing": missing, "malformed": malformed,
-            "coverage": {"known_empty_basis": empty_basis, "expected": expected_fields(tool, args, data),
+            "coverage": {"model": "reviewed fields; semantics require agent judgment" if types else "unmodeled",
+                         "kind": "aggregate" if args.get("summary") else "requested scope",
+                         "known_empty_basis": empty_basis, "expected": expected_fields(tool, args, data),
                          "present": [k for k in data if not k.startswith("_")],
                          "missing": missing, "malformed": malformed,
                          "schema": "reviewed tool/tab fields" if types else "unmodeled; inspect before automation"}, "data": data, "seconds": seconds,
@@ -179,6 +181,30 @@ def bundle_children(observation):
     return children
 
 
+def pack_rows(rows):
+    """Lossless columnar encoding; explicit absent cells distinguish null/missing.
+
+    Choose it only when smaller than literal rows. No fields or rows are dropped.
+    """
+    if not rows or not all(isinstance(r, dict) for r in rows): return rows
+    columns = sorted({k for r in rows for k in r})
+    result = {"encoding": "columns-v1", "columns": columns,
+              "rows": [[r.get(k) for k in columns] for r in rows]}
+    absent = {str(i): [j for j,k in enumerate(columns) if k not in r]
+              for i,r in enumerate(rows) if any(k not in r for k in columns)}
+    if absent: result["absent"] = absent
+    return result if len(json.dumps(result)) < len(json.dumps(rows)) else rows
+
+
+def unpack_rows(value):
+    if isinstance(value, list): return value
+    if not isinstance(value, dict) or value.get("encoding") != "columns-v1":
+        raise Error("Not a columns-v1 table.")
+    return [{k: row[j] for j,k in enumerate(value["columns"])
+             if j not in value.get("absent", {}).get(str(i), [])}
+            for i,row in enumerate(value["rows"])]
+
+
 def compact(observation, *, full=False):
     """Compact typed views; full evidence is always available. Risk extraction precedes reduction."""
     from collections import Counter
@@ -186,6 +212,8 @@ def compact(observation, *, full=False):
     d = observation["data"]
     result = {k: observation[k] for k in ("id", "tool", "scope", "tick", "tick_basis",
                                          "captured_at", "completeness", "missing", "origin")}
+    result["model"] = observation.get("coverage", {}).get("model", "unmodeled")
+    result["query_kind"] = observation.get("coverage", {}).get("kind", "unknown")
     result["warnings"] = observation["warnings"]
     result["evidence"] = observation.get("raw", observation["id"])
     result["risks"] = signals(observation)
@@ -193,11 +221,8 @@ def compact(observation, *, full=False):
     if observation["completeness"] != "known":
         result["message"] = d.get("message", d.get("error", "Partial or unavailable observation"))
         result["known_subset"] = {k: v for k, v in data.items() if k not in observation.get("malformed", [])}
-        if observation["tool"] != "get_pawn":
-            result["known_subset"] = {k: ({"observed_count": len(v), "detail": result["evidence"],
-                                          "coverage": "partial; retrieve known rows before using them"}
-                                         if isinstance(v, list) and len(v) > 12 else v)
-                                      for k, v in result["known_subset"].items()}
+        result["known_subset"] = {k: pack_rows(v) if isinstance(v,list) else v
+                                  for k,v in result["known_subset"].items()}
         result["coverage"] = observation.get("coverage")
         return result
     tool = observation["tool"]
@@ -212,15 +237,10 @@ def compact(observation, *, full=False):
         result["bundle_tools"] = list(d.get("bundled", {}))
     elif tool in ("get_area", "list_things") and isinstance(d.get("things"), list):
         things = d["things"]
-        result["terrain"] = d.get("terrainSummary")
         result["counts"] = dict(Counter(t.get("def", t.get("defName", "?")) for t in things if isinstance(t, dict)))
-        result["total"] = len(things)
-        result["detail_pointer"] = result["evidence"]
-        result["omitted"] = "Full positions, quantities and properties require retrieve before spatial/tactical decisions. Risk signals above are retained."
-    elif tool in ("list_architect", "list_recipes", "get_research", "list_quests"):
-        result["data"] = {k: ({"count": len(v), "detail": result["evidence"]} if isinstance(v, list) and len(v) > 12 else v)
-                          for k, v in data.items()}
-        result["omitted"] = "Large reference lists are indexed, not silently truncated; retrieve the needed details."
+        result["data"] = {k: pack_rows(v) if isinstance(v, list) else v for k,v in data.items()}
+    elif tool in ("list_architect", "list_recipes", "get_research"):
+        result["data"] = {k: pack_rows(v) if isinstance(v, list) else v for k,v in data.items()}
     else:
         result["data"] = data
     return result

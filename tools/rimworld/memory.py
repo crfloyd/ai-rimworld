@@ -84,7 +84,8 @@ class Campaign:
             raise Error("Campaign metadata does not match directory identity.")
 
     def _repair(self, obs):
-        if obs.get("normalizer_version") != 3:
+        if obs.get("normalizer_version") != 4:
+            obs["presentation_legacy"] = True
             repaired = normalize(obs["tool"], obs["args"], obs["data"], obs["campaign_id"],
                                  obs["session_id"], obs["origin"], tick=obs.get("tick"))
             for key in ("scope", "key", "completeness", "missing", "malformed", "coverage", "data", "warnings", "normalizer_version"):
@@ -101,10 +102,10 @@ class Campaign:
             initialize(db)
             row = db.execute('SELECT state FROM metadata WHERE id=1').fetchone()
             state = json.loads(row[0]) if row and not rebuild else {}
-            reset = state.get("schema_version") != 5
+            reset = state.get("schema_version") != 6
             if reset:
                 db.execute('DELETE FROM facts')
-                state = {"schema_version": 5, "offset": 0, "epoch": 0, "latest_tick": None,
+                state = {"schema_version": 6, "offset": 0, "epoch": 0, "latest_tick": None,
                          "tick_basis": "unknown", "last_observation": None,
                          "last_metadata": {}, "count": 0}
             offset_before = state["offset"]
@@ -272,6 +273,7 @@ class Campaign:
             state = self._load()
             self._verify_actions(state, (main, *children))
             self._write_views(state)
+        before = {key: None if old and old.get("presentation_legacy") else old for key,old in before.items()}
         result = delta_view(before[main["key"]], main)
         if children:
             result["bundle"] = [delta_view(before[child["key"]], child) for child in children]
