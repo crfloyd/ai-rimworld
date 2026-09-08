@@ -1,0 +1,9 @@
+{
+  "kind": "verification",
+  "summary": "Explain the observed outcome and any uncertainty",
+  "source": "Original fresh screenshot/observation path",
+  "session_id": "CURRENT_SESSION_ID",
+  "action_id": "ACTION_ID",
+  "origin": "live",
+  "observed_outcome": "Describe what the current source actually establishes; do not infer from an accepted order"
+}

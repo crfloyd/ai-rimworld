@@ -1,0 +1,75 @@
+{
+  "name": "list_things",
+  "description": "List spawned things on a map, filtered by category and faction. Use this to get all pawns, all hostiles, all colonists, all buildings/items, etc. Provide an anchor ('nearId' = a thing/pawn, or 'nearX'+'nearZ') to sort results nearest-first and include 'distance'; optionally limit by 'radius'. TOKENS: results are compact (default/empty fields omitted: absent faction = none, absent hostile = not hostile, absent forbidden = allowed). Use 'summary' for just per-def counts (smallest payload), 'verbose' for the full fixed-shape record, and 'limit' to cap rows. When category=item, the result also carries a 'storage' block (free storage slots per zone/shelf); if all storage is full it includes a 'warning' recommending more shelves or a bigger stockpile. In summary mode, item results also carry a 'forbiddenSplit' block (allowedCount/forbiddenCount plus per-def groups for each) so you can see at a glance which item stacks are forbidden vs allowed across the whole map \u2014 see also list_unmanaged_items for a position-level list of exactly what to haul/allow. Blueprints (planned, not started) and frames (under construction) are never reported as if they were the finished building: 'construction' says which, 'label' states the status in words, and frames also carry 'percentComplete' (work progress) and 'materialsPercent' (how much of the required stuff has been delivered \u2014 a frame can sit at 100% materials but 0% work if construction stalled). Live hostile pawns also carry 'targeting' (e.g. 'attacking colonist Alice', 'targeting door') \u2014 what their current job is aimed at; this is AI-internal info a human player can't see directly, gated by the 'Reveal hostile targeting' mod setting (default on) and omitted when off.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "category": {
+        "type": "string",
+        "enum": [
+          "all",
+          "pawn",
+          "building",
+          "item",
+          "plant",
+          "filth",
+          "blueprint",
+          "frame",
+          "construction"
+        ],
+        "description": "Thing category filter"
+      },
+      "faction": {
+        "type": "string",
+        "enum": [
+          "any",
+          "player",
+          "hostile",
+          "neutral",
+          "wild"
+        ],
+        "description": "Faction relation filter"
+      },
+      "defName": {
+        "type": "string",
+        "description": "Exact ThingDef defName filter (optional)"
+      },
+      "summary": {
+        "type": "boolean",
+        "description": "Return only per-def counts ({def,label,count}) instead of individual things"
+      },
+      "verbose": {
+        "type": "boolean",
+        "description": "Include all fields per thing instead of the compact form"
+      },
+      "nearId": {
+        "type": "string",
+        "description": "Anchor ThingID: sort results by distance from this thing/pawn"
+      },
+      "nearX": {
+        "type": "integer",
+        "description": "Anchor cell X (used with nearZ if no nearId)"
+      },
+      "nearZ": {
+        "type": "integer",
+        "description": "Anchor cell Z (used with nearX if no nearId)"
+      },
+      "radius": {
+        "type": "integer",
+        "description": "Only include things within this distance of the anchor (optional)"
+      },
+      "mapIndex": {
+        "type": "integer",
+        "description": "Map index (default: current map)"
+      },
+      "limit": {
+        "type": "integer",
+        "description": "Max results to return (default 300)"
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "Fetch the full output even when it exceeds the large-output guard (~25k chars)"
+      }
+    }
+  }
+}

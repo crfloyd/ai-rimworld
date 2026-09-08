@@ -1,0 +1,3 @@
+{"id": "PawnA", "name": "Example doctor", "overallHealthPercent": 52, "downed": false,
+ "hediffs": [{"label": "Infection (major)", "severity": 0.47, "immunity": 100, "tended": true,
+              "tooltip": "Immunity: 99.7%\nCan tend now\nTending expires in 3 hours"}]}

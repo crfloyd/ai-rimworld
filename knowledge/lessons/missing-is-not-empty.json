@@ -1,0 +1,31 @@
+{
+  "id": "missing-is-not-empty",
+  "title": "Missing observations must remain unknown",
+  "topics": [
+    "memory",
+    "control"
+  ],
+  "status": "provisional",
+  "applicability": {
+    "required_dlc": [],
+    "game_version": "Observed in RimWorld 1.6; revalidate behavior for the current game.",
+    "mods": "RimMolt and ordinary gameplay; details can vary by version and other enabled mods."
+  },
+  "observed": "A large-output guard was reduced to an empty list by a default value.",
+  "explanation": "The caller discarded the distinction between incomplete output and an empty area.",
+  "recommendation": "Check completeness before filtering or counting; narrow or summarize a guarded read.",
+  "exceptions": "A present empty list in a complete response can be valid evidence of absence within that exact scope.",
+  "verify": "Replay the offline large-area fixture and confirm partial status with missing things, not zero objects.",
+  "evidence": [
+    {
+      "source": "knowledge/evidence/observed-failures.md",
+      "kind": "reviewed observation",
+      "scope": "Observation 1; a single deidentified campaign"
+    }
+  ],
+  "reviewed_at": "2026-09-08T02:25:26.861584+00:00",
+  "review": "Reviewed source account; retain provisional status and avoid universal tactical claims.",
+  "revision": 1,
+  "scope": "shared",
+  "campaign_id": null
+}

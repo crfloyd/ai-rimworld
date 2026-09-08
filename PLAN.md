@@ -1,0 +1,28 @@
+# Agent information layer — implementation plan
+
+## Objective and boundaries
+
+The agent chooses strategy. The layer discovers capabilities, gathers ordinary player-visible evidence, preserves history, retrieves relevant mechanics and lessons, and returns compact meaningful changes with truthful uncertainty. Optimize information gained, correct decisions and end-to-end reaction time; token reduction alone is insufficient. No debug, hidden tactical information, balance changes, save manipulation or tactical reloads.
+
+User authorized implementation, Git initialization/baseline commit, cleanup, shared mechanics knowledge and supervised validation with existing Continuance. Earlier maintenance-only/no-game notes are superseded for this task. Do not initialize a replacement game to test new-run records. All actual live calls require the existing serialized ownership/handoff protocol.
+
+## Ordered work and acceptance
+
+- [ ] P0 Establish Git baseline, exclusions and this durable plan. Preserve campaign journals/book/images outside Git. Git history replaces duplicate release/source archives as code history; do not discard unique evidence.
+- [ ] P1 Correct observation fidelity: preserve unfamiliar fields and meaningful entity changes; separately expose parse/query/model coverage; handle summary variants; retain full retrieval and unseen-baseline resets. Regression unknown fields, aggregate vs spatial scope, partial failures and unchanged output.
+- [ ] P2 Capability and spatial retrieval: all captured tools discoverable with exact schemas, effects and source limits; targeted area/row queries retain IDs/positions/quantities and explain omissions. Review mixed-effect tools individually, preserve denied gameplay operations. Remove obsolete tool names and duplicated capability authority.
+- [ ] P3 Shared mechanics bank: canonical reviewable structured records with explanatory prose, sources, game/DLC/mod applicability, uncertainty, revision and contradicted/retired states. Rebuildable local SQLite FTS index, no external service or embedding dependency. Any agent using this project can query without selecting a campaign. Distinguish sourced mechanics, tool behavior and campaign lessons. Read results do not become gameplay permissions or live facts. Seed verified mechanics relevant to construction, medical care, combat, economy and Odyssey; retrieve details on demand.
+- [ ] P4 General intentions and contextual recall: consequential changes tracked without strategic family whitelist; agent supplies intended effect and verification; accepted never completed. Retrieval joins relevant mechanics, local lessons, unresolved intentions/dependencies and evidence, while keeping unrelated history out.
+- [ ] P5 Agent-directed observation scheduling and timing: agent selects subjects, coverage, cadence, predicates and finite horizon; layer reports observations/changes and reliable pause state. Include prisoners and other selected non-colonists. Avoid hardcoded strategic judgments. Preserve safety around unknown coverage; measure observation-to-action phases, output and false interruptions honestly.
+- [ ] P6 Cleanup and offline integration: one current plan/handoff/validation authority, remove unused duplicate code/docs once references/tests confirm safe; preserve original run/history and unique audit evidence outside routine context. Check fresh local run and existing-run resume, evidence isolation, full API discovery, knowledge applicability, uncertain orders and novelty against held-out evidence. Commit coherent increments.
+- [ ] P7 Supervised live lab: claim handed-off session, verify game identity/pause/current risks, practice observation/action/verification/recall in existing colony. Initially small waits around patients; extend only after observed stability. Aim for meaningful progress and a five-day checkpoint if safe; prioritize actual events over an arbitrary duration. Correct observed defects and repeat affected checks. Record exact ticks, actions, outputs, timings, mistakes, unknowns and framed history when due. Finish with actual pause, released ownership, immutable run handoff and committed project evidence. A lab run is not a victory claim.
+
+## Working method and continuity
+
+Read AGENTS.md, this plan and HANDOFF.md on resume. Mark a phase complete only with linked evidence; keep unresolved findings in TODO.md. Before each code increment inspect current source/tests, implement bounded changes and run meaningful regressions. All live calls stay serialized; never replay uncertain mutations. Changes to tool visibility must preserve honest play. Avoid a tooling rewrite that strands the colony.
+
+Use Markdown/JSON for authored knowledge and plans, append-only campaign evidence and rebuildable SQLite indexes for retrieval. Do not train automatic strategies from a single episode. Agents may write researched records but must attach evidence and applicability; contradictions remain discoverable.
+
+## Current state
+
+P0 active. Baseline runner 0.3.1; 124 tests previously passing. API review docs/api/README.md identifies 113 tools, 64 with no built-in classification, unknown-field loss, unmodeled-known conflation and summary-mode mismatch. Latest saved colony state: Continuance paused tick2287413, eight colonists, Tatyana/Swan tended but recovering; ownership released. Fresh inspection required before relying on this. Next book/report checkpoint day40/tick2400000. Full run pointers remain in HANDOFF.md until replaced by new verified handoff.

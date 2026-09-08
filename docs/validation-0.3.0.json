@@ -1,0 +1,11 @@
+{
+  "version": "0.3.0",
+  "test_command": "python3 -B tools/check.py",
+  "passed_cases": 111,
+  "runtime_source_digest": "1b3e0747112b0bdfdeef059c973a5ee5feb2652b8aba7cd15a3e43f96f5835b0",
+  "benchmark": "docs/benchmark-0.3.0-release.json",
+  "demo": "/tmp/rimworld-support-demo-0.3.0-audit/demo-results.json",
+  "live_game_accessed": false,
+  "game_mod_save_files_modified": false,
+  "field_validation": "Pending; see VALIDATION.md and TODO.md"
+}

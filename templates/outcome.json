@@ -1,0 +1,8 @@
+{
+  "decision": "DECISION_EVENT_ID",
+  "summary": "What actually happened",
+  "result": "inconclusive",
+  "observed": "Separate observation from explanation",
+  "evidence": ["OBSERVATION_OR_EVENT_ID"],
+  "review": "How this compares with the expected result and what needs investigation"
+}

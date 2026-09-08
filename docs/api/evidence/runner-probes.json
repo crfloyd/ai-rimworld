@@ -1,0 +1,360 @@
+{
+  "basis": "Offline synthetic probes of installed 0.3.1; no game calls. Invented fields test information handling, not claimed RimMolt fields.",
+  "valid_summary_shape": {
+    "input": {
+      "loaded": true,
+      "mapIndex": 0,
+      "matched": 0,
+      "mode": "summary",
+      "groups": []
+    },
+    "completeness": "partial",
+    "coverage": {
+      "known_empty_basis": null,
+      "expected": [
+        "things"
+      ],
+      "present": [
+        "loaded",
+        "mapIndex",
+        "matched",
+        "mode",
+        "groups"
+      ],
+      "missing": [
+        "things"
+      ],
+      "malformed": [],
+      "schema": "reviewed tool/tab fields"
+    },
+    "risks": [
+      {
+        "id": "8b87abb1d1a11797a67f6f5d924fba0ab1815dc6412fe878de66c89a96bd4711",
+        "kind": "coverage_loss",
+        "severity": "unknown",
+        "value": {
+          "state": "partial",
+          "missing": [
+            "things"
+          ],
+          "malformed": []
+        },
+        "evidence": "obs-a5f96e613d2949c7b8ffe31b7256580e",
+        "scope": {
+          "summary": true,
+          "mapIndex": 0
+        },
+        "acknowledgeable": false
+      }
+    ],
+    "agent_view": {
+      "id": "obs-a5f96e613d2949c7b8ffe31b7256580e",
+      "known_subset": {
+        "loaded": true,
+        "mapIndex": 0,
+        "matched": 0,
+        "mode": "summary",
+        "groups": []
+      },
+      "message": "Partial or unavailable observation",
+      "completeness": "partial",
+      "missing": [
+        "things"
+      ],
+      "coverage": {
+        "known_empty_basis": null,
+        "expected": [
+          "things"
+        ],
+        "present": [
+          "loaded",
+          "mapIndex",
+          "matched",
+          "mode",
+          "groups"
+        ],
+        "missing": [
+          "things"
+        ],
+        "malformed": [],
+        "schema": "reviewed tool/tab fields"
+      },
+      "risks": [
+        {
+          "kind": "coverage_loss",
+          "severity": "unknown",
+          "value": {
+            "state": "partial",
+            "missing": [
+              "things"
+            ],
+            "malformed": []
+          }
+        }
+      ]
+    }
+  },
+  "novel_unmodeled": {
+    "input": {
+      "novelHazard": {
+        "danger": true
+      }
+    },
+    "completeness": "known",
+    "coverage": {
+      "known_empty_basis": null,
+      "expected": [],
+      "present": [
+        "novelHazard"
+      ],
+      "missing": [],
+      "malformed": [],
+      "schema": "unmodeled; inspect before automation"
+    },
+    "risks": [],
+    "agent_view": {
+      "id": "obs-d6983f319967470988b24b2884b4dcb0",
+      "data": {
+        "novelHazard": {
+          "danger": true
+        }
+      }
+    }
+  },
+  "novel_area_field": {
+    "input": {
+      "things": [],
+      "terrainSummary": {},
+      "novelHazard": {
+        "danger": true
+      }
+    },
+    "completeness": "known",
+    "coverage": {
+      "known_empty_basis": null,
+      "expected": [
+        "things",
+        "terrainSummary"
+      ],
+      "present": [
+        "things",
+        "terrainSummary",
+        "novelHazard"
+      ],
+      "missing": [],
+      "malformed": [],
+      "schema": "reviewed tool/tab fields"
+    },
+    "risks": [],
+    "agent_view": {
+      "id": "obs-074d4bbd14974bd5bd9f125e179fb3c7",
+      "counts": {},
+      "total": 0,
+      "terrain": {},
+      "omitted": "Full positions, quantities and properties require retrieve before spatial/tactical decisions. Risk signals above are retained."
+    }
+  },
+  "novel_thing_field": {
+    "input": {
+      "things": [
+        {
+          "def": "Example",
+          "id": "example",
+          "novelHazard": true
+        }
+      ]
+    },
+    "completeness": "known",
+    "coverage": {
+      "known_empty_basis": null,
+      "expected": [
+        "things"
+      ],
+      "present": [
+        "things"
+      ],
+      "missing": [],
+      "malformed": [],
+      "schema": "reviewed tool/tab fields"
+    },
+    "risks": [],
+    "agent_view": {
+      "id": "obs-acfd369f84ab41da83dfce70f61ffe66",
+      "counts": {
+        "Example": 1
+      },
+      "total": 1,
+      "omitted": "Full positions, quantities and properties require retrieve before spatial/tactical decisions. Risk signals above are retained."
+    }
+  },
+  "new_delta_field": {
+    "input": {
+      "loaded": false,
+      "_delta": {
+        "novelHazard": true
+      }
+    },
+    "completeness": "known",
+    "coverage": {
+      "known_empty_basis": null,
+      "expected": [
+        "loaded"
+      ],
+      "present": [
+        "loaded"
+      ],
+      "missing": [],
+      "malformed": [],
+      "schema": "reviewed tool/tab fields"
+    },
+    "risks": [
+      {
+        "id": "9e28f292ad1c75130e7f4b161285761c00629177c89247c27b493ac69e0c2ee4",
+        "kind": "delta:novelHazard",
+        "severity": "unknown",
+        "value": true,
+        "evidence": "obs-66bd955b62ad430d9f5ce8fc83902a25",
+        "scope": {},
+        "acknowledgeable": false
+      }
+    ],
+    "agent_view": {
+      "id": "obs-66bd955b62ad430d9f5ce8fc83902a25",
+      "status": {
+        "loaded": false,
+        "_delta": {
+          "novelHazard": true
+        }
+      },
+      "risks": [
+        {
+          "kind": "delta:novelHazard",
+          "severity": "unknown"
+        }
+      ]
+    }
+  },
+  "classification": {
+    "add_bill": "mutation",
+    "add_surgery": "unclassified",
+    "assign_building": "mutation",
+    "build": "mutation",
+    "caravan_action": "unclassified",
+    "choose_ideoligion": "unclassified",
+    "create_world": "unclassified",
+    "create_xenogerm": "unclassified",
+    "delete_bill": "unclassified",
+    "delete_zone": "unclassified",
+    "designate": "mutation",
+    "do_thing_action": "mutation",
+    "draft": "mutation",
+    "edit_ideoligion": "unclassified",
+    "edit_starting_pawn": "unclassified",
+    "entity_codex": "unclassified",
+    "find_world_tiles": "unclassified",
+    "form_caravan": "unclassified",
+    "game_setup_status": "unclassified",
+    "get_alerts": "inspection-pausing",
+    "get_anomaly": "unclassified",
+    "get_area": "inspection-pausing",
+    "get_conditions": "inspection-pausing",
+    "get_info_card": "inspection-pausing",
+    "get_inspect_pane": "unclassified",
+    "get_live_chat": "unclassified",
+    "get_map": "inspection-pausing",
+    "get_pawn": "inspection-pausing",
+    "get_quest": "inspection-pausing",
+    "get_research": "inspection-pausing",
+    "get_resource_readout": "inspection-pausing",
+    "get_resources": "inspection-pausing",
+    "get_room": "unclassified",
+    "get_royalty": "unclassified",
+    "get_status": "inspection-pausing",
+    "get_window_ui": "inspection-pausing",
+    "get_world": "inspection-pausing",
+    "get_world_tile": "unclassified",
+    "help": "unclassified",
+    "implant_xenogerm": "unclassified",
+    "inspect_thing": "inspection-ui",
+    "learning_helper": "unclassified",
+    "list_animals": "inspection-pausing",
+    "list_architect": "inspection-pausing",
+    "list_bills": "inspection-pausing",
+    "list_colonists": "inspection-pausing",
+    "list_fires": "inspection-pausing",
+    "list_genes": "unclassified",
+    "list_main_buttons": "unclassified",
+    "list_mechs": "unclassified",
+    "list_policies": "unclassified",
+    "list_power_grids": "inspection-pausing",
+    "list_recipes": "inspection-pausing",
+    "list_study_targets": "unclassified",
+    "list_surgeries": "unclassified",
+    "list_things": "inspection-pausing",
+    "list_titles": "unclassified",
+    "list_trade": "unclassified",
+    "list_unmanaged_items": "unclassified",
+    "list_wildlife": "inspection-pausing",
+    "list_windows": "inspection-pausing",
+    "list_world_objects": "unclassified",
+    "list_zones": "unclassified",
+    "load_game": "denied",
+    "main_menu": "unclassified",
+    "manage_animal": "unclassified",
+    "manage_apparel_policy": "unclassified",
+    "manage_area": "mutation",
+    "manage_drug_policy": "unclassified",
+    "manage_food_policy": "unclassified",
+    "manage_gear": "mutation",
+    "manage_permits": "unclassified",
+    "manage_prisoner": "unclassified",
+    "order_pawn": "inspection-ui",
+    "quest_action": "mutation",
+    "read_letter": "inspection-ui",
+    "reform_ideoligion": "unclassified",
+    "rename_pawn": "unclassified",
+    "rename_zone": "unclassified",
+    "return_to_title": "unclassified",
+    "room_graph": "inspection-pausing",
+    "save_game": "mutation",
+    "say": "unclassified",
+    "screenshot": "unclassified",
+    "select_scenario": "unclassified",
+    "select_starting_site": "unclassified",
+    "select_storyteller": "unclassified",
+    "select_zone": "unclassified",
+    "set_allowed_area": "mutation",
+    "set_bill": "mutation",
+    "set_drug_policy": "unclassified",
+    "set_food_policy": "unclassified",
+    "set_growing_zone": "unclassified",
+    "set_hostility_response": "unclassified",
+    "set_ideo_role": "unclassified",
+    "set_mech_control": "unclassified",
+    "set_medical_care": "mutation",
+    "set_outfit": "unclassified",
+    "set_research": "mutation",
+    "set_schedule": "mutation",
+    "set_speed": "denied",
+    "set_stockpile_filter": "unclassified",
+    "set_stockpile_priority": "unclassified",
+    "set_study": "unclassified",
+    "set_trade": "unclassified",
+    "set_work_priority": "mutation",
+    "start_game": "unclassified",
+    "trade_action": "unclassified",
+    "use_permit": "mutation",
+    "wait_for_event": "advance",
+    "window_action": "mutation",
+    "world_object_action": "unclassified",
+    "world_target": "mutation"
+  },
+  "classification_counts": {
+    "mutation": 19,
+    "unclassified": 64,
+    "inspection-pausing": 24,
+    "inspection-ui": 3,
+    "denied": 2,
+    "advance": 1
+  }
+}

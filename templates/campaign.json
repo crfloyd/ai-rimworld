@@ -1,0 +1,48 @@
+{
+  "objective": null,
+  "mode": "fresh",
+  "rules": {
+    "honest_play": true,
+    "autonomy": null,
+    "recovery": null,
+    "restrictions": [],
+    "setup_fallbacks": []
+  },
+  "setup": {
+    "scenario": null,
+    "storyteller": null,
+    "difficulty": null,
+    "save_mode": null,
+    "starting_pawn_rules": null,
+    "dlc": [],
+    "mods": [],
+    "world_preferences": null
+  },
+  "ticks_per_day": 60000,
+  "report_interval_days": 5,
+  "preferences": {
+    "dlc_focus": null,
+    "theme": null,
+    "starting_advantage": null
+  },
+  "intake": {
+    "request": null,
+    "field_sources": {},
+    "unresolved_questions": [],
+    "delegated_choices": [],
+    "disclosed_defaults": [],
+    "profile": null,
+    "technical_checks_pending": [
+      "Installed DLC/mods and supported setup controls",
+      "Authorized game identity and actual control handoff"
+    ]
+  },
+  "environment": {
+    "verified": false,
+    "game_version": null,
+    "evidence": []
+  },
+  "learning": {
+    "shared_baseline": "reviewed"
+  }
+}

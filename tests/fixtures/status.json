@@ -1,0 +1,16 @@
+{
+  "loaded": true, "colonyName": "Fixture Colony", "storyteller": "Fixture storyteller",
+  "ticksGame": 300000, "paused": true, "daysPassed": 5,
+  "maps": [
+    {"mapIndex": 0, "name": "Home fixture", "kind": "Settlement", "colonists": 2},
+    {"mapIndex": 1, "name": "Away fixture", "kind": "Quest", "colonists": 1}
+  ],
+  "bundled": {
+    "list_colonists": {"colonists": [
+      {"id": "PawnA", "name": "Example doctor", "health": 52, "mood": 23, "job": "resting"},
+      {"id": "PawnB", "name": "Example builder", "health": 100, "mood": 60, "job": "building"}
+    ]},
+    "get_alerts": {"activeAlerts": [{"label": "Medical treatment needed", "priority": "High"}]},
+    "get_resources": {"resources": [{"defName": "MealSimple", "count": 8}]}
+  }
+}

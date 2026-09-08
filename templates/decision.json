@@ -1,0 +1,15 @@
+{
+  "kind": "decision",
+  "summary": "Describe the commitment",
+  "rationale": "Evidence and reasoning",
+  "expected_result": "What this should accomplish",
+  "risks": "What could go wrong",
+  "alternatives": "Other feasible options considered",
+  "reconsider_when": "What new evidence would change the choice",
+  "source": "Observation or event IDs supporting the decision",
+  "evidence": [
+    "OBSERVATION_OR_EVENT_ID"
+  ],
+  "topics": [],
+  "requires_completed": []
+}

@@ -1,0 +1,32 @@
+{
+  "id": "accepted-is-not-completed",
+  "title": "An accepted order needs an observed outcome",
+  "topics": [
+    "control",
+    "combat",
+    "medicine"
+  ],
+  "status": "provisional",
+  "applicability": {
+    "required_dlc": [],
+    "game_version": "Observed in RimWorld 1.6; revalidate behavior for the current game.",
+    "mods": "RimMolt and ordinary gameplay; details can vary by version and other enabled mods."
+  },
+  "observed": "Order acceptance was followed by an interrupted or ineffective job.",
+  "explanation": "An inference: asynchronous jobs can be displaced or fail after initial acceptance.",
+  "recommendation": "Track consequential orders and verify the intended state change before relying on it.",
+  "exceptions": "Some immediate configuration tools return the changed state directly; avoid unnecessary extra polls.",
+  "verify": "Use new job/position/health/equipment evidence or an explicit completion predicate.",
+  "evidence": [
+    {
+      "source": "knowledge/evidence/observed-failures.md",
+      "kind": "reviewed observation",
+      "scope": "Observation 2; a single deidentified campaign"
+    }
+  ],
+  "reviewed_at": "2026-09-08T02:25:26.860510+00:00",
+  "review": "Reviewed source account; retain provisional status and avoid universal tactical claims.",
+  "revision": 1,
+  "scope": "shared",
+  "campaign_id": null
+}

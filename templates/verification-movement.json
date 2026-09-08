@@ -1,0 +1,23 @@
+{
+  "tool": "get_pawn",
+  "args": {
+    "id": "USE_ACTUAL_PAWN_ID"
+  },
+  "all": [
+    {
+      "path": "x",
+      "op": "eq",
+      "value": 12
+    },
+    {
+      "path": "z",
+      "op": "eq",
+      "value": 34
+    },
+    {
+      "path": "mapIndex",
+      "op": "eq",
+      "value": 0
+    }
+  ]
+}

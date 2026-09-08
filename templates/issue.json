@@ -1,0 +1,17 @@
+{
+  "title": "Describe the recurring problem",
+  "rationale": "Explain why it threatens the objective",
+  "next_action": "Concrete next investigation or intervention",
+  "blocker": null,
+  "alternative": "What to try if that action remains unavailable",
+  "revisit": "When this must be reviewed",
+  "revisit_tick": null,
+  "resolution": "The observation that would establish resolution",
+  "occurrences": 1,
+  "review_after_occurrences": 2,
+  "status": "open",
+  "critical": false,
+  "topics": [],
+  "incident_ids": [],
+  "deadline": null
+}

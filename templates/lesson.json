@@ -1,0 +1,25 @@
+{
+  "id": "descriptive-lesson-id",
+  "title": "Describe the lesson",
+  "topics": [
+    "memory"
+  ],
+  "status": "provisional",
+  "applicability": {
+    "required_dlc": [],
+    "game_version": "State the observed version or unknown",
+    "mods": "State relevant mods and limits"
+  },
+  "observed": "Observed facts only",
+  "explanation": "Hypothesis or supported causal explanation, labeled accordingly",
+  "recommendation": "What to do in the matching situation",
+  "exceptions": "When this may not apply",
+  "verify": "How to establish whether the recommendation helps",
+  "evidence": [
+    {
+      "source": "Path or URL to original evidence",
+      "kind": "observation",
+      "scope": "What this source establishes"
+    }
+  ]
+}

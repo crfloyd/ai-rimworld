@@ -1,0 +1,33 @@
+{
+  "id": "fire-changes-the-defense",
+  "title": "Enemy abilities can invalidate a familiar formation",
+  "topics": [
+    "combat",
+    "construction"
+  ],
+  "status": "provisional",
+  "applicability": {
+    "required_dlc": [
+      "Biotech"
+    ],
+    "game_version": "Observed in RimWorld 1.6; revalidate behavior for the current game.",
+    "mods": "RimMolt and ordinary gameplay; details can vary by version and other enabled mods."
+  },
+  "observed": "Fire reached a doorway defender and spread into a previously used defensive position.",
+  "explanation": "A tactical hypothesis: insufficient distance and combustible access contributed to the failure.",
+  "recommendation": "Inspect enemy capabilities; prepare positions, material protection and retreat routes for the actual attack.",
+  "exceptions": "A different map, equipment or ability state may make another formation preferable.",
+  "verify": "Verify ranges, lines of sight and escape routes in current geometry before advancing.",
+  "evidence": [
+    {
+      "source": "knowledge/evidence/observed-failures.md",
+      "kind": "reviewed observation",
+      "scope": "Observation 3; a single deidentified campaign"
+    }
+  ],
+  "reviewed_at": "2026-09-08T02:25:26.862464+00:00",
+  "review": "Reviewed source account; retain provisional status and avoid universal tactical claims.",
+  "revision": 1,
+  "scope": "shared",
+  "campaign_id": null
+}

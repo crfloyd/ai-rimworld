@@ -1,0 +1,32 @@
+{
+  "id": "recurrence-needs-a-next-action",
+  "title": "Remembering a problem is not resolving it",
+  "topics": [
+    "memory",
+    "recruitment",
+    "economy"
+  ],
+  "status": "provisional",
+  "applicability": {
+    "required_dlc": [],
+    "game_version": "Observed in RimWorld 1.6; revalidate behavior for the current game.",
+    "mods": "RimMolt and ordinary gameplay; details can vary by version and other enabled mods."
+  },
+  "observed": "A recurring mood penalty remained open until it triggered another break.",
+  "explanation": "A hypothesis: the unresolved control gap and lack of a concrete revisit point prolonged the issue.",
+  "recommendation": "Record the next action, blocker, alternative and revisit condition; increase attention when symptoms repeat.",
+  "exceptions": "Some penalties are consciously accepted because remediation costs more than the harm; record that reasoning.",
+  "verify": "Check whether the issue was resolved, deliberately accepted, or assigned a fresh concrete intervention.",
+  "evidence": [
+    {
+      "source": "knowledge/evidence/observed-failures.md",
+      "kind": "reviewed observation",
+      "scope": "Observation 5; a single deidentified campaign"
+    }
+  ],
+  "reviewed_at": "2026-09-08T02:25:26.865792+00:00",
+  "review": "Reviewed source account; retain provisional status and avoid universal tactical claims.",
+  "revision": 1,
+  "scope": "shared",
+  "campaign_id": null
+}

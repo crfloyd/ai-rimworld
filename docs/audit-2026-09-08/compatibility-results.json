@@ -1,0 +1,8 @@
+{
+  "Pawn": "$.category: value is outside enum.",
+  "pawn": "valid",
+  "medical": {
+    "raw_json_bytes": 2591,
+    "unchanged_delta_json_bytes": 5306
+  }
+}

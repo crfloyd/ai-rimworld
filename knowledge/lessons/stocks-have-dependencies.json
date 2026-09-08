@@ -1,0 +1,31 @@
+{
+  "id": "stocks-have-dependencies",
+  "title": "A shortage requires production and consumption evidence",
+  "topics": [
+    "economy",
+    "construction"
+  ],
+  "status": "provisional",
+  "applicability": {
+    "required_dlc": [],
+    "game_version": "Observed in RimWorld 1.6; revalidate behavior for the current game.",
+    "mods": "RimMolt and ordinary gameplay; details can vary by version and other enabled mods."
+  },
+  "observed": "Low stock persisted alongside production orders and unfinished sites.",
+  "explanation": "The cause can be inputs, labor, access, consumption or materials already committed; stock alone is insufficient.",
+  "recommendation": "Inspect the production chain and compare output with consumption before repeating orders.",
+  "exceptions": "An urgent shortfall may require immediate hunting/trade or triage while investigation continues.",
+  "verify": "Observe completed output, available work, required inputs, storage/spoilage and committed materials.",
+  "evidence": [
+    {
+      "source": "knowledge/evidence/observed-failures.md",
+      "kind": "reviewed observation",
+      "scope": "Observation 6; a single deidentified campaign"
+    }
+  ],
+  "reviewed_at": "2026-09-08T02:25:26.866904+00:00",
+  "review": "Reviewed source account; retain provisional status and avoid universal tactical claims.",
+  "revision": 1,
+  "scope": "shared",
+  "campaign_id": null
+}

@@ -1,0 +1,17 @@
+{
+  "day": 5,
+  "chapter_file": "/absolute/path/to/reviewed-chapter.md",
+  "report": {
+    "overview": "What happened in this period",
+    "accomplishments": "Completed construction and progression",
+    "losses_and_risks": "Consequences and unresolved danger",
+    "next_five_days": "Near-term goals",
+    "next_year": "Long-term aim and victory direction"
+  },
+  "evidence": [
+    "ACTUAL_OBSERVATION_OR_EVENT_ID"
+  ],
+  "shots": [],
+  "missed_screenshots": "Replace with actual reviewed shot IDs, or explain the real reason images were missed.",
+  "review": "Explain the evidence and visual/narrative review."
+}

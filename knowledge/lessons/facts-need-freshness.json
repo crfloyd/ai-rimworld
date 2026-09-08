@@ -1,0 +1,30 @@
+{
+  "id": "facts-need-freshness",
+  "title": "Timestamped facts must survive a context handoff",
+  "topics": [
+    "memory"
+  ],
+  "status": "provisional",
+  "applicability": {
+    "required_dlc": [],
+    "game_version": "Observed in RimWorld 1.6; revalidate behavior for the current game.",
+    "mods": "RimMolt and ordinary gameplay; details can vary by version and other enabled mods."
+  },
+  "observed": "The state note lagged behind newer action and medical records.",
+  "explanation": "Independent manual copies of changing facts diverged.",
+  "recommendation": "Generate current fact views from evidence, preserve rationale separately, and revalidate on resume.",
+  "exceptions": "Stable historical details need less frequent refresh than active combat or treatment state.",
+  "verify": "Resume from an empty context and check gear, health, game time and unfinished actions against the newest evidence.",
+  "evidence": [
+    {
+      "source": "knowledge/evidence/observed-failures.md",
+      "kind": "reviewed observation",
+      "scope": "Observation 4; a single deidentified campaign"
+    }
+  ],
+  "reviewed_at": "2026-09-08T02:25:26.864247+00:00",
+  "review": "Reviewed source account; retain provisional status and avoid universal tactical claims.",
+  "revision": 1,
+  "scope": "shared",
+  "campaign_id": null
+}
