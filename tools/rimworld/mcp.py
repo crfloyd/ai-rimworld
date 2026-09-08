@@ -197,7 +197,7 @@ def validate(schema, value, root=None, path="$", strict_top=True):
             else:
                 extra = schema.get("additionalProperties", not (path == "$" and strict_top))
                 if extra is False:
-                    raise Error(f"{path}: unknown argument {key}")
+                    raise Error(f"{path}: unknown argument {key}; allowed fields: {sorted(properties)}")
                 if isinstance(extra, dict):
                     validate(extra, item, root, f"{path}.{key}", False)
     if isinstance(value, list):

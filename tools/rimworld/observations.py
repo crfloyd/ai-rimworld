@@ -284,6 +284,25 @@ def compact(observation, *, full=False):
     return result
 
 
+def evidence_index(observation):
+    """Navigation view, explicitly not a substitute for complete observations."""
+    view = compact(observation)
+    data = observation['data']
+    for key in ('data', 'health', 'needs', 'status', 'known_subset'):
+        view.pop(key, None)
+    view['view'] = 'index; retrieve observation before decisions needing nested details'
+    view['scalars'] = {k: v for k, v in data.items()
+                       if not isinstance(v, (dict, list)) and k != '_mcpText'}
+    # Keep medical/needs evidence and map/roster identity directly available on resume.
+    retained = {'hediffs', 'capacities', 'needs', 'thoughts', 'maps', 'colonists'}
+    view['details'] = {k: pack_rows(v) if isinstance(v, list) else v
+                       for k,v in data.items() if k in retained}
+    view['nested'] = {k: {'type': type(v).__name__, 'count': len(v),
+                         **({'keys': list(v)} if isinstance(v, dict) else {})}
+                      for k, v in data.items() if isinstance(v, (dict, list)) and k != 'bundled'}
+    return view
+
+
 def changed(previous, current):
     """Actual changed values. Missing keys are not inferred to mean empty/deleted."""
     if previous is None:

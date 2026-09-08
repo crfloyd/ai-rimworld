@@ -20,6 +20,8 @@ summary.json is a small generated directory-listing view of recorded time, evide
 
 ## Routine loading
 
+STATE.md is an evidence index: scalar values, all nested field names/counts, warnings and detected review signals remain visible; retrieve the named observation for nested details. Signals are not an exhaustive hazard model. Complete observations and normal tool responses retain their full information.
+
 Read campaign rules, brief, strategy and open issues on resume. Then use a live observation under owned control. During work, use compact deltas and context TOPIC to find relevant lessons and evidence pointers. Retrieve full observations with retrieve --observation ID. Before a consequential decision, retrieve missing medical, combat, recruitment, construction or victory details.
 
 The system uses no arbitrary output cap that removes active risks. Important medical detail may remain comparatively large. An agent should narrow queries and retire resolved facts rather than repeatedly loading all raw history.

@@ -81,3 +81,24 @@ class Novelty(unittest.TestCase):
         self.assertNotIn('targeting',obs['data']['things'][0])
         self.assertEqual(obs['data']['things'][0]['novelVisible'],7)
         self.assertIn('_visibilityExclusions',obs['data'])
+
+class IndexView(unittest.TestCase):
+    def test_index_keeps_warning_and_discovery_without_repeating_payload(self):
+        from tools.rimworld.observations import evidence_index
+        o=normalize('get_pawn',{'id':'p','tab':'health'},
+            {'loaded':True,'id':'p','downed':True,'hediffs':[{'label':'infection','severity':.8}],
+             'novelMechanic':{'unrecognized':[1,2,3]}},'c','s','fixture')
+        v=evidence_index(o)
+        self.assertTrue(v['scalars']['downed'])
+        self.assertEqual(v['nested']['novelMechanic']['keys'],['unrecognized'])
+        self.assertTrue(any(x['kind']=='incapacitated' for x in v['risks']))
+        self.assertEqual(v['id'],o['id']);self.assertNotIn('health',v)
+        self.assertEqual(o['data']['hediffs'][0]['label'],'infection')
+    def test_schedule_query_and_change_have_different_effects(self):
+        from tools.rimworld.control import effect
+        self.assertEqual(effect('set_schedule',{'id':'p'}),'inspection-ui')
+        self.assertEqual(effect('set_schedule',{'id':'p','assignment':'Sleep'}),'mutation')
+    def test_argument_error_exposes_available_names(self):
+        from tools.rimworld.mcp import validate
+        with self.assertRaisesRegex(Error,'allowed fields.*id'):
+            validate({'type':'object','properties':{'id':{'type':'integer'}}},{'questId':22})

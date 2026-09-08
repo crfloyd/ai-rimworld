@@ -9,7 +9,7 @@ from pathlib import Path
 from .core import (Error, append_json, atomic_json, atomic_text, canonical, contained,
                    identifier, journal, journal_entries, lock, now, read_json, require_fields, slug)
 from .facts import Facts, initialize, entries
-from .observations import bundle_children, changed, compact, delta_view, freshness, matches, normalize
+from .observations import bundle_children, changed, compact, evidence_index, delta_view, freshness, matches, normalize
 
 
 OPEN = {"requested", "accepted", "started", "unknown", "blocked", "interrupted"}
@@ -527,12 +527,12 @@ class Campaign:
                 continue
             # A failed read still carries the previous known fact, explicitly stale.
             if obs["completeness"] != "known":
-                lines += [canonical(compact(obs))]
+                lines += [canonical(evidence_index(obs))]
                 if entry.get("last_known"):
                     old = entry["last_known"]
                     lines += ["Last known, requiring revalidation: " +
                               canonical({"observation": old["id"], "captured_at": old["captured_at"],
-                                         "tick": old["tick"], "detail": old["raw"]})]
+                                         "tick": old["tick"], "detail": old["raw"], "retrieve_required": True})]
                 continue
             if obs["tool"] not in ("get_status", "get_alerts", "get_resources", "list_colonists",
                                    "get_research", "get_conditions", "wait_for_event", "list_fires",
@@ -542,7 +542,7 @@ class Campaign:
                 continue
             stale = freshness(obs, state, self.meta)["revalidate"]
             label = "REVALIDATE" if stale else "OBSERVED"
-            c = compact(obs)
+            c = evidence_index(obs)
             lines += [label + " " + canonical(c), ""]
         if not state["facts"]:
             lines += ["No observations yet. Game identity, threats and all colony facts are unknown.", ""]

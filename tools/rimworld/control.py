@@ -27,6 +27,8 @@ def effect(tool, args):
         return "advance"
     if tool == "order_pawn" and not any(k in args for k in ("command", "index")):
         return "inspection-ui"
+    if tool == "set_schedule" and "assignment" not in args:
+        return "inspection-ui"
     if tool == "manage_area" and args.get("op") == "list": return "inspection-ui"
     from .capabilities import default_effects
     return default_effects().get(tool, "unclassified")
