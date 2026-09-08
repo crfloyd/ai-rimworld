@@ -26,7 +26,6 @@ Follow the [control contract](docs/control.md) to claim handed-off ownership, co
 
 Ordinary calls journal requests/evidence without creating unfinished goals or requiring intent text. Opt into tracking with `call --track --intent ...`, a check, or `act`. Any family label can be used; `outcome.checks` or `check` supplies arbitrary scoped predicates. Accepted never means completed. Keep actual unfinished work and temporary changes in current notes; all uncertain requests still block replay. Read `./rw COMMAND --help` for exact arguments.
 
-[Finite observation plans](docs/runner-loop.md) execute agent-selected reads and bounded waits with an independent pause guardian. Essential coverage refreshes every cycle; supplementary queries may specify `every_cycles`. Additional `watch_patients` require their own health/needs coverage. New or unreviewed response structure returns control. Combat and unstable medicine remain supervised.
 
 ## Evidence and knowledge
 
@@ -46,3 +45,5 @@ pyenv exec python -B tools/demo.py --output /tmp/rimworld-demo-UNIQUE
 ```
 
 Both are offline. Live validation requires actual owned game control and an explicit final pause/handoff. Passing fixtures cannot establish game victory or intelligent play.
+
+For repeated live calls, use `./rw --run NAME session --token TOKEN`: standard MCP JSON-RPC over one persistent process. See [control](docs/control.md). Full ordinary facts and evidence references are returned, without a planning framework.

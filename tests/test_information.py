@@ -51,21 +51,7 @@ class Intentions(ControlFixture):
         self.assertEqual(len(r['pending_intentions']),1)
         self.assertFalse(r['live_checked'])
 
-from test_monitor import ScenarioSetup
-from tools.rimworld.monitor import create_plan,coverage
 from tools.rimworld.core import Error
-class ObservationPolicy(ScenarioSetup):
-    def test_additional_patient_requires_own_health_and_needs(self):
-        spec=copy.deepcopy(self.spec);spec['watch_patients']=['prisoner']
-        plan=create_plan(self.camp,spec);obs=[]
-        for query,data in zip(plan['queries'],self.safe_reads()):
-            r=self.camp.ingest(query['tool'],query.get('args',{}),data,origin='live')
-            obs += [self.camp.observation(x['id']) for x in [r,*r.get('bundle',[])]]
-        gaps=coverage(self.camp,obs,plan)
-        self.assertEqual({g['args']['tab'] for g in gaps if g.get('args',{}).get('id')=='prisoner'},{'health','needs'})
-    def test_mandatory_safety_cadence_cannot_silently_skip(self):
-        spec=copy.deepcopy(self.spec);spec['queries'][0]['every_cycles']=2
-        with self.assertRaises(Error):create_plan(self.camp,spec)
 
 class Novelty(unittest.TestCase):
     def test_shape_notice_preserves_value(self):

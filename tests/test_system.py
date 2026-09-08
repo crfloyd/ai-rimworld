@@ -43,7 +43,7 @@ CATALOG = {
         "id": {"type": "string"}, "targetId": {"type": "string"}, "command": {"type": "string"},
         "x": {"type": "integer"}, "z": {"type": "integer"}})},
     "wait_for_event": {"name": "wait_for_event", "inputSchema": schema({
-        "maxSeconds": {"type": "integer"}, "maxGameHours": {"type": "number"},
+        "maxGameTicks": {"type": "number"}, "maxGameSeconds": {"type": "number"}, "maxGameDays": {"type": "number"}, "maxSeconds": {"type": "integer"}, "maxGameHours": {"type": "number"},
         "pause": {"type": "string"}, "force": {"type": "boolean"}})},
     "load_game": {"name": "load_game", "inputSchema": schema({})},
 }
@@ -368,13 +368,6 @@ class ControlTests(ControlFixture):
         with self.assertRaises(Error):
             self.control.call(self.token, 'order_pawn', {'id': 'PawnA'}, 'Wrong game', 'movement')
 
-    def test_deadline_and_risk_budget(self):
-        with self.assertRaises(Error):
-            self.control.advance(self.token, 4, 'combat', 'Fight', review='Active melee')
-        self.responses.append({'ok': True, 'ticksWaited': 500, 'cause': 'timeout', 'pausedAfter': True})
-        self.control.advance(self.token, 1, 'medical', 'Recover', deadline_tick=300500, review='Tend due soon')
-        self.assertEqual(self.calls[-1]['arguments']['maxGameHours'], 0.2)
-        self.assertNotIn('force', self.calls[-1]['arguments'])
 
 
 class HistoryKnowledgeTests(Workspace):

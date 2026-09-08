@@ -30,7 +30,7 @@ After newer complete evidence establishes that a detail is resolved, use retire 
 
 ## Issues and decisions
 
-Issue records require a title, rationale, next action, revisit condition and resolution criterion. Optional revisit_tick creates a soft due reminder. A typed deadline with kind=hard, tick and reason constrains advancement; kind=review remains a reminder. Critical open issues stop automatic continuation. Link incident_ids to distinct evidence-backed incident episodes for recurrence; legacy manual counts are labeled as unverified recurrence bookkeeping. Temporary overrides require restore_when. Resolved, accepted or superseded issues need evidence and review. Closing an issue is not inferred from the absence of another alert.
+Issue records require a title, rationale, next action, revisit condition and resolution criterion. Optional revisit_tick creates a soft due reminder. A typed deadline with kind=hard, tick and reason constrains advancement; kind=review remains a reminder. Critical open issues must be reviewed before the agent chooses further execution. Link incident_ids to distinct evidence-backed incident episodes for recurrence; legacy manual counts are labeled as unverified recurrence bookkeeping. Temporary overrides require restore_when. Resolved, accepted or superseded issues need evidence and review. Closing an issue is not inferred from the absence of another alert.
 
 Use decide --json for evidence-linked major commitments and outcome --json to compare expected with observed results. Unexpected/failing/inconclusive outcomes create run-local lesson review candidates. incident --json deduplicates an explicit key/episode pair; repeated reads of the same episode are not new incidents. lesson-review links a candidate to its evidence-citing lesson or records why it is dismissed/needs more evidence. The older event --file with kind=decision remains available for historical notes. Record expected outcome, risks, alternatives and reconsideration conditions. Ordinary low-impact work does not need a long essay. Strategic decisions belong in STRATEGY.md with links to decision evidence; do not replace it with a generated fact dump.
 
@@ -54,7 +54,7 @@ Keep campaign files in their campaign directory. Do not rely on /tmp for active 
 
 ## Immutable handoffs
 
-handoff --reason ... --next ... --uncertainties ... captures rules, strategy text, exact fact/evidence pointers, open issues/actions and dependencies, local lesson revisions, recent consequential events, journal boundaries and controller/monitor handles. Earlier snapshots are never overwritten. resume is read-only and shows what changed since the snapshot; its current-fact packet is still recorded evidence, not live state.
+handoff --reason ... --next ... --uncertainties ... captures rules, strategy text, exact fact/evidence pointers, open issues/actions and dependencies, local lesson revisions, recent consequential events, journal boundaries and controller/request handles. Earlier snapshots are never overwritten. resume is read-only and shows what changed since the snapshot; its current-fact packet is still recorded evidence, not live state.
 
 After reconnecting, bind a fresh live status to the same authorized world, then use reconcile-actions with selected IDs, that binding evidence and a continuity review. Original action session IDs remain intact; only explicit reviewed session continuity is added. Current gameplay outcomes still require fresh evidence. A clock reversal remains visible until reconcile-clock records a review tied to current bound live status. Neither operation reloads or changes the game or overrides recovery rules.
 
@@ -74,7 +74,7 @@ CLI observation output defaults to a lean presentation: game facts or changed fi
 
 Review deadlines participate in scheduling, including unknown-clock review. Rebuild also reconstructs action indexes; missing action entries can recover from the original journal on demand. Health risk fingerprints track exact condition changes while routine risk cards avoid copying full health bodies. Real `bleedRatePerDay` and damage deltas from status as well as waits are recognized.
 
-CLI `--full-output` exposes structured fingerprints/provenance; `retrieve --observation ID` is always full. Small first reads retain a deliberate evidence-reference overhead. List patches are exact replacements against their named previous observation, not persistent row identities. Monitor returns and immutable handoffs reset presentation baselines so the next query shows full facts before resuming deltas. Internal monitor observations are not presumed to have been read by the agent.
+CLI `--full-output` exposes structured fingerprints/provenance; `retrieve --observation ID` is always full. Small first reads retain a deliberate evidence-reference overhead. List patches are exact replacements against their named previous observation, not persistent row identities. Immutable handoffs reset presentation baselines so the next query shows full facts before resuming deltas.
 
 Shared sourced mechanics are independent of adopted tactical lessons. Use `mechanics` for cross-run game reference and `recall` to join matching mechanics, local lessons and unresolved intentions. Results retain applicability/status/evidence and do not certify present state. Output model coverage is separate from query completeness; a parsed unmodeled response is explicitly labeled. See [the mechanics bank](../knowledge/mechanics/README.md).
 
@@ -82,7 +82,7 @@ Routine equal-length lists may use field updates against a named prior observati
 
 ## Presentation continuity and scalar types
 
-The first response in a new session is complete for its requested scope, including bundled child observations. Reconnect, reconciliation of an uncertain request, and caught post-response failures reset presentation baselines without replaying the action. A presentation-version transition also emits a fresh baseline; raw history and normalization remain available. Handoff/monitor reset behavior still applies. A host losing an otherwise successful output without reporting that loss cannot be detected automatically: explicitly reset via a handoff before continuing from unseen evidence.
+The first response in a new session is complete for its requested scope, including bundled child observations. Reconnect, reconciliation of an uncertain request, and caught post-response failures reset presentation baselines without replaying the action. A presentation-version transition also emits a fresh baseline; raw history and normalization remain available. Handoff reset behavior still applies. A host losing an otherwise successful output without reporting that loss cannot be detected automatically: explicitly reset via a handoff before continuing from unseen evidence.
 
 Delta comparisons and row patches compare nested JSON types recursively. Boolean false is distinct from numeric zero, including inside lists/objects and row identities. Partial/unavailable responses still retain their coverage limits; full presentation never means missing scope was observed.
 

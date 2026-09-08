@@ -1,4 +1,4 @@
-"""Conservative visible-state signals shared by output, batches and the finite monitor.
+"""Conservative visible-state signals shared by output and explicit batches.
 
 This is a detector of review needs, not a claim that arbitrary mod hazards are understood.
 """
@@ -30,37 +30,35 @@ def pawn_change_severity(rows):
 
 def signals(obs):
     d = obs['data']; result = []
-    def add(kind, value, severity='review', acknowledgeable=True):
+    def add(kind, value, severity='review'):
         if kind in ('rejected', 'failedCells') and type(value) in (int, float) and value == 0: return
         if value is None or value is False or value == [] or value == {} or value == '': return
         global_signal = kind in ('_threatWarning', '_dialogOpen', 'notification', 'alert')
         identity_scope = {'mapIndex': obs.get('map_index')} if global_signal else obs['scope']
         result.append({'id': digest({'tool': None if global_signal else obs['tool'], 'scope': identity_scope, 'kind': kind, 'value': value}),
                        'kind': kind, 'severity': severity, 'value': value, 'evidence': obs['id'],
-                       'scope': obs['scope'], 'acknowledgeable': acknowledgeable})
+                       'scope': obs['scope']})
     if obs['completeness'] != 'known':
-        add('coverage_loss', {'state': obs['completeness'], 'missing': obs.get('missing'),
-                             'malformed': obs.get('malformed')}, 'unknown', False)
+        add('coverage_loss', {'state': obs['completeness'], 'missing': obs.get('missing'), 'malformed': obs.get('malformed')}, 'unknown')
     for key in ('error', 'warning', 'warnings', 'rejected', 'failedCells', '_threatWarning',
                 '_dialogOpen', '_mcpAdditionalText', '_protocolNotifications'):
-        add(key, d.get(key), 'unknown' if key in ('error', '_protocolNotifications') else 'review',
-            key not in ('error', 'rejected', 'failedCells', '_protocolNotifications'))
+        add(key, d.get(key), 'unknown' if key in ('error', '_protocolNotifications') else 'review')
     for item in d.get('_notifications', []) if isinstance(d.get('_notifications'), list) else []:
         add('notification', item, 'info' if isinstance(item, dict) and item.get('kind') == 'learning' else 'review')
     if d.get('_notifications') and not isinstance(d['_notifications'], list):
-        add('unmodeled_notifications', d['_notifications'], 'unknown', False)
+        add('unmodeled_notifications', d['_notifications'], 'unknown')
     alerts = d.get('activeAlerts', [])
     if isinstance(alerts, list):
         for alert in alerts:
             priority = str(alert.get('priority', 'unknown')).lower() if isinstance(alert, dict) else 'unknown'
             # RimMolt serializes Alert.Priority as its enum name. High is
             # reviewable, not synonymous with Critical; unknown priorities
-            # must not acquire acknowledgement-based continuation permission.
+            # remain review needs rather than silently becoming benign.
             severity = ('critical' if priority == 'critical' else
                         'review' if priority in ('low', 'medium', 'high') else 'unknown')
             add('alert', alert, severity)
     if obs['tool'] == 'wait_for_event':
-        if d.get('pausedAfter') is not True: add('pause_unconfirmed', {'pausedAfter': d.get('pausedAfter', 'missing')}, 'critical', False)
+        if d.get('pausedAfter') is not True: add('pause_unconfirmed', {'pausedAfter': d.get('pausedAfter', 'missing')}, 'critical')
         if d.get('cause') not in ('timeout', 'gameHours', 'gameTicks', 'gameDays', 'budget', 'timeElapsed'):
             add('wait_event', {'cause': d.get('cause'), 'event': d.get('event')})
         add('crisis_cap', d.get('crisisCap'), 'critical')
@@ -70,11 +68,11 @@ def signals(obs):
             for key, value in delta.items():
                 if key not in ('newItems', 'removedItems', 'newBuildings', 'removedBuildings'):
                     severity = pawn_change_severity(value) if key == 'pawnDamage' else ('critical' if 'damage' in key.lower() else 'unknown')
-                    add('delta:' + key, value, severity, severity in ('info','review'))
-        elif delta: add('unmodeled_delta', delta, 'unknown', False)
+                    add('delta:' + key, value, severity)
+        elif delta: add('unmodeled_delta', delta, 'unknown')
     if obs['tool'] == 'list_colonists' and isinstance(d.get('colonists'), list):
         for pawn in d['colonists']:
-            if not isinstance(pawn, dict): add('unmodeled_colonist', pawn, 'unknown', False); continue
+            if not isinstance(pawn, dict): add('unmodeled_colonist', pawn, 'unknown'); continue
             if pawn.get('downed') or pawn.get('dead') or pawn.get('mentalState'):
                 add('colonist_crisis', pawn, 'critical')
             if type(pawn.get('mood')) in (int, float) and pawn['mood'] <= 20:
@@ -95,18 +93,18 @@ def signals(obs):
         if isinstance(needs, dict): needs = needs.get('needs')
         if isinstance(needs, list):
             for need in needs:
-                if not isinstance(need, dict): add('unknown_need', need, 'unknown', False); continue
+                if not isinstance(need, dict): add('unknown_need', need, 'unknown'); continue
                 label = str(need.get('label', '')).lower()
                 if label in ('food', 'sleep', 'rest', 'mood'):
                     percent = need.get('percent')
-                    if type(percent) not in (int, float): add('unknown_need_units', need, 'unknown', False)
+                    if type(percent) not in (int, float): add('unknown_need_units', need, 'unknown')
                     elif percent <= {'food': 15, 'sleep': 10, 'rest': 10, 'mood': 20}[label]:
                         add('low_need', need, 'critical' if percent <= 5 else 'review')
     if obs['tool'] in ('list_things', 'get_area'):
         things = d.get('things', [])
         if isinstance(things, list):
             for t in things:
-                if not isinstance(t, dict): add('unmodeled_thing', t, 'unknown', False); continue
+                if not isinstance(t, dict): add('unmodeled_thing', t, 'unknown'); continue
                 hostile = t.get('hostile') or t.get('hostileToPlayer') or t.get('faction') == 'Hostile'
                 if hostile or t.get('burning') or t.get('onFire') or t.get('downed'):
                     add('visible_thing_risk', t, 'critical')
@@ -114,38 +112,16 @@ def signals(obs):
     return result
 
 
-def acknowledgement(campaign, ids, evidence, review, expires_tick):
-    if not ids or not evidence or not review: raise Error('Acknowledge exact risks with current evidence, rationale and an expiry tick.')
-    state = campaign.state()
-    if type(expires_tick) not in (int, float) or not math.isfinite(expires_tick) or state['latest_tick'] is None or expires_tick <= state['latest_tick']:
-        raise Error('Acknowledgements require a future finite game-tick expiry.')
-    observed = [campaign.observation(i) for i in evidence]
-    available = {s['id']: s for obs in observed for s in signals(obs)}
-    for obs in observed:
-        if freshness(obs, state, campaign.meta)['revalidate']: raise Error('Acknowledgement needs fresh live evidence.')
-    for i in ids:
-        if i not in available or not available[i]['acknowledgeable']:
-            raise Error('Risk is absent or cannot be acknowledged; restore coverage/control first.')
-    return campaign.event({'kind': 'risk_acknowledgement', 'summary': review, 'risk_ids': ids,
-                           'evidence': evidence, 'session_id': campaign.meta['session_id'],
-                           'expires_tick': expires_tick})
 
 
-def active_acknowledgements(campaign, state):
-    tick = state['latest_tick']
-    return {i for i, e in campaign.event_view()['acknowledgements'].items() if
-            e.get('session_id') == campaign.meta.get('session_id') and tick is not None and tick < e.get('expires_tick', -1)}
 
 
-def assess(campaign, observations, *, permit_acknowledged=False):
-    state = campaign.state()
-    ack = active_acknowledgements(campaign, state) if permit_acknowledged else set()
+def assess(campaign, observations):
     risks = []
     for obs in observations:
         for risk in signals(obs):
-            risk['acknowledged'] = risk['acknowledgeable'] and risk['id'] in ack
             risks.append(risk)
-    blockers = [r for r in risks if not r['acknowledged'] and r['severity'] != 'info']
+    blockers = [r for r in risks if r['severity'] != 'info']
     return {'stop': bool(blockers), 'risks': risks, 'blockers': blockers,
             'coverage': 'Only the supplied observations; missing required queries are checked by the execution contract.'}
 

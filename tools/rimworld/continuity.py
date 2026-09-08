@@ -96,7 +96,7 @@ def runtime_snapshot(campaign):
     endpoint = campaign.meta.get('endpoint', 'http://localhost:8787/mcp')
     base = campaign.root / '.runtime' / digest(endpoint_key(endpoint))
     result = {'endpoint': endpoint, 'live_checked': False}
-    for name in ('owner', 'pending', 'session', 'monitor', 'pause-uncertain'):
+    for name in ('owner', 'pending', 'session', 'pause-uncertain'):
         path = base / (name + '.json')
         if path.exists():
             data = read_json(path)
@@ -106,10 +106,6 @@ def runtime_snapshot(campaign):
     if pending.get('request_id'):
         path = base / (pending['request_id'] + '.handle.json')
         if path.exists(): result['handle'] = read_json(path)
-    monitor_id = result.get('monitor', {}).get('id')
-    if monitor_id and (base / (monitor_id + '.handle.json')).exists():
-        result['monitor_handle'] = read_json(base / (monitor_id + '.handle.json'))
-    result['next'] = 'Inspect the actual previous process/handle and establish handoff before game calls. Local records do not prove the server stopped.'
     return result
 
 

@@ -16,11 +16,11 @@ Use a focused observation, make the strategic decision, group reviewed ordinary 
 
 Use `act` or `call --track --intent ...` with checks when a tracked strategic outcome is useful. Do not manually close a record for every routine command. Preserve consequential unfinished work, dependencies and temporary changes in current notes/issues; capture original settings before changing them. An accepted order is not treatment, arrival, delivery or completed construction. Verify the actual result.
 
-Use `advance` for supervised time. Choose a horizon appropriate to the situation, inspect the real event and pausedAfter result, and retain/poll the actual process handle. Never replay an uncertain operation or assume a timeout cancelled it. Ownership, uncertainty and pause checks apply even to untracked calls. During a wait, short offline retrieval/conditional planning is useful; concurrent game calls are not.
+Use ordinary `wait_for_event` with `pause=always` for supervised time. Choose a horizon appropriate to the situation, inspect the real event and pausedAfter result, and retain/poll the actual process handle. Never replay an uncertain operation or assume a timeout cancelled it. Ownership, uncertainty and pause checks apply even to untracked calls. During a wait, short offline retrieval/conditional planning is useful; concurrent game calls are not.
 
 Preserve unfamiliar fields, coverage limits, current threats and unresolved risks. Partial, stale, absent and known-empty are different. Classification is advisory evidence, not a substitute for reading the actual condition. A wait ending before its wall budget may have reached its game-time limit.
 
-The finite monitor is **optional advanced tooling**, not a normal-play prerequisite. Read [runner-loop](docs/runner-loop.md) and qualify it before use. Do not build plans, acknowledge queues or repair a historical ledger merely to begin ordinary supervised play. Backlog nonblocking tooling findings and keep playing; separate development from measured play.
+Use the persistent `session` transport in [control](docs/control.md) for repeated play calls. It uses ordinary MCP messages and forwards full facts; it does not choose strategy. Do not recreate the removed monitor, qualification or acknowledgement workflow. Backlog nonblocking tooling findings and separate development from measured play.
 
 ## Continuity and learning
 

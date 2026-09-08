@@ -27,12 +27,6 @@ def _value_paths(value, path='#'):
 def present(value):
     if isinstance(value,list): return [present(v) for v in value]
     if not isinstance(value,dict): return value
-    if all(k in value for k in ('kind','severity','acknowledgeable','evidence')):
-        card={k:value[k] for k in ('kind','severity','evidence')}
-        card['value']={k:v for k,v in value['value'].items() if k not in ('conditions_digest','detail')} if isinstance(value.get('value'),dict) else value.get('value')
-        if value.get('scope',{}).get('id'):card['subject']=value['scope']['id']
-        if 'freshness' in value:card['freshness']=value['freshness']
-        return card
     if not (str(value.get('id','')).startswith('obs-') and 'completeness' in value):
         return {k:present(v) for k,v in value.items()}
     result={'id':value['id']}
@@ -40,7 +34,7 @@ def present(value):
     # arguments, wall timestamps, origin, scope, raw path and empty metadata on
     # every read; the observation ID resolves all of them.
     for key in ('data','health','needs','status','counts','total','terrain','known_subset','message','model','query_kind','structure_changes',
-                'omitted','list_changes','action_id','identity_mismatch','pause_guard','bundle'):
+                'omitted','list_changes','action_id','identity_mismatch','pause_guard','wait_budget','bundle'):
         if key in value and value[key] is not None: result[key]=present(value[key])
     if value['completeness']!='known':
         result['completeness']=value['completeness']
@@ -74,5 +68,4 @@ def present(value):
     if risks:result['risks']=risks
     safety=value.get('safety')
     if safety and safety.get('stop'):result['requires_review']=True
-    if safety and safety.get('acknowledged_ids'):result['acknowledged_risks']=len(safety['acknowledged_ids'])
     return result

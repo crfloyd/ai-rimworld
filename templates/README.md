@@ -6,5 +6,4 @@ campaign.json stores the agreed setup and rules, optional focus/theme, sources f
 
 Movement coordinates and IDs in verification examples are arbitrary. Replace them with live evidence; a predicate must establish the actual goal.
 
-- continuation.json: a finite routine monitor plan. Replace every example identity/map, add all watched pawns/maps, verify the actual query schemas and status bundles, and supply meaningful safety/milestone predicates. expected_changes maps each allowed definition to a max_count_per_wait; everything else stops for review.
 - outcome.json: compare an evidence-linked decision with actual results; failures/unexpected or inconclusive outcomes create local lesson review candidates.

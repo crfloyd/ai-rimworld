@@ -4,38 +4,15 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 from test_system import Workspace, fixture
-from test_monitor import ScenarioSetup
 from tools.rimworld.core import atomic_json, Error
 from tools.rimworld.mcp import validate
 from tools.rimworld.memory import Campaign
 from tools.rimworld.facts import entries
 from tools.rimworld.safety import deadlines, signals
-from tools.rimworld.monitor import create_plan, coverage
 from tools.rimworld.observations import normalize, delta_view
 from tools.rimworld.continuity import packet
 
 
-class CatalogCompatibility(ScenarioSetup):
-    def test_real_catalog_and_lowercase_verbose_coverage(self):
-        catalog_path = self.camp.path/'raw/catalog.json'
-        catalog = json.loads(catalog_path.read_text())
-        catalog['tools']['list_things'] = fixture('rimmolt-list-things')
-        atomic_json(catalog_path, catalog)
-        plan = create_plan(self.camp, self.spec)
-        observations = []
-        for query, data in zip(plan['queries'], self.safe_reads()):
-            r = self.camp.ingest(query['tool'], query.get('args', {}), data, origin='live')
-            observations.extend(self.camp.observation(x['id']) for x in [r, *r.get('bundle', [])])
-        self.assertEqual(coverage(self.camp, observations, plan), [])
-        actual = fixture('rimmolt-list-things')['inputSchema']
-        template = json.loads((Path(__file__).resolve().parents[1]/'templates/continuation.json').read_text())
-        query = next(q for q in template['queries'] if q['tool']=='list_things')
-        validate(actual, query['args'])
-        self.assertTrue(query['args']['verbose'])
-        with self.assertRaises(Error): validate(actual, {'category':'Pawn'})
-        # Unknown hostility must still stop rather than silently reinterpret it.
-        observations[-1]['data']['things'][0].pop('hostile')
-        self.assertTrue(coverage(self.camp, observations, plan))
 
 
 class Persistence(Workspace):
@@ -166,7 +143,7 @@ class Persistence(Workspace):
         self.assertIn('data',value)
 
 
-    def test_hidden_monitor_or_handoff_reads_cannot_be_delta_baseline(self):
+    def test_hidden_handoff_reads_cannot_be_delta_baseline(self):
         from tools.rimworld.core import now
         data={'id':'p','overallHealthPercent':70,'hediffs':[{'label':'Injury','severity':3}]}
         self.ingest('get_pawn',{'id':'p','tab':'health'},data)

@@ -58,9 +58,6 @@ def parser():
         q.add_argument("--json", required=True, help="Structured record; no temporary file required.")
     q = sub.add_parser("lesson-review")
     q.add_argument("id"); q.add_argument("--status", required=True); q.add_argument("--review", required=True); q.add_argument("--lesson")
-    q = sub.add_parser("acknowledge", help="Review exact unchanged risks for a finite horizon.")
-    q.add_argument("--ids", nargs="+", required=True); q.add_argument("--evidence", nargs="+", required=True)
-    q.add_argument("--review", required=True); q.add_argument("--expires-tick", type=float, required=True)
     sub.add_parser("rebuild", help="Rebuild derived observation views/indexes without rewriting original journals.")
     sub.add_parser("brief", help="Regenerate a local current-fact brief; no live read.")
     q = sub.add_parser("ingest", help="Ingest a recorded response without executing it.")
@@ -124,24 +121,8 @@ def parser():
     q.add_argument("--check", type=Path); q.add_argument("--setup", action="store_true")
     q = sub.add_parser("batch", help="Bounded serialized operations; stops at failures or new events.")
     q.add_argument("--file", type=Path, required=True); q.add_argument("--token", required=True)
-    q = sub.add_parser("monitor-stop", help="Request a finite monitor to stop; retain and poll its existing handle.")
-    q.add_argument("--token", required=True); q.add_argument("--basis", required=True)
-    q = sub.add_parser("monitor-reconcile", help="Reconcile a lost worker only after terminal server evidence and a fresh pause.")
-    q.add_argument("--token", required=True); q.add_argument("--evidence", required=True); q.add_argument("--basis", required=True)
-    q.add_argument("--worker-terminal", action="store_true")
-    q = sub.add_parser("monitor-ready", help="Qualify finite wait and ordinary pause from this session's actual evidence.")
-    q.add_argument("--token", required=True); q.add_argument("--wait-evidence", required=True)
-    q.add_argument("--pause-evidence", required=True); q.add_argument("--review", required=True)
-    q = sub.add_parser("plan", help="Save a finite routine continuation contract from inline JSON.")
-    q.add_argument("--json", required=True)
-    q = sub.add_parser("continue", help="Execute a finite routine plan with its independent pause guardian.")
-    q.add_argument("--token", required=True); q.add_argument("--plan", required=True)
-    q = sub.add_parser("advance", help="Advance once under a reviewed risk/deadline budget.")
-    q.add_argument("--token", required=True); q.add_argument("--hours", type=float, required=True)
-    q.add_argument("--risk", choices=("routine", "combat", "medical", "travel"), required=True)
-    q.add_argument("--intent", required=True); q.add_argument("--review", required=True)
-    q.add_argument("--deadline-tick", type=float); q.add_argument("--force-reason")
-    q.add_argument("--max-seconds", type=int, default=40, help="One supervised wait budget, 5–600 seconds; game-hour and deadline limits still apply.")
+    q = sub.add_parser("session", help="Persistent standard MCP JSON-RPC over stdin/stdout; reuse owned control.")
+    q.add_argument("--token", required=True); q.add_argument("--setup", action="store_true")
     q = sub.add_parser("shot")
     q.add_argument("op", choices=("windows", "add", "capture", "review"))
     q.add_argument("--file", type=Path); q.add_argument("--window", type=int)
@@ -196,12 +177,6 @@ def run(args):
         if command == "handoff": return continuity.handoff(campaign, args.reason, args.next, args.uncertainties)
         if command == "lesson-review": return continuity.review_candidate(campaign, args.id, args.status, args.review, args.lesson)
         return getattr(continuity, command)(campaign, obj(args.json))
-    if command == "acknowledge":
-        from .safety import acknowledgement
-        return acknowledgement(campaign, args.ids, args.evidence, args.review, args.expires_tick)
-    if command == "plan":
-        from .monitor import create_plan
-        return create_plan(campaign, obj(args.json))
     if command == "lesson":
         if args.adopt: return adopt_shared(campaign, args.review)
         if args.promote:
@@ -289,13 +264,16 @@ def run(args):
             return catalog["tools"][args.tool]
         return {"captured_at": catalog["captured_at"], "schema_digest": catalog["schema_digest"],
                 "tools": [{"name": name, "effect": effect(name, {})} for name in catalog["tools"]]}
+    if command == "session":
+        from .session import serve
+        return serve(control, args.token, setup=args.setup)
     if command == "act":
         spec = obj(args.json); require_fields(spec, ("tool", "intent"))
         from .outcomes import contract
         check = contract(spec["outcome"]) if spec.get("outcome") else spec.get("check")
         family = spec.get("outcome", {}).get("family", spec.get("family", "general"))
         if spec["tool"] in ("wait_for_event", "set_speed"):
-            raise Error("Use advance/continue or pause for time control.")
+            raise Error("Use call wait_for_event with pause=always, or pause.")
         for dependency in spec.get("requires_completed", []):
             if campaign._actions().get(dependency, {}).get("status") != "completed":
                 raise Error("Required action is not verified complete: " + dependency)
@@ -318,21 +296,8 @@ def run(args):
         return {"observations": result, "game_advanced": False,
                 "note": "All warnings preserved. This read packet does not authorize continuing through danger."}
     if command == "call":
-        if args.tool == "wait_for_event":
-            raise Error("Use advance so risk, deadlines and the wait owner are recorded.")
         return control.call(args.token, args.tool, obj(args.args), args.intent, args.family,
                             read_json(args.check) if args.check else None, args.setup, track=args.track)
-    if command == "monitor-stop": return control.stop_monitor(args.token, args.basis)
-    if command == "monitor-reconcile": return control.reconcile_monitor(args.token, args.evidence, args.basis, args.worker_terminal)
-    if command == "monitor-ready":
-        from .monitor import qualify
-        return qualify(control, args.token, args.wait_evidence, args.pause_evidence, args.review)
-    if command == "continue":
-        from .monitor import Monitor
-        return Monitor(control).run(args.token, args.plan)
-    if command == "advance":
-        return control.advance(args.token, args.hours, args.risk, args.intent, args.deadline_tick,
-                               args.force_reason, args.review, args.max_seconds)
     if command == "batch":
         steps = read_json(args.file)
         if not isinstance(steps, list) or not steps:
@@ -341,7 +306,7 @@ def run(args):
         for step in steps:
             require_fields(step, ("tool",))
             if step["tool"] == "wait_for_event":
-                raise Error("Waits are standalone advance operations, not batch steps.")
+                raise Error("Waits are standalone calls, not precommitted batch steps.")
             if step["tool"] not in catalog["tools"]:
                 raise Error("Unknown batch tool.")
             validate(catalog["tools"][step["tool"]]["inputSchema"], step.get("args", {}))
@@ -370,7 +335,7 @@ def run(args):
             results.append(result)
             from .safety import assess
             observations = [campaign.observation(result["id"])] + [campaign.observation(c["id"]) for c in result.get("bundle", [])]
-            safety = assess(campaign, observations, permit_acknowledged=True)
+            safety = assess(campaign, observations)
             if safety["stop"] or result.get("identity_mismatch"):
                 return {"stopped": True, "reason": "Risk/coverage/identity needs review", "safety": safety, "results": results}
         return {"stopped": False, "results": results}
@@ -393,6 +358,7 @@ def main(argv=None):
     try:
         args = parser().parse_args(argv)
         result = run(args)
+        if args.command == "session": return 0
         from .presentation import present
         print(result if isinstance(result, str) else json.dumps(result if args.full_output or args.command == "retrieve" else present(result), ensure_ascii=False, separators=(",", ":")))
         return 0

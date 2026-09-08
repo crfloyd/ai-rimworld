@@ -220,28 +220,16 @@ class SafetyRegression(ControlFixture):
             result = self.batch([{'tool': 'get_status'}, {'tool': 'order_pawn', 'args': {'id': 'p', 'command': 'Move'}, 'intent': 'Move'}])
             self.assertTrue(result['stopped']); self.assertEqual(len(self.calls), before + 1)
 
-    def test_acknowledged_unchanged_warning_allows_batch_but_worsening_stops(self):
-        from tools.rimworld.safety import acknowledgement, signals
-        value = {'id': 'p', '_threatWarning': 'Known distant threat'}
-        obs = self.camp.ingest('get_pawn', {'id': 'p'}, value, origin='live')
-        ids = [s['id'] for s in signals(self.camp.observation(obs['id']))]
-        acknowledgement(self.camp, ids, [obs['id']], 'Defensive movement reviewed under this unchanged threat', 301000)
-        self.responses.extend([value, value])
-        result = self.batch([{'tool': 'get_pawn', 'args': {'id': 'p'}}] * 2)
-        self.assertFalse(result['stopped']); self.assertEqual(len(result['results']), 2)
-        self.responses.append(dict(value, _threatWarning='New nearby threat'))
-        result = self.batch([{'tool': 'get_pawn', 'args': {'id': 'p'}}] * 2)
-        self.assertTrue(result['stopped']); self.assertEqual(len(result['results']), 1)
 
     def test_hard_stored_deadline_limits_wait_soft_reminder_does_not(self):
         i = self.camp.issue({'title': 'Review supplies', 'rationale': 'Need food', 'next_action': 'Inspect pantry',
                             'revisit': 'Now', 'revisit_tick': 299999, 'resolution': 'Reviewed'})
         self.responses.append({'ok': True, 'ticksWaited': 10, 'cause': 'timeout', 'pausedAfter': True})
-        self.control.advance(self.token, 1, 'routine', 'Work', review='Soft pantry review considered')
+        self.control.call(self.token, 'wait_for_event', {'maxGameHours':1,'pause':'always'})
         self.assertEqual(self.calls[-1]['arguments']['maxGameHours'], 1)
         self.camp.issue({'deadline': {'kind': 'hard', 'tick': 300009, 'reason': 'Patient urgent'}}, i['id'])
         before = len(self.calls)
-        with self.assertRaises(Error): self.control.advance(self.token, 1, 'routine', 'Work', review='Review')
+        with self.assertRaises(Error): self.control.call(self.token, 'wait_for_event', {'maxGameHours':1,'pause':'always'})
         self.assertEqual(len(self.calls), before)
 
     def test_unpaused_wait_runs_pause_guard_before_handback(self):
@@ -251,7 +239,7 @@ class SafetyRegression(ControlFixture):
         atomic_json(path, catalog)
         self.responses.extend([{'ok': True, 'cause': 'timeout', 'ticksWaited': 1, 'pausedAfter': False},
                                {'ok': True, 'paused': True}])
-        result = self.control.advance(self.token, 1, 'routine', 'Work', review='Routine work')
+        result = self.control.call(self.token, 'wait_for_event', {'maxGameHours':1,'pause':'always'})
         self.assertTrue(result['pause_guard']['confirmed'])
         self.assertTrue(result['safety']['stop'])
         self.assertEqual(self.calls[-1]['name'], 'set_speed')
@@ -260,7 +248,7 @@ class SafetyRegression(ControlFixture):
 
     def test_missing_pause_capability_stays_visible_and_blocks_more_calls(self):
         self.responses.append({'ok': True, 'cause': 'timeout', 'ticksWaited': 1, 'pausedAfter': False})
-        result = self.control.advance(self.token, 1, 'routine', 'Work', review='Routine')
+        result = self.control.call(self.token, 'wait_for_event', {'maxGameHours':1,'pause':'always'})
         self.assertFalse(result['pause_guard']['confirmed'])
         with self.assertRaises(Error): self.control.call(self.token, 'get_status', {})
 
@@ -286,12 +274,6 @@ class IntegrityRegression(ControlFixture):
         self.assertGreater(result['automatic_telemetry']['context_bytes']['samples'], 0)
         self.assertIn('not isolated model', result['loop_timing_limits'])
 
-    def test_active_monitor_prevents_reconnect_and_retains_process_handle(self):
-        atomic_json(self.control.path / 'monitor.json', {'id': 'plan-test', 'status': 'running', 'pid': 999999,
-                                                        'campaign_id': self.camp.meta['id']})
-        self.control.attach_handle('plan-test', 'exec', 'actual-handle-fixture')
-        self.assertEqual(self.control.inspect()['monitor']['orchestrator_handle']['value'], 'actual-handle-fixture')
-        with self.assertRaises(Error): self.control.connect(self.token)
 
     def test_stale_status_cannot_bind_current_game(self):
         old = self.camp.meta['binding']['evidence']
@@ -356,7 +338,7 @@ class DispatchFreshness(ControlFixture):
         from tools.rimworld.mcp import Uncertain
         health=self.camp.ingest('get_pawn',{'id':'p','tab':'health'},{'id':'p','hediffs':[],'overallHealthPercent':100},origin='live')
         self.responses.append(Uncertain('Wait response lost'))
-        with self.assertRaises(Uncertain): self.control.advance(self.token,1,'routine','Work',review='Fixture review')
+        with self.assertRaises(Uncertain): self.control.call(self.token, 'wait_for_event', {'maxGameHours':1,'pause':'always'})
         value=freshness(self.camp.observation(health['id']),self.camp.state(),self.camp.meta)
         self.assertTrue(value['revalidate'])
         self.assertIn('dispatched',str(value['reasons']))

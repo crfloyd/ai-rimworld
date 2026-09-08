@@ -56,8 +56,6 @@ def metrics(campaign):
                 ("rpc_seconds", "persistence_seconds", "total_seconds", "context_bytes", "raw_bytes", "since_previous_call_seconds")},
             "telemetry_origins": dict(Counter(row.get("driver", "unknown") for row in telemetry)),
             "loop_timing_limits": "since_previous_call includes agent, orchestration, user/idle and local work; it is not isolated model reasoning time. Server event-to-pause timing is unavailable unless supplied by the server.",
-            "monitor_stops": dict(Counter(e["summary"] for e in events if e.get("kind") == "monitor_stop")),
-            "monitor_cycles": sum(e.get("kind") == "monitor_cycle" for e in events),
             "pause_guards": [{"id": e["id"], "result": e["summary"]} for e in events if e.get("kind") == "pause_guard"],
             "observations": len(roots), "origin_counts": dict(Counter(o["origin"] for o in roots)),
             "request_seconds": {"sum": sum(requests) if requests else None,

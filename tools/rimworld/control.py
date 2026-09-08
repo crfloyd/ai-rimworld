@@ -91,7 +91,7 @@ class Control:
 
     def inspect(self):
         result = {"endpoint": self.endpoint}
-        for filename in ("owner", "pending", "session", "pause-uncertain", "monitor"):
+        for filename in ("owner", "pending", "session", "pause-uncertain"):
             p = self.path / (filename + ".json")
             if p.exists():
                 result[filename] = read_json(p)
@@ -101,9 +101,6 @@ class Control:
             if handle.exists():
                 result["pending"]["orchestrator_handle"] = read_json(handle)
             result["pending"]["warning"] = "Local process exit does not prove the server operation ended."
-        if "monitor" in result:
-            handle = self.path / (result["monitor"]["id"] + ".handle.json")
-            if handle.exists(): result["monitor"]["orchestrator_handle"] = read_json(handle)
         return result
 
     def _owner(self, token):
@@ -125,11 +122,6 @@ class Control:
             return {"released": True, "game_changed": False}
 
     def attach_handle(self, request_id, kind, value):
-        monitor_path = self.path / "monitor.json"
-        if monitor_path.exists() and read_json(monitor_path).get("id") == request_id:
-            atomic_json(self.path / (request_id + ".handle.json"),
-                        {"kind": kind, "value": value, "captured_at": now(), "scope": "finite monitor process"})
-            return
         pending = read_json(self.path / "pending.json")
         if pending["request_id"] != request_id:
             raise Error("Handle does not match the pending request.")
@@ -178,11 +170,6 @@ class Control:
                     "next": "Observe get_status, review the running game, then bind its identity."}
 
     def _no_pending(self):
-        monitor_path = self.path / "monitor.json"
-        if monitor_path.exists():
-            monitor = read_json(monitor_path)
-            if monitor.get("status") == "running" and monitor.get("pid") != os.getpid():
-                raise Error("A finite monitor owns control; inspect its recorded process/handle. Do not interleave another controller.")
         if (self.path / "pending.json").exists():
             raise Error("An operation is pending or uncertain. Inspect/poll/reconcile; do not replay it.")
 
@@ -237,13 +224,6 @@ class Control:
         with lock(self.path / "operation.lock"):
             self._owner(token)
             self._no_pending()
-            lease_path = self.path / "monitor.json"
-            if lease_path.exists():
-                lease = read_json(lease_path)
-                if lease.get("status") == "running" and lease.get("pid") != os.getpid():
-                    raise Error("A finite monitor owns gameplay calls; inspect its handle instead of interleaving.")
-                if lease.get("status") == "running" and time.time() >= lease.get("expires_at", 0) and tool != "set_speed":
-                    raise Error("Monitor lease expired; pause and return for review.")
             if (self.path / "pause-uncertain.json").exists() and tool != "set_speed":
                 raise Error("Pause is unconfirmed; use the pause safeguard before further gameplay calls.")
             if (self.path / "catalog-stale.json").exists():
@@ -252,6 +232,10 @@ class Control:
             if tool not in catalog["tools"]:
                 raise Error(f"Tool {tool!r} is absent from the captured catalog. Use local capabilities search or capabilities --tool NAME to check the exact name and schema first; this error alone does not establish a stale connection.")
             validate(catalog["tools"][tool]["inputSchema"], args)
+            wait_budget = None
+            if tool == "wait_for_event":
+                args, wait_budget = self.wait_arguments(args)
+                validate(catalog["tools"][tool]["inputSchema"], args)
             kind = effect(tool, args)
             custom = self.path / "classifications.json"
             if kind == "unclassified" and custom.exists():
@@ -268,8 +252,8 @@ class Control:
             if type(track) is not bool: raise Error("track must be boolean.")
             mutation = kind in ("mutation", "advance")
             if mutation and not intent:
-                if track or check is not None or kind == "advance":
-                    raise Error("Tracked outcomes and advancement need an intended outcome.")
+                if track or check is not None:
+                    raise Error("Tracked outcomes need an intended outcome.")
                 # Passive request bookkeeping is not a strategic goal. Ordinary
                 # MCP calls must not create an unfinished-goal backlog by default.
                 intent = "Ordinary MCP request: " + tool
@@ -278,7 +262,7 @@ class Control:
                 self.campaign.meta["mutable_facts_invalidated_at"] = now()
                 atomic_json(self.campaign.path / "campaign.json", self.campaign.meta)
             # Durable request records cover every call; long-lived action records are for important outcomes.
-            tracked = mutation and (track or check is not None or kind == "advance")
+            tracked = mutation and (track or check is not None)
             action = self.campaign.action(tool, args, intent, family, check) if tracked else None
             request_id = identifier("rpc-")
             pending = {"request_id": request_id, "pid": os.getpid(), "tool": tool,
@@ -304,10 +288,10 @@ class Control:
                                              seconds=elapsed, request_id=request_id)
                 data, _ = decode(payload)
                 observations = [self.campaign.observation(result["id"])] + [self.campaign.observation(c["id"]) for c in result.get("bundle", [])]
-                assessment = assess(self.campaign, observations, permit_acknowledged=True)
+                assessment = assess(self.campaign, observations)
                 result["safety"] = {"stop": assessment["stop"],
                     "blocker_ids": list(dict.fromkeys(r["id"] for r in assessment["blockers"])),
-                    "acknowledged_ids": list(dict.fromkeys(r["id"] for r in assessment["risks"] if r["acknowledged"]))}
+                    "coverage": assessment["coverage"]}
                 # Risk details already appear once in each observation's view.
                 # Assessment remains full internally; do not serialize it twice more.
                 if tool == "get_status" and binding:
@@ -332,7 +316,6 @@ class Control:
                 from . import __version__
                 from .presentation import present
                 gap = wall_started - previous_timing["ended_at"] if previous_timing.get("ended_at") else None
-                lease = read_json(self.path / "monitor.json") if (self.path / "monitor.json").exists() else {}
                 append_json(self.campaign.path / "telemetry.jsonl", {"at": now(), "version": __version__,
                     "request_id": request_id, "tool": tool, "rpc_seconds": elapsed,
                     "persistence_seconds": persistence_seconds, "total_seconds": time.monotonic()-started,
@@ -340,7 +323,7 @@ class Control:
                     "internal_view_bytes": len(canonical(result).encode()),
                     "context_bytes_basis": "Candidate presentation, not proof of host delivery or model consumption",
                     "since_previous_call_seconds": gap if gap is not None and gap >= 0 else None,
-                    "driver": "monitor" if lease.get("status") == "running" and lease.get("pid") == os.getpid() else "agent_operation"})
+                    "driver": "agent_operation"})
                 atomic_json(last_timing_path, {"ended_at": time.time(), "request_id": request_id})
                 (self.path / "pending.json").unlink()
                 if tool == "wait_for_event" and data.get("pausedAfter") is not True:
@@ -348,6 +331,7 @@ class Control:
                                 "evidence": result["id"], "reason": "Wait ended without a confirmed pause."})
                     result["pause_guard"] = self.ensure_paused(token)
                     result["safety"]["stop"] = True  # A repaired pause still requires review of the unexpected interval.
+                if wait_budget: result["wait_budget"] = wait_budget
                 return result
             except BaseException as exc:
                 # Even local persistence failure after a server response makes this request unsafe to replay.
@@ -360,37 +344,30 @@ class Control:
                     self.campaign.action_update(action["id"], "unknown", reason=str(exc), internal=True)
                 raise
 
-    def advance(self, token, hours, risk, intent, deadline_tick=None, force_reason=None, review=None, max_seconds=40):
-        if type(max_seconds) is not int or not 5 <= max_seconds <= 600:
-            raise Error("Choose an integer wait budget from 5 to 600 seconds.")
-        limits = {"combat": 0.2, "medical": 1, "travel": 2, "routine": 18}
-        if type(hours) not in (int, float) or not math.isfinite(hours) or risk not in limits or hours <= 0 or hours > limits[risk]:
-            raise Error(f"Choose positive hours within the {risk!r} observation limit: {limits.get(risk)}.")
-        if deadline_tick is not None and (type(deadline_tick) not in (int, float) or not math.isfinite(deadline_tick) or deadline_tick < 0):
-            raise Error("Deadline must be a finite nonnegative game tick.")
-        if not review:
-            raise Error("Record the current risk assessment and outstanding deadlines.")
-        state = self.campaign.state()
-        limits_found = deadlines(self.campaign, deadline_tick)
-        deadline_tick = limits_found["earliest"]
-        if limits_found["due"]:
-            raise Error("A hard safety deadline is due; inspect and act before advancing.")
-        if deadline_tick is not None:
-            if state["latest_tick"] is None:
-                raise Error("Cannot bound a deadline without a reported game tick.")
-            available = (deadline_tick - state["latest_tick"]) / (self.campaign.meta["ticks_per_day"] / 24)
-            hours = min(hours, available)
-            if hours <= 0:
-                raise Error("Deadline is due; inspect and act before advancing.")
-        args = {"maxSeconds": max_seconds, "maxGameHours": hours, "pause": "always"}
-        if force_reason:
-            if risk in ("combat", "travel"):
-                raise Error("Crisis-cap override is unavailable for combat/travel advancement.")
-            args["force"] = True
-        self.campaign.event({"kind": "advance_review", "summary": review, "risk": risk,
-                             "force_reason": force_reason, "deadline_tick": deadline_tick, "max_seconds": max_seconds})
-        return self.call(token, "wait_for_event", args, intent=intent)
 
+
+    def wait_arguments(self, args):
+        """Normal MCP horizons plus mandatory pause and explicit hard deadlines."""
+        args = dict(args)
+        seconds = args.get('maxSeconds', 60)
+        if type(seconds) is not int or not 5 <= seconds <= 600:
+            raise Error('maxSeconds must be an integer from5 to600.')
+        if args.get('pause') != 'always':
+            raise Error('Waits require pause=always; do not leave time running between decisions.')
+        for key in ('maxGameTicks','maxGameSeconds','maxGameHours','maxGameDays'):
+            if key in args and (type(args[key]) not in (int,float) or not math.isfinite(args[key]) or args[key] < 0):
+                raise Error(key+' must be finite and nonnegative.')
+        due = deadlines(self.campaign)
+        if due['due']: raise Error('A stored hard deadline is due; inspect and resolve it before advancing.')
+        budget = None
+        if due['earliest'] is not None:
+            tick = self.campaign.state()['latest_tick']
+            if tick is None: raise Error('Cannot bound a hard deadline without a known game tick.')
+            available = due['earliest'] - tick
+            if not args.get('maxGameTicks') or args['maxGameTicks'] > available:
+                args['maxGameTicks'] = available
+                budget = {'hard_deadline_tick':due['earliest'],'maxGameTicks':available}
+        return args, budget
 
     def ensure_paused(self, token, *, emergency=False):
         """The sole uncertainty exception is idempotent ordinary pause, never replaying an order.
@@ -428,27 +405,3 @@ class Control:
             except Exception as exc:
                 atomic_json(guard_path, {"request": request, "at": now(), "error": str(exc), "status": "unknown"})
                 return {"confirmed": False, "urgent": str(exc), "pending_preserved": pending_path.exists()}
-
-    def stop_monitor(self, token, basis):
-        self._owner(token)
-        if not basis: raise Error('Record why continuation should stop.')
-        lease = read_json(self.path / 'monitor.json')
-        if lease.get('status') != 'running': return {'already_stopped': True, 'monitor': lease}
-        atomic_json(self.path / (lease['id'] + '.stop.json'), {'at': now(), 'basis': basis, 'id': lease['id']})
-        return {'stop_requested': True, 'plan': lease['id'], 'pid': lease['pid'],
-                'next': 'Poll the actual existing handle. Stop request does not itself prove pause or server termination.'}
-
-    def reconcile_monitor(self, token, evidence, basis, worker_terminal):
-        with lock(self.path / 'operation.lock'):
-            self._owner(token)
-            lease = read_json(self.path / 'monitor.json')
-            if not basis or not worker_terminal: raise Error('Review the original process/handle and explicitly confirm worker termination.')
-            if alive(lease.get('pid')) is not False: raise Error('Worker PID is still live or unknown; poll the real handle before reconciliation.')
-            if (self.path / 'pending.json').exists(): raise Error('Reconcile the original server request separately; a dead worker is not a terminated wait.')
-            obs = self.campaign.observation(evidence)
-            if obs['tool'] != 'set_speed' or obs['args'] != {'action': 'pause'} or not pause_confirmed(obs) or freshness(obs, self.campaign.state(), self.campaign.meta)['revalidate']:
-                raise Error('Require a fresh complete live ordinary-pause observation for this session.')
-            record = dict(lease, status='reconciled', reconciled_at=now(), evidence=evidence, basis=basis)
-            atomic_json(self.path / 'monitor.json', record)
-            append_json(self.path / 'history.jsonl', {'kind': 'monitor_reconciliation', 'at': now(), 'record': record})
-            return {'reconciled': True, 'replayed': False, 'next': 'Review current outcomes and create a new finite plan if appropriate.'}

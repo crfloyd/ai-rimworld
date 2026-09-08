@@ -127,7 +127,7 @@ class Campaign:
                 state["epoch"] += 1
                 if obs.get("tick") is None and state["latest_tick"] is not None:
                     state["latest_tick"] += obs["data"]["ticksWaited"]
-                    state["tick_basis"] = "derived from prior tick + monitored wait; revalidate after external control"
+                    state["tick_basis"] = "derived from prior tick + bounded wait; revalidate after external control"
             if clock_source and type(obs.get("tick")) in (int, float):
                 old = state["latest_tick"]
                 if old is not None and obs["tick"] != old: state["epoch"] += 1
@@ -198,14 +198,12 @@ class Campaign:
     def event_view(self):
         with lock(self.path / ".memory.lock"):
             path = self.path / "reference" / ".events.json"
-            cache = read_json(path) if path.exists() else {"offset": 0, "retired": [], "checkpoints": [], "acknowledgements": {}}
+            cache = read_json(path) if path.exists() else {"offset": 0, "retired": [], "checkpoints": []}
             changed = False
             for e, start, end in journal_entries(self.path / "events.jsonl", cache["offset"]):
                 kind = e.get("kind")
                 if kind == "retire_fact" and e["observation"] not in cache["retired"]: cache["retired"].append(e["observation"])
                 if kind == "checkpoint" and e["day"] not in cache["checkpoints"]: cache["checkpoints"].append(e["day"])
-                if kind == "risk_acknowledgement":
-                    for risk in e["risk_ids"]: cache["acknowledgements"][risk] = e
                 cache["offset"] = end; changed = True
             if changed or not path.exists(): atomic_json(path, cache)
             return cache
@@ -260,7 +258,7 @@ class Campaign:
             before = {obs["key"]: state["facts"].get(obs["key"], {}).get("latest") for obs in (main, *children)}
             before = {obs['key']: (prior if prior and prior.get('session_id') == obs['session_id'] else None)
                       for obs in (main, *children) for prior in [before[obs['key']]]}
-            # A monitor/handoff may have inspected facts without showing them to
+            # A handoff may have inspected facts without showing them to
             # the agent. Do not emit deltas against that unseen baseline.
             reset_at = self.meta.get("presentation_reset_at")
             if reset_at:
