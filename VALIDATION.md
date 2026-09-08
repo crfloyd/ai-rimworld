@@ -2,7 +2,7 @@
 
 180offline tests pass for the simplified default interface: normal calls/batches need no intent and create no unfinished goals, while request evidence, ownership/identity checks and uncertain-operation replay blocking remain. Explicit/check-implied tracking still requires intent and real outcome proof. New health-change tests retain all values and unknown fields while distinguishing HP declines from healing/new effects.
 
-The [fresh-agent experiment](docs/PLAY-LOOP-EXPERIMENT.md) compared frozen a247fef with direct MCP. B advanced12%more ticks with24%fewer gameplay calls and36%fewer raw gameplay response bytes over similar active intervals. Scenarios differed; exact model context/handoffs, combat, compaction recovery and improved win rate are unproven. Changes to defaults came after those trials, so they require their own live evidence.
+The [fresh-agent experiment](docs/PLAY-LOOP-EXPERIMENT.md) compared frozen a247fef with direct MCP. B advanced12%more ticks with24%fewer gameplay calls and36%fewer raw gameplay response bytes over similar active intervals. Scenarios differed; exact model context/handoffs, combat, compaction recovery and improved win rate are unproven. Changes to defaults came after those trials. A subsequent live functional check accepted ordinary no-intent pause/work-priority/queued-job calls, added no unfinished goals, and returned paused after each of two supervised hours. Full outcome verification still distinguished ingredient handling from completed cooking. A fresh-agent speed comparison of0.5.0 remains unperformed.
 
 ## Earlier validation history
 

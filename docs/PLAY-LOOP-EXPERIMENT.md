@@ -25,7 +25,7 @@ The project has not demonstrated a benefit sufficient to justify mandatory bulk-
 
 Normal startup reads rules, current strategy and open issues; full STATE/packets/history stay available on demand. Ordinary calls/batches journal requests automatically without requiring intent text or creating unfinished goals by default. Explicit tracked outcomes/checks remain available. The upstream pawnDamage field can contain healing/drug effects; annotations now distinguish an observed HP decline, new conditions needing review, and unfamiliar shapes requiring attention. No response fields are removed by this classification.
 
-180offline tests pass under the0.5.0 default-contract change, including ordinary CLI execution, explicit/check-implied tracking, untracked uncertainty blocking replay and health-change fidelity. These tests do not prove faster play with the new defaults; a subsequent live check and fresh-agent crossover remain separate evidence.
+180offline tests pass under the0.5.0 default-contract change, including ordinary CLI execution, explicit/check-implied tracking, untracked uncertainty blocking replay and health-change fidelity. These tests do not prove faster play with the new defaults; a fresh-agent crossover remains separate evidence. A subsequent two-hour live check accepted ordinary pause/work-priority/queued-job requests with no new unfinished goals and confirmed paused returns. Outcome reads left cooking completion explicitly unverified. This demonstrates the simplified path works, not that it is faster.
 
 ## Traceability and remaining work
 
