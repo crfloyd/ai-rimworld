@@ -140,6 +140,7 @@ def parser():
     q.add_argument("--risk", choices=("routine", "combat", "medical", "travel"), required=True)
     q.add_argument("--intent", required=True); q.add_argument("--review", required=True)
     q.add_argument("--deadline-tick", type=float); q.add_argument("--force-reason")
+    q.add_argument("--max-seconds", type=int, default=40, help="One supervised wait budget, 5–600 seconds; game-hour and deadline limits still apply.")
     q = sub.add_parser("shot")
     q.add_argument("op", choices=("windows", "add", "capture", "review"))
     q.add_argument("--file", type=Path); q.add_argument("--window", type=int)
@@ -330,7 +331,7 @@ def run(args):
         return Monitor(control).run(args.token, args.plan)
     if command == "advance":
         return control.advance(args.token, args.hours, args.risk, args.intent, args.deadline_tick,
-                               args.force_reason, args.review)
+                               args.force_reason, args.review, args.max_seconds)
     if command == "batch":
         steps = read_json(args.file)
         if not isinstance(steps, list) or not steps:

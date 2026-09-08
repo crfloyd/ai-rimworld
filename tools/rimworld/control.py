@@ -338,7 +338,9 @@ class Control:
                     self.campaign.action_update(action["id"], "unknown", reason=str(exc), internal=True)
                 raise
 
-    def advance(self, token, hours, risk, intent, deadline_tick=None, force_reason=None, review=None):
+    def advance(self, token, hours, risk, intent, deadline_tick=None, force_reason=None, review=None, max_seconds=40):
+        if type(max_seconds) is not int or not 5 <= max_seconds <= 600:
+            raise Error("Choose an integer wait budget from 5 to 600 seconds.")
         limits = {"combat": 0.2, "medical": 1, "travel": 2, "routine": 18}
         if type(hours) not in (int, float) or not math.isfinite(hours) or risk not in limits or hours <= 0 or hours > limits[risk]:
             raise Error(f"Choose positive hours within the {risk!r} observation limit: {limits.get(risk)}.")
@@ -358,13 +360,13 @@ class Control:
             hours = min(hours, available)
             if hours <= 0:
                 raise Error("Deadline is due; inspect and act before advancing.")
-        args = {"maxSeconds": 40, "maxGameHours": hours, "pause": "always"}
+        args = {"maxSeconds": max_seconds, "maxGameHours": hours, "pause": "always"}
         if force_reason:
             if risk in ("combat", "travel"):
                 raise Error("Crisis-cap override is unavailable for combat/travel advancement.")
             args["force"] = True
         self.campaign.event({"kind": "advance_review", "summary": review, "risk": risk,
-                             "force_reason": force_reason, "deadline_tick": deadline_tick})
+                             "force_reason": force_reason, "deadline_tick": deadline_tick, "max_seconds": max_seconds})
         return self.call(token, "wait_for_event", args, intent=intent)
 
 

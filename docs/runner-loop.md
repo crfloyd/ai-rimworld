@@ -89,3 +89,5 @@ watch_patients adds explicit non-colonists to medical coverage without changing 
 ### Alert priority fidelity
 
 RimMolt reports named UI priorities. High, Medium and Low alerts remain review signals: an agent must inspect and explicitly acknowledge the exact current evidence for a finite interval before automatic continuation can pass them. Critical alerts remain blocking even when acknowledged. Missing, numeric or unfamiliar priorities are unknown and blocking; the layer does not guess their ordering. Labels and explanations stay intact. This is priority handling, not a whitelist of acceptable colony events. Other threat, health, coverage and deadline checks still apply.
+
+Supervised `advance --max-seconds 120` can request a longer individual event-driven wait when the reviewed situation permits. Its game-hour limits and hard deadlines still apply. Finite monitor plans retain their 40-second per-wait envelope and existing guardian heartbeat; this supervised option does not lengthen automatic monitor leases. Use host yielding/polling so a longer wait does not prevent communication. A socket timeout never proves server cancellation.

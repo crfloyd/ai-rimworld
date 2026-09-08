@@ -56,8 +56,15 @@ class Client:
         if self.session.get("protocol"):
             headers["MCP-Protocol-Version"] = self.session["protocol"]
         request = urllib.request.Request(self.endpoint, json.dumps(body).encode(), headers)
+        timeout = self.timeout
+        if method == "tools/call" and isinstance(params, dict) and params.get("name") == "wait_for_event":
+            seconds = params.get("arguments", {}).get("maxSeconds", 60)
+            if type(seconds) is not int or not 5 <= seconds <= 600:
+                raise Error("wait_for_event requires an integer maxSeconds from 5 to 600.")
+            # Socket inactivity allowance, not a cancellation or overall execution deadline.
+            timeout = max(timeout, seconds + 15)
         try:
-            with self.opener(request, timeout=self.timeout) as response:
+            with self.opener(request, timeout=timeout) as response:
                 sid = response.headers.get("Mcp-Session-Id")
                 if sid:
                     self.session["session_id"] = sid

@@ -23,6 +23,7 @@ Use the repository `.python-version` through `pyenv exec python` for Python comm
 - For consequential orders, record an intention and verify the outcome. Family labels are open; use explicit checks when no template fits. Accepted does not mean completed. Track blocked/interrupted actions, medical deadlines, recurring problems, and restoration conditions for temporary changes.
 - For routine progress, follow [runner-loop.md](docs/runner-loop.md): qualify actual pause/wait behavior, then use a finite plan with its independent pause guardian. Combat and unstable medicine remain supervised. Advance with one event-driven wait at a time. Retain and poll its actual process/session handle. A timeout or missing local process does not prove the server stopped. Do not replay uncertain mutations.
 - Preserve critical warnings and uncertainties even when the brief grows. Reduce repeated raw output first; do not impose a summary cap that erases necessary facts or reasoning.
+- During an owned event-driven wait, use short, interruptible pieces of offline retrieval or conditional planning. Do not issue concurrent game calls or treat predicted progress as observed. Poll the retained wait handle between pieces of work, inspect its actual event/paused state promptly, and revalidate before acting.
 - Improve tooling incrementally. Prefer measured changes that reduce unnecessary pauses and repeated mistakes. Mod changes require user authorization and must preserve ordinary rules and visibility.
 
 ## Memory and storytelling

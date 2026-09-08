@@ -52,7 +52,7 @@ Manual computer-control outcomes use a verification event with an original sourc
 
 ## Time advancement
 
-`advance` records a risk review and requests one wait with `pause=always` and a 40-second real-time limit. Maximum requested intervals are 0.2 game hours for combat, 1 for medical monitoring, 2 for travel, and 18 for routine work. These are observation budgets, not difficulty modifiers. Choose shorter intervals when the situation demands it.
+`advance` records a risk review and requests one wait with `pause=always` and an agent-selected `--max-seconds` budget of 5–600 seconds (default 40). Transport inactivity timeout accommodates this wait plus 15 seconds; it is not a cancellation guarantee. Retain and poll the actual host handle, and keep communicating while a longer wait runs. Maximum requested intervals are 0.2 game hours for combat, 1 for medical monitoring, 2 for travel, and 18 for routine work. These are observation budgets, not difficulty modifiers. Choose shorter intervals when the situation demands it.
 
 An optional deadline tick shortens the interval. Exact ticks use reported data; between explicit tick reports, the memory can derive elapsed ticks from a monitored wait and labels that basis. Revalidate after external control or any unobserved advancement. A due deadline must be handled before advancing.
 
