@@ -228,7 +228,7 @@ class Control:
                 raise Error("Server announced a changed catalog. Reconnect and rebind before further calls.")
             catalog = read_json(self.campaign.path / "raw" / "catalog.json")
             if tool not in catalog["tools"]:
-                raise Error("Tool absent from captured catalog; reconnect at a safe handoff.")
+                raise Error(f"Tool {tool!r} is absent from the captured catalog. Use local capabilities search or capabilities --tool NAME to check the exact name and schema first; this error alone does not establish a stale connection.")
             validate(catalog["tools"][tool]["inputSchema"], args)
             kind = effect(tool, args)
             custom = self.path / "classifications.json"
