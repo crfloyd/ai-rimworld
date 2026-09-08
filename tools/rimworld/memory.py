@@ -555,7 +555,8 @@ class Campaign:
         if not state["facts"]:
             lines += ["No observations yet. Game identity, threats and all colony facts are unknown.", ""]
         lines += ["## Unfinished actions", ""]
-        lines += [canonical(a) for a in actions] or ["None recorded; verify existing in-game orders."]
+        lines += [canonical({k:a[k] for k in ('id','tool','args','intent','family','status','check','evidence',
+                                               'requires_completed','reason') if k in a}) for a in actions] or ["None recorded; verify existing in-game orders."]
         lines += ["", "## Open issues and temporary overrides", ""]
         lines += [canonical(i) for i in open_issues] or ["None recorded."]
         lines += ["", "## Strategy and deeper evidence", "",

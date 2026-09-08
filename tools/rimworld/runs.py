@@ -75,14 +75,14 @@ def list_runs(root):
     return result
 
 
-def resume_run(root, name):
+def resume_run(root, name, *, full=False):
     result = describe_run(root, name)
     directory = Path(result['path'])
     result['read_first'] = [str(directory / f) for f in READ_FIRST]
     result['missing_files'] = [f for f in result['read_first'] if not Path(f).is_file()]
     from .memory import Campaign
     from .continuity import resume_snapshot
-    result['handoff'] = resume_snapshot(Campaign(root, name))
+    result['handoff'] = resume_snapshot(Campaign(root, name), full=full)
     result['live_game_checked'] = False
     result['next'] = (
         f'Read this run\'s rules, state, strategy and issues; use --run {name} explicitly. '

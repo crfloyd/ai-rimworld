@@ -285,21 +285,36 @@ def compact(observation, *, full=False):
 
 
 def evidence_index(observation):
-    """Navigation view, explicitly not a substitute for complete observations."""
-    view = compact(observation)
+    """Navigation, not a second full observation. Every detail stays retrievable."""
+    from .safety import signals
     data = observation['data']
-    for key in ('data', 'health', 'needs', 'status', 'known_subset'):
-        view.pop(key, None)
-    view['view'] = 'index; retrieve observation before decisions needing nested details'
-    view['scalars'] = {k: v for k, v in data.items()
-                       if not isinstance(v, (dict, list)) and k != '_mcpText'}
-    # Keep medical/needs evidence and map/roster identity directly available on resume.
+    view = {k: observation[k] for k in ('id', 'tool', 'scope', 'tick', 'captured_at',
+                                       'completeness', 'missing', 'origin')}
+    view['model'] = observation.get('coverage', {}).get('model', 'unmodeled')
+    view['evidence'] = observation.get('raw', observation['id'])
+    view['view'] = 'index; retrieve observation for warning values and nested details before relevant decisions'
+    view['scalars'] = {k:v for k,v in data.items() if not isinstance(v,(dict,list)) and k != '_mcpText'}
+    # Patient constraints are worth keeping directly visible. Other nested facts
+    # have explicit indexes, never silently disappear or become known-empty.
     retained = {'hediffs', 'capacities', 'needs', 'thoughts', 'maps', 'colonists'}
-    view['details'] = {k: pack_rows(v) if isinstance(v, list) else v
-                       for k,v in data.items() if k in retained}
-    view['nested'] = {k: {'type': type(v).__name__, 'count': len(v),
-                         **({'keys': list(v)} if isinstance(v, dict) else {})}
-                      for k, v in data.items() if isinstance(v, (dict, list)) and k != 'bundled'}
+    view['details'] = {k:pack_rows(v) if isinstance(v,list) else v for k,v in data.items() if k in retained}
+    view['nested'] = {k:{'type':type(v).__name__, 'count':len(v),
+                        **({'keys':list(v)} if isinstance(v,dict) else {})}
+                      for k,v in data.items() if isinstance(v,(dict,list)) and k != 'bundled'}
+    view['warnings'] = list(observation.get('warnings', {}))
+    view['risks'] = []
+    for risk in signals(observation):
+        card = {k:risk[k] for k in ('kind','severity')}
+        if risk.get('scope',{}).get('id'): card['subject'] = risk['scope']['id']
+        value = risk.get('value')
+        if isinstance(value,dict):
+            card['scalars'] = {k:v for k,v in value.items()
+                               if not isinstance(v,(dict,list)) and k not in ('conditions_digest','detail')}
+            card['nested_fields'] = [k for k,v in value.items() if isinstance(v,(dict,list))]
+        elif isinstance(value,list): card['detail_count'] = len(value)
+        else: card['value'] = value
+        card['retrieve_required'] = isinstance(value,(dict,list))
+        view['risks'].append(card)
     return view
 
 

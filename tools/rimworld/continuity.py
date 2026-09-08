@@ -186,7 +186,7 @@ def handoff(campaign, reason, next_action, uncertainties):
                 'next_action': next_action, 'live_checked': False}
 
 
-def resume_snapshot(campaign):
+def resume_snapshot(campaign, *, full=False):
     latest = campaign.path / 'handoffs/latest.json'
     if not latest.exists():
         return {'snapshot': None, 'warning': 'No immutable handoff yet. Reconstruct from current packet and original rules/strategy; do not assume missing work was completed.'}
@@ -201,6 +201,13 @@ def resume_snapshot(campaign):
     changes['local_learning'] = snapshot.get('local_learning_digest') != digest({str(p.relative_to(campaign.path)): p.read_text() for p in sorted((campaign.path / 'knowledge').rglob('*.json'))})
     return {'snapshot': {'id': snapshot['id'], 'path': str(path), 'at': snapshot['at'],
                          'next_action': snapshot['next_action'], 'uncertainties': snapshot['uncertainties'],
-                         'rules': snapshot['rules'], 'strategy': snapshot['strategy'], 'packet': snapshot['packet']},
+                         'rules': snapshot['rules'], 'strategy': snapshot['strategy'],
+                         **({'packet':snapshot['packet']} if full else {'packet_index':{
+                             'path':str(path), 'field':'packet',
+                             'fields':list(snapshot['packet']),
+                             'active_risk_records':len(snapshot['packet'].get('active_risks',[])),
+                             'missing_coverage_records':len(snapshot['packet'].get('missing_coverage',[])),
+                             'pending_action_records':len(snapshot['packet'].get('pending_actions',[])),
+                             'detail_required':'Read current STATE/ISSUES and relevant original evidence; index counts do not resolve risks or work.'}})},
             'changed_since_handoff': changes,
             'next': 'Read the snapshot and any changed current files; live status, control and mutable facts require revalidation.'}

@@ -20,7 +20,7 @@ summary.json is a small generated directory-listing view of recorded time, evide
 
 ## Routine loading
 
-STATE.md is an evidence index: scalar values, all nested field names/counts, warnings and detected review signals remain visible; health/needs details and map/roster identity also remain directly visible. Retrieve the named observation for other nested details. Signals are not an exhaustive hazard model. Complete observations and normal tool responses retain their full information.
+STATE.md is a navigation index: scalar values, nested field names/counts, warning names and detected review categories remain visible; health/needs details and map/roster identity also remain directly visible. Nested warning values are indexed with retrieve_required instead of copied repeatedly; retrieve the original observation before a decision involving those warnings. Retrieve the named observation for other nested details. Signals are not an exhaustive hazard model. Complete observations and normal tool responses retain their full information.
 
 Read campaign rules, brief, strategy and open issues on resume. Then use a live observation under owned control. During work, use compact deltas and context TOPIC to find relevant lessons and evidence pointers. Retrieve full observations with retrieve --observation ID. Before a consequential decision, retrieve missing medical, combat, recruitment, construction or victory details.
 
@@ -95,3 +95,5 @@ Use the pinned pyenv runtime. Python versions before3.10 on macOS have process-l
 API continuity uses the stable `docs/api/README.md` pointer in startup guidance and handoffs. Carry only relevant tool names, interface uncertainties and exact evidence pointers alongside unresolved work; retrieve contracts on demand. Do not embed the complete API surface into observation packets or campaign snapshots.
 
 Risk cards may use `value_ref` containing a JSON Pointer rooted at the current observation presentation (`#`). It identifies an exact value already displayed in that same observation, including escaped field names. It never points into a previous response or an unseen baseline. Classification stays explicit; risks whose values are absent from the current body retain their values. Full evidence and risk fingerprints are unchanged.
+
+Default `rw resume NAME` includes the immutable strategy, next action, uncertainty, change flags and a packet index rather than the full historical packet. `rw --full-output resume NAME` exposes the full packet; the original immutable JSON is unchanged and its path remains visible. This reduces mandatory output, not the obligation to inspect current issues/state and relevant evidence. Missing-coverage and risk counts are navigation signals, never clearance to continue.

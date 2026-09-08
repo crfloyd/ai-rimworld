@@ -170,7 +170,7 @@ def run(args):
         if args.campaign and args.campaign != args.name:
             raise Error("Conflicting run names; selection must be explicit and consistent.")
         if args.command == "resume":
-            return resume_run(args.root, args.name)
+            return resume_run(args.root, args.name, full=args.full_output)
         spec = read_json(args.spec)
         if args.command == "new":
             if not isinstance(spec, dict) or spec.get("mode") != "fresh":

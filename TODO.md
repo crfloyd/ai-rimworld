@@ -15,3 +15,5 @@ Continue adding sourced mechanics as decisions demand them. Agent-selected queri
 - Named UI High/Medium/Low alerts require explicit review; Critical and unknown remain blockers. No strategy label whitelist. Finite-monitor live qualification remains pending.
 - Independent review confirmed session-baseline reuse and nested bool/number equality defects. Fixes and154 regression tests pass. Root handoff now routes campaign-local play state without containing it.
 - Next performance work: measure full loops and event-to-response, separating intentional game time from RPC/persistence, host orchestration and agent review. Smaller output alone is not a speed result.
+
+Active P8 in PLAN.md supersedes the earlier statement that the enhancement work is complete. Verified concerns: approximately191KB generated startup state,70 open general actions without automatic checks, no demonstrated successful finite-monitor cycle in this campaign, and slow supervised combat. Prioritize startup navigation and action lifecycle, then measured composed play loops. The exact risk-reference presentation fix is committed, but has not solved end-to-end speed.
