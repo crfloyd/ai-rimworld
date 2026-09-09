@@ -53,3 +53,18 @@ C's pre-raid interval advanced29.40hours in10m23s with115calls and142,232raw byt
 Useful production, recovery and defense occurred, but independent review found delayed mood intervention, reuse of a known defensive weakness and incomplete protection decisions. D exposed a critical participant role omitted from handoffs despite being present in full responses. This also occurred in direct-MCP evidence: it is an interpretation/continuity failure, not demonstrated compression loss. The event's timing was not established as predictable. Campaign details and original evidence remain under reference/experiments/ in that run.
 
 Decision: retain persistent ordinary MCP for demonstrated dispatch benefit and remove the superseded operating ceremony. Correct the concise current strategy and generic role/dependency reminder; do not add an event whitelist or strategy engine. Fresh-reader sufficiency and comparable decision quality still require validation. Neither faster advancement nor passing tests satisfies those gates.
+
+## Five-day test E and coordinated roles
+
+Production stayed atfbd0e4c while300001ticks advanced (five days plus one server tick). All eight colony members survived. Verified infrastructure, research, clothing and supply gains accompanied remaining resource, medical and environmental risks; no victory claim.
+
+| Segment | Game hours | Recorded live interval | Gameplay calls | Raw MCP bytes |
+|---|---:|---:|---:|---:|
+| Parent task |41.798|44m13s|98|116196|
+| Fresh player |78.2024|31m51s|235|357287|
+
+Fresh tick throughput was about2.60times the parent segment. Conditions, inherited work, user steering and diagnosis differ; this is not a causal comparison or proof of improved combat/win rate. Parent and fresh both used gpt-6-astra/high. Parent had16minute-plus response gaps; fresh stayed responsive even after exceeding240kinput tokens. Thus neither High effort nor context size alone explains the parent stalls; exact model/backend timing remains unobserved. Context growth is still a separate efficiency concern.
+
+The fresh player adopted bounded short-poll collection mid-run at pending RPC111, after evidence showed terminal polls could consume their entire window despite a ready reply. This was orchestration only, with unchanged finite game waits and no automatic continuation. Offline review also found oversized spatial reads/truncation and outer serialization overhead. These justify narrow delivery/query improvements, not rebuilding the removed monitor.
+
+An offline observer sent three conditional advisories. No additional outcome benefit is established. Retain one active game owner; use specialist roles selectively and keep reporting/discussion outside the player loop. Full timing, advisories, original results and campaign-specific discoveries remain under the selected run's reference/experiments/trial-e-report.md and companion files. There is no demonstrated overall context-saving or expert-play acceptance yet.
