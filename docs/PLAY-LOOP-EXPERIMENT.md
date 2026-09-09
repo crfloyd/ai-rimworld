@@ -34,3 +34,22 @@ Detailed original records, participant reports, independent audits and compariso
 The early-stop popup investigation found that wall and game-time limits both return cause=timeout. Recent no-event stops reached the selected one-game-hour limit before the40second wall budget. RPC duration is not exact visible unpaused time. Event-to-next-call timings of a few milliseconds were chained reads, not measured model comprehension or reaction.
 
 Next: use the simpler ordinary path and compare matched situations/crossovers before further mechanisms. Native MCP deployment/host-review overhead, actual context consumption, long-run continuity and combat remain unisolated. Do not interpret green tests, smaller output, or this one pair as expert-play validation.
+
+## Persistent transport and fresh resume — revision04384e4
+
+The0.6.0 transport forwards ordinary complete MCP facts and evidence references through one persistent process. It removes repeated shell startup and the optional finite monitor/qualification machinery. The production revision was frozen for C and D.
+
+| Measure | C: persistent play | D: fresh resume |
+|---|---:|---:|
+| First-to-final recorded call |19m26s|9m42s|
+| Game hours advanced |33.68|15.25|
+| Recorded gameplay calls |249|88|
+| Wait calls |30|15|
+| Wait RPC seconds |291.54|161.64|
+| Raw gameplay response bytes |315,860|115,156|
+
+C's pre-raid interval advanced29.40hours in10m23s with115calls and142,232raw bytes. This is descriptively faster than B for similar game-time advancement, not a controlled comparison: inherited work, medical conditions, approval overhead and random events differ. C's full interval includes combat and more total calls/bytes than B. D includes an escape and treatment. Model tokens, full startup reading and exact visible unpaused time were not measured; compressed candidate-byte counts are not the persistent transport's actual output volume.
+
+Useful production, recovery and defense occurred, but independent review found delayed mood intervention, reuse of a known defensive weakness and incomplete protection decisions. D exposed a critical participant role omitted from handoffs despite being present in full responses. This also occurred in direct-MCP evidence: it is an interpretation/continuity failure, not demonstrated compression loss. The event's timing was not established as predictable. Campaign details and original evidence remain under reference/experiments/ in that run.
+
+Decision: retain persistent ordinary MCP for demonstrated dispatch benefit and remove the superseded operating ceremony. Correct the concise current strategy and generic role/dependency reminder; do not add an event whitelist or strategy engine. Fresh-reader sufficiency and comparable decision quality still require validation. Neither faster advancement nor passing tests satisfies those gates.
