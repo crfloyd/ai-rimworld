@@ -1,10 +1,10 @@
 # Illustrated history
 
-Keep two outputs: an operational report and the colony's narrative book. Both derive from real evidence. Neither raw tool logs nor plans are completed game events.
+The historian owns the complete reporting workflow under [agent-flow](agent-flow.md); only the player captures live scenes. Keep two outputs: an operational report and the colony's narrative book. Both derive from real evidence. Neither raw tool logs nor plans are completed game events. Reporting proceeds from saved evidence while the player continues; no game calls from the historian.
 
 ## Capture
 
-Capture important transient scenes when safe, even between checkpoints. Before taking a shot, use normal game controls to frame the relevant people, structures, landscape or battlefield. Never expose a pawn or prolong a crisis for a photograph.
+The player captures important transient scenes when safe, even between checkpoints, and hands the original paths, evidence IDs and actual ticks to the historian. Prefer the ordinary MCP screenshot tool when enabled: explicit map bounds frame the subject, include_ui=false leaves the real camera alone, and include_ui=true moves it. Preserve the original returned PNG. Enablement must follow the user's authorization; a disabled tool is not a captured image. Before taking a shot, use normal game controls to frame the relevant people, structures, landscape or battlefield. Never expose a pawn or prolong a crisis for a photograph.
 
 On macOS, shot windows dynamically lists current RimWorld windows using the system window inventory. With a current window ID:
 

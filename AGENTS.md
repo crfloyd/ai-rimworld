@@ -4,11 +4,19 @@ Help the agent play the user's authorized run intelligently, with little operati
 
 Use `./rw` or the repository's pinned `pyenv exec python`; do not change global Python. Keep each run under `campaigns/NAME`. No developer/debug actions, hidden tactical information, balance changes or game/save manipulation. Follow the user's actual recovery rules; ordinary failure is not permission to reload.
 
-## Enter a run
+## Roles and routing
 
-For a new game, use [startup](docs/startup.md), extracting the user's supplied choices and delegation before asking anything. For a resume, read that run's **CAMPAIGN.md, current STRATEGY.md and open ISSUES.md**, plus the small `rw resume NAME` handoff/change flags. Do not preload STATE.md, full packets, all history, maintenance plans or every mechanics topic. They remain available for targeted retrieval. Missing details remain unknown; retrieve them before decisions that need them.
+For a request to play or continue a run, use the [coordinated flow](docs/agent-flow.md): the main agent coordinates the user conversation and delegates live play to one focused player, with a historian handling requested reports. This is explicit authorization to use subagents for those roles where supported. Keep the same responsive player running; do not replace it for each user question or checkpoint. Observers and strategists are optional, bounded advisers. Repository maintenance alone does not start a player.
 
-Before live calls, establish actual sole control and no pending request through [control](docs/control.md). Side agents stay offline until handed control. Revalidate the real game; stored state is not live. Do not reconnect merely to rediscover an unfamiliar name. Read the small [API index](docs/api/README.md), then use `capabilities TOPIC` or an exact tool contract as needed. The complete API remains discoverable; search matches and historical schemas are not a whitelist.
+An agent already assigned player, historian or adviser executes that role directly; it must not recursively create another player. Only the player may issue game/MCP/UI calls. The coordinator relays user steering and reads saved progress. If delegation is unavailable or the user requests single-agent play, use the same boundaries sequentially and defer report assembly until a safe pause.
+
+The coordinator reads docs/agent-flow.md once and dispatches a concise task with the run, objective, current files and control handoff, using a fresh context rather than inheriting the whole conversation. The player owns current STRATEGY/ISSUES; the historian owns History/reports/screenshot registration; the coordinator owns shared tooling guidance and Git integration. No overlapping writers. Historical detail stays retrievable in campaign files.
+
+## Enter a run — player
+
+For a new game, use [startup](docs/startup.md), honoring the user's supplied choices and delegation. For a resume, read that run's CAMPAIGN.md, current STRATEGY.md and open ISSUES.md, plus the small `rw resume NAME` handoff/change flags. STATE, full packets, all history and maintenance plans are on-demand references. Missing knowledge remains unknown; retrieve it before decisions that need it.
+
+Establish sole control and no pending request through [control](docs/control.md). Revalidate the actual game and identity. Reuse a valid session; unfamiliar names call for the small [API index](docs/api/README.md) and exact contracts, not a reconnect or guesses. The complete API remains discoverable. Read only the relevant reference section; parse JSONL records selectively instead of dumping raw transcript lines.
 
 ## Ordinary play
 
@@ -28,8 +36,8 @@ Keep a concise current strategy with urgent risks, unfinished jobs, restoration 
 
 Use `mechanics`, `recall` and [knowledge](knowledge/INDEX.md) when the decision would benefit. Campaign surprises and tactical lessons stay local; shared mechanics explain general rules. Read [memory](docs/memory.md) for memory changes and [knowledge boundary](docs/knowledge-boundary.md) before shared edits. A retrieved lesson is evidence/advice, not a live fact or permission.
 
-At the user's checkpoints, follow [history](docs/history.md): a prose colony story with original well-framed screenshots, plus the operational report and future aims. Preserve detailed history without making routine play load it all. Never invent progress or documentary images.
+At requested checkpoints, the player captures original, well-framed screenshots and sends evidence pointers, outcomes and future aims to the historian, then resumes authorized play. The historian follows [history](docs/history.md) to write and validate the complete narrative/report. Reporting does not block urgent play; late or missed captures are explicitly dated. Never invent progress or documentary images.
 
 ## Tool maintenance
 
-Only when doing development, read PLAN.md, HANDOFF.md and VALIDATION.md. Keep production frozen during measured trials. Prefer removing demonstrated friction; each added mechanism must justify its cost in play or continuity. Tests verify behaviors, not expertise, speed or win rate. Scope checks to the change and report what the evidence actually supports.
+Only when doing development, read PLAN.md, HANDOFF.md and VALIDATION.md. Keep production frozen during measured trials. Measure actual handover latency, useful outcomes and context growth; context size or reasoning effort alone is not an established cause of slow responses. Prefer removing demonstrated friction; each added mechanism must justify its cost in play or continuity. Tests verify behaviors, not expertise, speed or win rate. Scope checks to the change and report what the evidence actually supports.

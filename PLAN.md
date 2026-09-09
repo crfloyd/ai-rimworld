@@ -8,7 +8,7 @@ Make legitimate RimWorld play more effective per real minute while retaining rel
 
 The redundant monitor/qualification workflow is removed. Persistent ordinary MCP and automatic evidence journaling remain, with sole ownership, no uncertain replay, finite paused waits and hard deadlines. C/D and five-day E completed; detailed evidence is in docs/PLAY-LOOP-EXPERIMENT.md and campaign-local experiment records. Production stayed frozen during measured play.
 
-E showed a fresh same-model/high player progressing about2.60times faster in ticks per minute than the parent while completing useful work. Conditions differ. Parent stalls occurred outside fast ordinary MCP calls; neither context size nor effort alone establishes the cause. Fresh context nevertheless grew beyond240k, so context efficiency is not solved. Three observer advisories did not establish additional outcome benefit. One player with reporting/discussion outside its loop is the supported operating direction; specialists remain optional and bounded.
+E showed a fresh same-model/high player progressing about2.60times faster in ticks per minute than the parent while completing useful work. Conditions differ. Parent stalls occurred outside fast ordinary MCP calls; neither context size nor effort alone establishes the cause. Fresh context nevertheless grew beyond240k, so context efficiency is not solved. Three observer advisories did not establish additional outcome benefit. The user adopted one focused player with reporting/discussion outside its loop. AGENTS.md and docs/agent-flow.md define that default and full historian ownership; observers/strategists remain optional and bounded.
 
 ## Next bounded change
 

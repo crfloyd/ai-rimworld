@@ -25,6 +25,16 @@ The response forwards ordinary MCP content, media and unfamiliar fields. The exi
 
 For initial-game UI only, `session --setup` or `call --setup` permits authorized setup actions under a reviewed main-menu binding. After the world loads, inspect and bind the new game identity before ordinary play. This never authorizes debug actions or tactical reloads.
 
+## Host reply collection
+
+For a persistent desktop terminal, an empty stdin poll may consume its entire effective wait window even when output is buffered. Observed requested1second polls took5seconds;10second polls took10seconds. A long empty poll is not a promise of early event delivery.
+
+Collect one outstanding response inside a bounded executor operation using short internal polls, rather than returning every empty poll to the model. Keep host collection bounds separate from the agent's chosen game-time horizon. Collection ends at a parsed complete response with the exact request ID, or a bounded deadline/error. It must never send another game action or replay the request.
+
+Carry the real session/request IDs and a partial-line buffer across collection calls. Preserve complete notifications, unrelated replies, media, errors and unknown properties. Check truncation/exit metadata; malformed or clipped output is uncertainty, not an empty result. A substring match for an ID is insufficient: the remainder of the JSON record may not have arrived. If the host cell itself yields, retain and resume that cell instead of starting another collector. On a deadline retain the handle/buffer and continue collecting the same request; follow the normal reconciliation rules for delivery loss.
+
+When presenting executor output, avoid stringifying the entire result around an already serialized stdout string. Emit the original output and a compact handle/exit/truncation envelope, without semantic filtering. Keep large original data retrievable and narrow subsequent queries. The trial's ad-hoc collector was experimental; a reusable implementation still requires focused complete/partial/error/media/truncation tests. This guidance does not certify an untested collector or alter the MCP protocol.
+
 ## Time and uncertainty
 
 Use the normal wait_for_event arguments. There are no client combat/medical category caps. The agent chooses a finite horizon based on actual risk. maxSeconds must be an integer5–600; pause must be always. Game-time bounds must be finite/nonnegative. Existing typed hard issue deadlines still shorten the tick budget and are reported; a due deadline blocks advancement. The server's crisis cap/force option remains visible and must be used according to actual risk, never automatically.

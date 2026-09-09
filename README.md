@@ -4,6 +4,8 @@ An information and control layer for agents playing RimWorld through ordinary Ri
 
 Uses the repository pyenv pin in `.python-version` (Python 3.11.13), with standard-library SQLite FTS5 and an accessible RimMolt endpoint for live play. Run commands from this repository with `pyenv exec python` or `./rw`; shell commands must not silently use macOS system Python. Python 3.10+ is required for comparable monotonic clocks across processes. No external knowledge service or Python packages are required. Read [AGENTS.md](AGENTS.md), then [startup](docs/startup.md) for fresh play or an existing run.
 
+Autonomous play uses the [coordinated flow](docs/agent-flow.md): one focused player owns the game, the coordinator handles user interaction, and a historian completes requested reports from saved evidence. Advisers are optional; they never compete for game control.
+
 ## Start, resume and inspect
 
 ```sh
