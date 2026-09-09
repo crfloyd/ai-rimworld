@@ -261,3 +261,9 @@ class CompositionTests(ControlFixture):
         with patch('tools.rimworld.cli.Control',return_value=self.control):r=run(args)
         self.assertEqual([c['name'] for c in self.calls[self.base:]],['get_pawn'])
         delivered(self.control,self.token,r['composition'])
+
+    def test_guard_total_read_budget_includes_verification(self):
+        spec=self.guard(verify=[{'key':'v'+str(i),'tool':'get_pawn','args':{'id':'p'}} for i in range(17)])
+        spec['queries'] += [{'key':'q'+str(i),'tool':'get_pawn','args':{'id':'p'}} for i in range(15)]
+        with self.assertRaises(Error):self.execute(spec,'rw_guard')
+        self.assertEqual(len(self.calls),self.base)

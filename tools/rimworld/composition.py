@@ -213,6 +213,7 @@ class Composer:
             raise Error('Local composition name collides with upstream catalog.')
         validate(TOOLS[name]['inputSchema'],spec)
         queries=expand(spec['queries']);verify=expand(spec['verify']) if spec.get('verify') else []
+        if len(queries)+len(verify)>32:raise Error('Use at most32 total reads including verification.')
         for q in queries+verify:preflight(self.control,q)
         if name=='rw_guard':
             for branch in ('then','otherwise'):
