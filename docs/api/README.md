@@ -1,5 +1,7 @@
 # API reference
 
+For related reads, local `rw_observe` groups selected pawn/production sections or explicit reads in one exchange. `rw_guard` adds an agent-authored condition and at most one literal action, with unknown-data abstention. Both are exposed by persistent session discovery and `capabilities`; [composition](../composition.md) gives examples. The113-tool captured upstream catalog below remains separate from these two local tools.
+
 [Full readable 113-tool reference](API-REFERENCE.md) — use its index for one tool at a time.
 
 The complete captured input catalog lives in [catalog.json](../../api/catalog.json); [effect classifications](../../api/effects.json) describe conservative default handling. Agent-selected dynamic actions still require inspecting current menus and run permissions. No tool grants permission to cheat or use hidden targeting.

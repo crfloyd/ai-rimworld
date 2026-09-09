@@ -24,7 +24,7 @@ These commands do not query or start the game. A new campaign requires its own a
 
 ## Live work
 
-Follow the [control contract](docs/control.md) to claim handed-off ownership, connect, inspect and bind the actual game. Then use ordinary `call TOOL --args JSON` requests, or `observe` for grouped reads. Use `act` when a tracked strategic outcome helps. Use `spatial --observation ID --rect MINX MAXX MINZ MAXZ` to inspect full recorded properties in a chosen area. Placement validity and line of sight still require current game information; the layer does not invent them.
+Follow the [control contract](docs/control.md) to claim handed-off ownership, connect, inspect and bind the actual game. Then use ordinary `call TOOL --args JSON` requests, or the shared `rw_observe`/CLI `observe` interface for named related facts. `rw_guard`/CLI `guard` supports an explicit read/condition/one-action rule; see [composition](docs/composition.md). Use `act` when a tracked strategic outcome helps. Use `spatial --observation ID --rect MINX MAXX MINZ MAXZ` to inspect full recorded properties in a chosen area. Placement validity and line of sight still require current game information; the layer does not invent them.
 
 Ordinary calls journal requests/evidence without creating unfinished goals or requiring intent text. Opt into tracking with `call --track --intent ...`, a check, or `act`. Any family label can be used; `outcome.checks` or `check` supplies arbitrary scoped predicates. Accepted never means completed. Keep actual unfinished work and temporary changes in current notes; all uncertain requests still block replay. Read `./rw COMMAND --help` for exact arguments.
 

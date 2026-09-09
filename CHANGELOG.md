@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+- Shared composed reads exposed as rw_observe and CLI observe, with selected pawn/production presets and explicit queries.
+- Agent-authored rw_guard performs bounded fresh reads, typed conditions, at most one literal action, and optional immediate verification reads. Unknown/partial/ambiguous input abstains.
+- Durable composition manifests cover subcall/delivery gaps and participate in inspection, handoff, pause and reconciliation.
+- Full valid game data, media and unfamiliar properties retained; duplicate/nonfinite JSON cannot trigger a guard.
+- Removed duplicate CLI-only observe execution, inert ui preparation command, stale monitor/P8 tasks and accumulated presentation instructions. Historical records remain supported.
+
 ## 0.3.1
 
 - Correct lowercase/verbose pawn coverage against the captured real RimMolt catalog.

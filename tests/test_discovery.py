@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 class Discovery(unittest.TestCase):
     def test_every_catalog_tool_discoverable_and_classified(self):
         cat=json.loads((ROOT/'api/catalog.json').read_text())
-        self.assertEqual(discover(ROOT)['total'],113)
+        self.assertEqual(discover(ROOT)['total'],115)
         for n,t in cat['tools'].items():
             self.assertEqual(discover(ROOT,tool=n)['tool'],t)
             self.assertNotEqual(effect(n,{}),'unclassified')

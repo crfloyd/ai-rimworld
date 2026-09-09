@@ -80,7 +80,7 @@ class Control:
         with lock(self.path / "operation.lock"):
             if (self.path / "owner.json").exists():
                 raise Error("An owner already exists. Inspect and complete its handoff; no timeout takeover.")
-            if (self.path / "pending.json").exists():
+            if any((self.path / name).exists() for name in ("pending.json", "composition.json")):
                 raise Error("An unresolved operation remains. Reconcile it before claiming.")
             record = {"owner": owner, "campaign_id": self.campaign.meta["id"],
                       "token": identifier("owner-"), "claimed_at": now(), "basis": basis,
@@ -91,16 +91,17 @@ class Control:
 
     def inspect(self):
         result = {"endpoint": self.endpoint}
-        for filename in ("owner", "pending", "session", "pause-uncertain"):
+        for filename in ("owner", "pending", "composition", "session", "pause-uncertain"):
             p = self.path / (filename + ".json")
             if p.exists():
                 result[filename] = read_json(p)
-        if "pending" in result:
-            result["pending"]["local_process_alive"] = alive(result["pending"].get("pid"))
-            handle = self.path / (result["pending"]["request_id"] + ".handle.json")
-            if handle.exists():
-                result["pending"]["orchestrator_handle"] = read_json(handle)
-            result["pending"]["warning"] = "Local process exit does not prove the server operation ended."
+        for name in ('pending','composition'):
+            if name not in result: continue
+            record=result[name]
+            record['local_process_alive']=alive(record.get('pid'))
+            handle=self.path/(record['request_id']+'.handle.json')
+            if handle.exists():record['orchestrator_handle']=read_json(handle)
+            record['warning']='Local process exit does not prove the server operation ended.'
         return result
 
     def _owner(self, token):
@@ -122,27 +123,30 @@ class Control:
             return {"released": True, "game_changed": False}
 
     def attach_handle(self, request_id, kind, value):
-        pending = read_json(self.path / "pending.json")
-        if pending["request_id"] != request_id:
-            raise Error("Handle does not match the pending request.")
+        records = [read_json(self.path/name) for name in ('pending.json','composition.json') if (self.path/name).exists()]
+        if not any(r['request_id']==request_id for r in records):
+            raise Error("Handle does not match a pending request.")
         atomic_json(self.path / (request_id + ".handle.json"),
                     {"kind": kind, "value": value, "captured_at": now()})
 
     def reconcile(self, token, evidence, reason, server_terminal):
         with lock(self.path / "operation.lock"):
             self._owner(token)
-            pending = read_json(self.path / "pending.json")
+            paths = [self.path/name for name in ('pending.json','composition.json') if (self.path/name).exists()]
+            if not paths: raise Error('No pending request to reconcile.')
+            records = [read_json(p) for p in paths]
             if not evidence or not reason or not server_terminal:
-                raise Error("Require evidence, reason, and explicit confirmation that the server operation ended.")
-            if alive(pending.get("pid")) is True and pending.get("pid") != os.getpid():
-                raise Error("Originating process is still live; poll its handle before reconciliation.")
-            append_json(self.path / "history.jsonl", {"kind": "reconciled", "pending": pending,
+                raise Error("Require evidence, reason, and explicit confirmation that ALL original subrequests and the process are terminal.")
+            for pending in records:
+                if alive(pending.get("pid")) is True and pending.get("pid") != os.getpid():
+                    raise Error("Originating process is still live; poll its handle before reconciliation.")
+            append_json(self.path / "history.jsonl", {"kind": "reconciled", "pending": records[0],
+                        "composition": next((r for r in records if r.get('kind')=='composition'), None),
                         "evidence": evidence, "reason": reason, "at": now(),
                         "basis": "operator-reviewed terminal server/process evidence"})
-            # A terminated worker may have persisted a response without delivering it.
             self.campaign.meta['presentation_reset_at'] = now()
             atomic_json(self.campaign.path / 'campaign.json', self.campaign.meta)
-            (self.path / "pending.json").unlink()
+            for p in paths: p.unlink()
             return {"reconciled": True, "replayed": False,
                     "action_status": "Reconcile the gameplay outcome separately; this does not mark it successful."}
 
@@ -170,6 +174,9 @@ class Control:
                     "next": "Observe get_status, review the running game, then bind its identity."}
 
     def _no_pending(self):
+        compound = self.path / 'composition.json'
+        if compound.exists() and read_json(compound)['request_id'] != getattr(self, '_composition_id', None):
+            raise Error('A composition is pending or its delivery is uncertain. Inspect its manifest/handle and reconcile; never replay it.')
         if (self.path / "pending.json").exists():
             raise Error("An operation is pending or uncertain. Inspect/poll/reconcile; do not replay it.")
 
@@ -220,6 +227,16 @@ class Control:
             atomic_json(p, rules)
             return rules[tool]
 
+    def effective_effect(self, tool, args, catalog=None):
+        catalog = catalog or read_json(self.campaign.path/'raw/catalog.json')['tools']
+        kind = effect(tool, args)
+        custom = self.path/'classifications.json'
+        if kind == 'unclassified' and custom.exists():
+            rule = read_json(custom).get(tool)
+            if rule and rule['schema_digest'] == digest(catalog[tool]):
+                kind = rule['effect']
+        return kind
+
     def call(self, token, tool, args, intent=None, family="general", check=None, setup=False, track=False):
         with lock(self.path / "operation.lock"):
             self._owner(token)
@@ -236,12 +253,7 @@ class Control:
             if tool == "wait_for_event":
                 args, wait_budget = self.wait_arguments(args)
                 validate(catalog["tools"][tool]["inputSchema"], args)
-            kind = effect(tool, args)
-            custom = self.path / "classifications.json"
-            if kind == "unclassified" and custom.exists():
-                rule = read_json(custom).get(tool)
-                if rule and rule["schema_digest"] == digest(catalog["tools"][tool]):
-                    kind = rule["effect"]
+            kind = self.effective_effect(tool, args, catalog["tools"])
             if kind in ("denied", "unclassified"):
                 raise Error(f"Tool is {kind}; inspect its live contract and use legitimate controls.")
             binding = self.campaign.meta.get("binding")
@@ -382,12 +394,13 @@ class Control:
                 return {"confirmed": False, "urgent": "No reviewed ordinary pause capability in this catalog. Use normal UI under owned control.", "game_state": "unknown"}
             validate(tool["inputSchema"], {"action": "pause"})
             pending_path = self.path / "pending.json"
-            if pending_path.exists() and not emergency:
+            pending_exists = pending_path.exists() or (self.path/"composition.json").exists()
+            if pending_exists and not emergency:
                 return {"confirmed": False, "urgent": "An unresolved server operation remains; inspect its handle, or use the emergency idempotent pause safeguard."}
             request = identifier("pause-")
             guard_path = self.path / "pause-uncertain.json"
             atomic_json(guard_path, {"request": request, "at": now(), "status": "attempting",
-                                    "preserved_pending": pending_path.exists(), "pid": os.getpid()})
+                                    "preserved_pending": pending_exists, "pid": os.getpid()})
             client = self.client_factory(self.endpoint, read_json(self.path / "session.json"))
             try:
                 payload = client.rpc("tools/call", {"name": "set_speed", "arguments": {"action": "pause"}}, request)
@@ -396,12 +409,12 @@ class Control:
                 data = obs["data"]
                 confirmed = pause_confirmed(obs)
                 self.campaign.event({"kind": "pause_guard", "summary": "Ordinary pause confirmed" if confirmed else "Pause remains unconfirmed",
-                                     "evidence": result["id"], "emergency": emergency, "pending_preserved": pending_path.exists()})
-                if confirmed and not pending_path.exists(): guard_path.unlink()
+                                     "evidence": result["id"], "emergency": emergency, "pending_preserved": pending_exists})
+                if confirmed and not pending_exists: guard_path.unlink()
                 else: atomic_json(guard_path, {"request": request, "at": now(), "confirmed_at_response": confirmed,
-                                             "pending_preserved": pending_path.exists(), "evidence": result["id"]})
-                return {"confirmed": confirmed, "evidence": result["id"], "pending_preserved": pending_path.exists(),
-                        "safe_to_advance": confirmed and not pending_path.exists()}
+                                             "pending_preserved": pending_exists, "evidence": result["id"]})
+                return {"confirmed": confirmed, "evidence": result["id"], "pending_preserved": pending_exists,
+                        "safe_to_advance": confirmed and not pending_exists}
             except Exception as exc:
                 atomic_json(guard_path, {"request": request, "at": now(), "error": str(exc), "status": "unknown"})
-                return {"confirmed": False, "urgent": str(exc), "pending_preserved": pending_path.exists()}
+                return {"confirmed": False, "urgent": str(exc), "pending_preserved": pending_exists}

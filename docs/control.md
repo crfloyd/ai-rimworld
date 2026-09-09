@@ -35,6 +35,10 @@ Carry the real session/request IDs and a partial-line buffer across collection c
 
 When presenting executor output, avoid stringifying the entire result around an already serialized stdout string. Emit the original output and a compact handle/exit/truncation envelope, without semantic filtering. Keep large original data retrievable and narrow subsequent queries. The trial's ad-hoc collector was experimental; a reusable implementation still requires focused complete/partial/error/media/truncation tests. This guidance does not certify an untested collector or alter the MCP protocol.
 
+## Composed requests
+
+`rw_observe` and `rw_guard` are advertised by the persistent session alongside upstream tools; see [composition](composition.md). CLI observe/guard use the same engine. Compound requests retain a durable composition marker between subcalls and until output flush. Inspect/reconcile both that marker and any underlying pending request before release or further actions. No manual acknowledgement or automatic continuation is introduced.
+
 ## Time and uncertainty
 
 Use the normal wait_for_event arguments. There are no client combat/medical category caps. The agent chooses a finite horizon based on actual risk. maxSeconds must be an integer5–600; pause must be always. Game-time bounds must be finite/nonnegative. Existing typed hard issue deadlines still shorten the tick budget and are reported; a due deadline blocks advancement. The server's crisis cap/force option remains visible and must be used according to actual risk, never automatically.

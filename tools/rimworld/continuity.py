@@ -96,16 +96,20 @@ def runtime_snapshot(campaign):
     endpoint = campaign.meta.get('endpoint', 'http://localhost:8787/mcp')
     base = campaign.root / '.runtime' / digest(endpoint_key(endpoint))
     result = {'endpoint': endpoint, 'live_checked': False}
-    for name in ('owner', 'pending', 'session', 'pause-uncertain'):
+    for name in ('owner', 'pending', 'composition', 'session', 'pause-uncertain'):
         path = base / (name + '.json')
         if path.exists():
             data = read_json(path)
             if name == 'owner': data = {k: v for k, v in data.items() if k != 'token'}
             result[name] = data
-    pending = result.get('pending', {})
-    if pending.get('request_id'):
-        path = base / (pending['request_id'] + '.handle.json')
-        if path.exists(): result['handle'] = read_json(path)
+    for name in ('pending','composition'):
+        pending = result.get(name, {})
+        if pending.get('request_id'):
+            path = base / (pending['request_id'] + '.handle.json')
+            if path.exists():
+                handle=read_json(path)
+                pending['orchestrator_handle']=handle
+                if name=='pending':result['handle']=handle
     return result
 
 

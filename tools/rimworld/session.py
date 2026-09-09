@@ -7,7 +7,8 @@ import sys
 from . import __version__
 from .core import Error, atomic_json, lock, now, read_json
 from .mcp import PROTOCOLS
-from .observations import visible_data
+from .responses import visible_result
+from .composition import TOOLS, Composer, delivered
 
 
 class Session:
@@ -16,6 +17,7 @@ class Session:
         control._no_pending()
         self.control, self.token, self.setup = control, token, setup
         self.last_observation = None
+        self.last_composition = None
 
     def delivery_failed(self, request, error):
         """A known response lost locally must not become a retryable mutation."""
@@ -23,6 +25,12 @@ class Session:
             return
         with lock(self.control.path/'operation.lock'):
             self.control._owner(self.token)
+            compound = self.control.path/'composition.json'
+            if compound.exists():
+                record=read_json(compound)
+                record.update(status='unknown',error='Local response delivery failed: '+str(error))
+                atomic_json(compound,record)
+                atomic_json(self.control.campaign.path/'reference/compositions'/(record['request_id']+'.json'),record)
             path = self.control.path/'pending.json'
             if not path.exists():
                 atomic_json(path, {'request_id':'delivery-'+str(request.get('id')),
@@ -32,6 +40,7 @@ class Session:
 
     def handle(self, request):
         self.last_observation = None
+        self.last_composition = None
         if not isinstance(request,dict) or request.get('jsonrpc') != '2.0' or not isinstance(request.get('method'),str):
             return {'jsonrpc':'2.0','id':None,'error':{'code':-32600,'message':'Expected one JSON-RPC2.0 request.'}}
         # Notifications must not execute a game operation without a reply ID.
@@ -50,11 +59,19 @@ class Session:
             elif method == 'tools/list':
                 if (self.control.path/'catalog-stale.json').exists(): raise Error('Server catalog changed; close this session, connect and rebind before discovery.')
                 catalog=read_json(self.control.campaign.path/'raw/catalog.json')
-                result={'tools':list(catalog['tools'].values()),'_meta':{'captured_at':catalog['captured_at']}}
+                if set(TOOLS) & set(catalog['tools']): raise Error('Local composition name collides with upstream catalog.')
+                result={'tools':list(catalog['tools'].values())+list(TOOLS.values()),'_meta':{'captured_at':catalog['captured_at'],'local_tools':list(TOOLS),'local_version':__version__}}
             elif method == 'tools/call':
                 name, args=params.get('name'),params.get('arguments',{})
                 if not isinstance(name,str) or not isinstance(args,dict): raise Error('Use a tool name and arguments object.')
-                pending_pause = (self.control.path/'pending.json').exists()
+                if name in TOOLS:
+                    if name in read_json(self.control.campaign.path/'raw/catalog.json')['tools']:
+                        raise Error('Local composition name collides with upstream catalog.')
+                    def observed(obs_id): self.last_observation=obs_id
+                    value=Composer(self.control,self.token,observed).execute(name,args)
+                    self.last_composition=value['composition']
+                    return {'jsonrpc':'2.0','id':rid,'result':{'content':[{'type':'text','text':json.dumps(value,ensure_ascii=False,allow_nan=False)}]}}
+                pending_pause = any((self.control.path/p).exists() for p in ('pending.json','composition.json'))
                 if name == 'set_speed' and args == {'action':'pause'}:
                     guard=self.control.ensure_paused(self.token,emergency=True)
                     if not guard.get('confirmed'): raise Error('Ordinary pause could not be confirmed: '+str(guard))
@@ -63,29 +80,7 @@ class Session:
                     value=self.control.call(self.token,name,args,setup=self.setup)
                 self.last_observation=value['id']
                 obs=self.control.campaign.observation(value['id'])
-                raw=read_json(self.control.campaign.path/obs['raw'])['payload']
-                result=copy.deepcopy(raw.get('result',raw))
-                if not isinstance(result,dict): raise Error('Unexpected MCP result shape; original evidence retained.')
-                # Forward all content/media/unknown properties. Only the existing
-                # explicit hidden-AI visibility boundary changes game text.
-                exclusions=[]
-                for index, block in enumerate(result.get('content',[])):
-                    if block.get('type') != 'text': continue
-                    try: data=json.loads(block['text'])
-                    except (ValueError,TypeError): continue
-                    data, excluded=visible_data(data,name)
-                    if excluded:
-                        block['text']=json.dumps(data,ensure_ascii=False)
-                        exclusions.extend('content/'+str(index)+'/text/'+path for path in excluded)
-                if 'structuredContent' in result:
-                    result['structuredContent'], excluded=visible_data(result['structuredContent'],name)
-                    exclusions.extend('structuredContent/'+path for path in excluded)
-                metadata={'_evidence':value['id']}
-                if raw.get('_transportNotifications'):
-                    notifications, excluded=visible_data(raw['_transportNotifications'],name)
-                    metadata['_transportNotifications']=notifications
-                    exclusions.extend('_transportNotifications/'+path for path in excluded)
-                if exclusions: metadata['visibility_exclusions']={'reason':'Hostile AI targeting is not player-visible','paths':exclusions}
+                result, metadata=visible_result(self.control.campaign,obs)
                 if pending_pause: metadata['original_request_still_unresolved']=True
                 if obs['completeness']!='known': metadata.update(completeness=obs['completeness'],missing=obs['missing'])
                 for key in ('identity_mismatch','pause_guard','wait_budget'):
@@ -95,10 +90,11 @@ class Session:
                 return {'jsonrpc':'2.0','id':rid,'error':{'code':-32601,'message':'Unknown MCP method.'}}
             return {'jsonrpc':'2.0','id':rid,'result':result}
         except BaseException as exc:
+            self.last_composition=None
             self.delivery_failed(request,exc)
             if not isinstance(exc,Exception): raise
             return {'jsonrpc':'2.0','id':rid,'error':{'code':-32000,'message':str(exc),
-                'data':{'pending':(self.control.path/'pending.json').exists()}}}
+                'data':{'pending':any((self.control.path/p).exists() for p in ('pending.json','composition.json'))}}}
 
 
 def serve(control, token, input_stream=None, output_stream=None, setup=False):
@@ -123,6 +119,9 @@ def serve(control, token, input_stream=None, output_stream=None, setup=False):
                 if response is not None:
                     output_stream.write(json.dumps(response,ensure_ascii=False,allow_nan=False)+'\n')
                     output_stream.flush()
+                    if session.last_composition:
+                        delivered(control,token,session.last_composition)
+                        session.last_composition=None
             except BaseException as exc:
                 session.delivery_failed(request,exc)
                 raise

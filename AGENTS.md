@@ -20,6 +20,8 @@ Establish sole control and no pending request through [control](docs/control.md)
 
 ## Ordinary play
 
+For related facts, use the local `rw_observe` tool (CLI `observe`) with named queries or selected pawn/production sections. It combines ordinary reads into one response without diagnosing readiness. Use `rw_guard` only for an already-chosen bounded read/condition/one-action rule; unknown/ambiguous data must not become an else action. See [composition](docs/composition.md) for exact examples and limitations. Individual tools remain available.
+
 Use a focused observation, make the strategic decision, group reviewed ordinary commands where safe, then one finite event-driven wait and the outcome reads needed next. `call TOOL --args JSON` uses ordinary MCP arguments. Requests and original evidence are journaled automatically; routine calls do not require an intention or create unfinished goals by default.
 
 Use `act` or `call --track --intent ...` with checks when a tracked strategic outcome is useful. Do not manually close a record for every routine command. Preserve consequential unfinished work, dependencies and temporary changes in current notes/issues; capture original settings before changing them. An accepted order is not treatment, arrival, delivery or completed construction. Verify the actual result.

@@ -1,5 +1,6 @@
 """Offline, complete capability discovery. Catalog data never grants permission."""
 from pathlib import Path
+from . import __version__
 from functools import lru_cache
 import re
 from .core import Error,read_json
@@ -12,17 +13,25 @@ def discover(root, query='', tool=None, campaign=None):
     path=(campaign.path/'raw/catalog.json') if campaign else Path(root)/'api/catalog.json'
     catalog=read_json(path)
     from .control import effect
+    from .composition import TOOLS
+    catalog=dict(catalog,tools=dict(catalog['tools']))
+    if set(TOOLS) & set(catalog['tools']):raise Error('Local composition name collides with upstream catalog.')
+    catalog['tools'].update(TOOLS)
+    def classification(name):return ('composition-read' if name=='rw_observe' else 'guarded-mutation') if name in TOOLS else effect(name,{})
     if tool:
         if tool not in catalog['tools']:raise Error('Tool not present in this catalog.')
-        return {'tool':catalog['tools'][tool],'default_effect':effect(tool,{}),
-                'captured_at':catalog.get('captured_at'),'live_checked':False,
+        provenance=({'origin':'local','local_version':__version__,
+                     'upstream_catalog_captured_at':catalog.get('captured_at')} if tool in TOOLS else
+                    {'origin':'upstream','captured_at':catalog.get('captured_at')})
+        return {'tool':catalog['tools'][tool],'default_effect':classification(tool),**provenance,
+                'live_checked':False,
                 'limitation':'No output schemas; current offered actions and run rules govern execution. Inspect argument-dependent effects.'}
     words=re.findall(r'[a-z0-9]+',query.lower())
     items=[]
     for name,t in catalog['tools'].items():
         text=(name+' '+t.get('description','')).lower()
         if not all(w in text for w in words):continue
-        items.append({'tool':name,'effect':effect(name,{}),
+        items.append({'tool':name,'effect':classification(name),'origin':'local' if name in TOOLS else 'upstream',
                       'description':t.get('description','').split('. ')[0]})
     return {'matches':items,'total':len(items),'catalog_tools':len(catalog['tools']),
             'captured_at':catalog.get('captured_at'),'live_checked':False,

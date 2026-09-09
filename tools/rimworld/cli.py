@@ -110,8 +110,11 @@ def parser():
     q.add_argument("--basis", required=True); q.add_argument("--token", required=True)
     q = sub.add_parser("catalog", help="Inspect or classify the saved tool catalog.")
     q.add_argument("--tool"); q.add_argument("--effect"); q.add_argument("--basis"); q.add_argument("--token")
-    q = sub.add_parser("observe", help="Read a finite set of ordinary queries in one agent exchange.")
-    q.add_argument("--queries", required=True); q.add_argument("--token", required=True)
+    for command in ('observe','guard'):
+        q = sub.add_parser(command, help='Composed related reads' if command=='observe' else 'Explicit read/condition/one-action without game-time advancement')
+        source=q.add_mutually_exclusive_group(required=True)
+        source.add_argument('--json'); source.add_argument('--file',type=Path)
+        q.add_argument('--token',required=True)
     q = sub.add_parser("act", help="Issue one ordinary order with an inline intent and outcome contract.")
     q.add_argument("--json", required=True); q.add_argument("--token", required=True)
     q = sub.add_parser("call", help="Execute one ordinary MCP tool under an existing controller.")
@@ -131,9 +134,6 @@ def parser():
     q.add_argument("--evidence", nargs="+"); q.add_argument("--map-index", type=int)
     q = sub.add_parser("checkpoint")
     q.add_argument("--file", type=Path, help="Omit to inspect which checkpoint is due.")
-    q = sub.add_parser("ui", help="Prepare a tracked normal-UI action for computer-control tools.")
-    q.add_argument("--intent", required=True); q.add_argument("--family", required=True)
-    q.add_argument("--target", required=True); q.add_argument("--token", required=True)
     return p
 
 
@@ -211,7 +211,8 @@ def run(args):
     if command == "event":
         value = read_json(args.file)
         if value.get("kind") == "decision":
-            require_fields(value, ("rationale", "expected_result", "risks", "alternatives", "reconsider_when"))
+            from .continuity import decide
+            return decide(campaign,value)
         return campaign.event(value)
     if command == "action":
         return campaign.action_update(args.id, args.status, args.evidence, args.reason) if args.id else list(campaign._actions().values())
@@ -278,24 +279,19 @@ def run(args):
             if campaign._actions().get(dependency, {}).get("status") != "completed":
                 raise Error("Required action is not verified complete: " + dependency)
         return control.call(args.token, spec["tool"], spec.get("args", {}), spec["intent"], family, check, track=spec.get("track",True))
-    if command == "observe":
-        queries = json.loads(args.queries)
-        if not isinstance(queries, list) or not 1 <= len(queries) <= 32:
-            raise Error("Use 1–32 explicit read queries; this is a bounded read packet.")
-        catalog = read_json(campaign.path / "raw/catalog.json")
-        for q in queries:
-            require_fields(q, ("tool",))
-            if not effect(q["tool"], q.get("args", {})).startswith("inspection"):
-                raise Error("Observe only accepts classified ordinary reads.")
-            if q["tool"] not in catalog["tools"]: raise Error("Unknown read tool.")
-            validate(catalog["tools"][q["tool"]]["inputSchema"], q.get("args", {}))
-        result = []
-        for q in queries:
-            value = control.call(args.token, q["tool"], q.get("args", {})); result.append(value)
-            if value.get("identity_mismatch") or value["completeness"] == "unavailable": break
-        return {"observations": result, "game_advanced": False,
-                "note": "All warnings preserved. This read packet does not authorize continuing through danger."}
+    if command in ('observe','guard'):
+        from .composition import Composer
+        spec=read_json(args.file) if args.file else obj(args.json)
+        if args.full_output:spec=dict(spec,provenance=True)
+        return Composer(control,args.token).execute('rw_'+command,spec)
     if command == "call":
+        from .composition import TOOLS, Composer
+        if args.tool in TOOLS:
+            if args.intent or args.track or args.check or args.setup:
+                raise Error('Local composition uses its own explicit schema; tracking/setup flags are not supported.')
+            spec=obj(args.args)
+            if args.full_output:spec=dict(spec,provenance=True)
+            return Composer(control,args.token).execute(args.tool,spec)
         return control.call(args.token, args.tool, obj(args.args), args.intent, args.family,
                             read_json(args.check) if args.check else None, args.setup, track=args.track)
     if command == "batch":
@@ -339,18 +335,6 @@ def run(args):
             if safety["stop"] or result.get("identity_mismatch"):
                 return {"stopped": True, "reason": "Risk/coverage/identity needs review", "safety": safety, "results": results}
         return {"stopped": False, "results": results}
-    if command == "ui":
-        control._owner(args.token)
-        control._no_pending()
-        if not campaign.meta.get("binding"):
-            raise Error("Bind the reviewed game identity before UI control.")
-        action = campaign.action("normal_ui", {"target": args.target}, args.intent, args.family)
-        return {"action": action, "steps": [
-            "Read the current game screen through the computer-control tool.",
-            "Select the actor and open the real action/targeter. For abilities, do not pass an unsupported targetId.",
-            "Read the changed screen, confirm the targeter and current target position, then click the visible target.",
-            "Inspect actual gameplay outcome after appropriate advancement; record fresh evidence before marking complete."],
-            "warning": "This command prepares a tracked action; it does not click, cast, or claim success."}
     raise Error("Unhandled command.")
 
 
@@ -360,7 +344,11 @@ def main(argv=None):
         result = run(args)
         if args.command == "session": return 0
         from .presentation import present
-        print(result if isinstance(result, str) else json.dumps(result if args.full_output or args.command == "retrieve" else present(result), ensure_ascii=False, separators=(",", ":")))
+        from .composition import TOOLS, delivered
+        local = args.command in ('observe','guard') or (args.command=='call' and args.tool in TOOLS)
+        print(result if isinstance(result, str) else json.dumps(result if args.full_output or args.command == "retrieve" or local else present(result), ensure_ascii=False, separators=(",", ":"), allow_nan=False), flush=True)
+        if local:
+            delivered(Control(Campaign(args.root,args.campaign)),args.token,result['composition'])
         return 0
     except (Error, OSError, ValueError, KeyError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))

@@ -15,7 +15,7 @@ class PersistentMCP(ControlFixture):
         r=self.session.handle({'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-03-26'}})
         self.assertEqual(r['result']['protocolVersion'],'2025-03-26')
         r=self.session.handle({'jsonrpc':'2.0','id':2,'method':'tools/list'})
-        self.assertEqual({t['name'] for t in r['result']['tools']},set(CATALOG))
+        self.assertEqual({t['name'] for t in r['result']['tools']},set(CATALOG)|{"rw_observe","rw_guard"})
         self.assertIsNone(self.session.handle({'jsonrpc':'2.0','method':'tools/call','params':{'name':'order_pawn'}}))
         self.assertEqual(before,len(self.calls))
     def test_each_read_is_full_and_novel_fields_survive(self):
