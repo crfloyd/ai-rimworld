@@ -18,6 +18,8 @@ For a new game, use [startup](docs/startup.md), honoring the user's supplied cho
 
 Establish sole control and no pending request through [control](docs/control.md). Revalidate the actual game and identity. Reuse a valid session; unfamiliar names call for the small [API index](docs/api/README.md) and exact contracts, not a reconnect or guesses. The complete API remains discoverable. Read only the relevant reference section; parse JSONL records selectively instead of dumping raw transcript lines.
 
+Before the first live facade call in each new play session, read [facade](docs/facade.md) completely. Re-read it after a reported tooling/version change. It is the required operational guide for fast model-facing calls, not the full upstream API manual.
+
 ## Ordinary play
 
 Session discovery serves a small surface: `rw_read`, `rw_act`, `rw_wait`, `rw_capabilities`, `rw_retrieve`, `rw_observe` and `rw_guard`. The full upstream catalog stays reachable by name through `rw_read`/`rw_act`. On entering a run, use the compact capability overview/domain/workflow map to see the real strategic affordances, then fetch only exact contracts genuinely needed; do not load the full one-line catalog by default. Filter at the source, keep the default compact view, and escalate with `rw_retrieve` only when compact is genuinely insufficient. See [facade](docs/facade.md) for views, selection, limits and references.

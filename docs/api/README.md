@@ -24,7 +24,7 @@ Without a run, discovery uses the shipped snapshot. With a run, it reads that ru
 
 ## Retrieval across starts and compactions
 
-Read this index once when entering a new run or recovering working context. Search by the intended action before guessing tool names or switching to computer use. Inspect the exact tool contract before unfamiliar commands. If a topic search misses, try broader terms or list `./rw capabilities` without a query; search matches are not a whitelist of available actions.
+Read this index once when entering a new run or recovering working context, then read `docs/facade.md` before the first live facade call. Search by the intended action before guessing tool names or switching to computer use. Inspect the exact tool contract before unfamiliar commands. If a topic search misses, try the relevant overview/domain/workflow and then broader terms; a search miss is not proof that an action is unavailable. Do not load the full catalog by default.
 
 Use the readable manual's `## TOOL_NAME` section for source-reviewed behavior, and the corresponding entry in `api/observed-shapes.json` when response interpretation requires more detail. Retrieve only that section or entry. The current captured input contract governs available arguments; historical response shapes do not bound future fields. Inspect live dynamic menus for current options. A missing cached capability is uncertain until the installed catalog can be refreshed under owned control, not proof that the game cannot perform the action.
 
