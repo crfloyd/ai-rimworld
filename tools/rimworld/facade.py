@@ -451,11 +451,22 @@ def event_details(control,token,wait_data,status_data,topics,memo,observed,seque
             details['fires']={'data':obs['data'],'evidence':obs['id'],
                               'completeness':obs['completeness'],'missing':obs['missing']}
     if 'world' in topics:
-        value=control.call(token,'list_world_objects',{},driver='facade_wait_context')
+        value=control.call(token,'list_world_objects',{'kind':'caravans'},driver='facade_wait_context')
         if observed:observed(value['id'])
         sequence.observed('event_world',value);obs=control.campaign.observation(value['id'])
-        details['world']={'data':obs['data'],'evidence':obs['id'],
+        details['world']={'data':obs['data'],'evidence':obs['id'],'scope':'kind=caravans',
                           'completeness':obs['completeness'],'missing':obs['missing']}
+        visitors=control.call(token,'list_things',{'category':'pawn','faction':'neutral','limit':20},
+                              driver='facade_wait_context')
+        if observed:observed(visitors['id'])
+        sequence.observed('event_visitors',visitors)
+        visitor_obs=control.campaign.observation(visitors['id'])
+        details['visitors']={'rows':[responder_row(r) for r in (visitor_obs['data'].get('things') or [])
+                                     if isinstance(r,dict)],
+                             'evidence':visitor_obs['id'],
+                             'basis':'Neutral pawns on this map. A visiting trade caravan is map pawns, not a world '
+                                     'caravan row, so the world list can be empty while the trader stands in the colony.',
+                             'completeness':visitor_obs['completeness'],'missing':visitor_obs['missing']}
     return details
 
 

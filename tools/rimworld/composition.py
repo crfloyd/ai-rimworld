@@ -20,7 +20,8 @@ KEY={'type':'string','pattern':'^[a-z][a-z0-9_-]{0,39}$'}
 def includes(names):
     return {'type':'array','items':{'enum':list(names)},'minItems':1,'uniqueItems':True}
 PAWN_FACETS=('summary','needs','health','gear','bio','schedule')
-DECISION_TOPICS=('core','alerts','food','medical','mood','threat','work','research','conditions','world')
+DECISION_TOPICS=('core','alerts','food','medical','mood','threat','work','research','conditions','world','visitors')
+WORLD_KINDS=('all','settlements','caravans','sites','space')
 DECISION_PAWN=obj({'id':STRING,'include':includes(PAWN_FACETS)},['id'])
 QUERY={'oneOf':[
     obj({'key':KEY,'tool':STRING,'args':ARGS},['key','tool']),
@@ -31,6 +32,7 @@ QUERY={'oneOf':[
          'include':includes(('station','bills','recipes','resources','worker','work_options'))},['key','preset','id']),
     obj({'key':KEY,'preset':{'const':'decision'},'include':includes(DECISION_TOPICS),
          'pawns':{'type':'array','items':DECISION_PAWN,'maxItems':8},
+         'world_kind':{'enum':list(WORLD_KINDS)},
          'mood_below':{'type':'number','minimum':0,'maximum':100}},['key','preset'])]}
 READ_SCHEMA = obj({'provenance':{'type':'boolean'},'reuse':{'type':'boolean'},
                    'queries':{'type':'array','items':QUERY,'minItems':1,'maxItems':32}}, ['queries'])
@@ -83,8 +85,13 @@ def expand(queries):
         if q.get('preset')=='decision':
             prefix=q['key']
             topics=q.get('include') or ['core','alerts']
-            if any(t!='world' for t in topics):expanded.append({'key':prefix+'.status','tool':'get_status','args':{}})
-            if 'world' in topics:expanded.append({'key':prefix+'.world','tool':'list_world_objects','args':{}})
+            if any(t not in ('world','visitors') for t in topics):expanded.append({'key':prefix+'.status','tool':'get_status','args':{}})
+            if 'world' in topics:
+                expanded.append({'key':prefix+'.world','tool':'list_world_objects',
+                                 'args':{'kind':q.get('world_kind','caravans')}})
+            if 'visitors' in topics:
+                expanded.append({'key':prefix+'.visitors','tool':'list_things',
+                                 'args':{'category':'pawn','faction':'neutral','limit':40}})
             if 'threat' in topics:
                 args={'category':'pawn','limit':20}
                 if q.get('pawns'):args.update(nearId=q['pawns'][0]['id'],radius=50)
@@ -257,7 +264,10 @@ def decision_status(data, topics, mood_below=35):
                           'recentMessages':alerts.get('recentMessages',[]),'dangerByMap':alerts.get('dangerByMap')}
     if 'food' in topics:
         result['food']={'resources':_resources(resources,('meal','meat','rice','pemmican','berr','egg','milk','corn','potato')),
-                        'alerts':[a for a in alerts.get('activeAlerts',[]) if 'food' in str(a.get('label','')).lower()]}
+                        'alerts':[a for a in alerts.get('activeAlerts',[]) if 'food' in str(a.get('label','')).lower()],
+                        'not_covered':'Stockpiled counts only. A suspended cooking bill (list_bills on the stove) and '
+                                      'loose or forbidden food (list_unmanaged_items) are not in this packet, and they '
+                                      'are the two most common causes of a food alert with ingredients on hand.'}
     if 'medical' in topics:
         result['medical']=[p for p in colonists if p.get('health',100)<100 or 'health' in str(p.get('hint','')).lower() or p.get('downed')]
         result['medicine']=_resources(resources,('medicine','medkit'))
@@ -284,6 +294,8 @@ def materialize_decisions(result, specs, evidence):
             packet.update(decision_status(status['data'],topics,q.get('mood_below',35)))
         world=result['sections'].pop(key+'.world',None)
         if world and 'data' in world:packet['world']=world['data']
+        visitors=result['sections'].pop(key+'.visitors',None)
+        if visitors and 'data' in visitors:packet['visitors']=visitors['data']
         threat=result['sections'].pop(key+'.threat',None)
         if threat and 'data' in threat:
             existing=packet.get('threat') or {}

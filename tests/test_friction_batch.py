@@ -94,3 +94,63 @@ class FrictionBatch(ControlFixture):
         self.assertEqual(value['verification_not_run'], [])
         self.assertEqual(value['verification_degraded'], ['world'])
         self.assertEqual(value['verification']['weather']['data']['outdoorTemp'], -12)
+
+    # --- Task 3: decision preset reach ------------------------------------------------
+
+    def test_decision_world_defaults_to_a_narrow_kind(self):
+        self.add_tools('list_world_objects')
+        self.responses.extend([{'_paused': True, 'objects': [], 'ok': True}])
+        value = self.body('rw_observe', {'queries': [
+            {'key': 'now', 'preset': 'decision', 'include': ['world']}]})
+        self.assertEqual(self.calls[-1]['arguments'], {'kind': 'caravans'})
+        self.assertIn('world', value['decisions']['now'])
+
+    def test_decision_world_kind_is_caller_selectable(self):
+        self.add_tools('list_world_objects')
+        self.responses.extend([{'_paused': True, 'objects': [], 'ok': True}])
+        self.body('rw_observe', {'queries': [
+            {'key': 'now', 'preset': 'decision', 'include': ['world'], 'world_kind': 'settlements'}]})
+        self.assertEqual(self.calls[-1]['arguments'], {'kind': 'settlements'})
+
+    def test_decision_visitors_reads_neutral_map_pawns(self):
+        self.add_tools('list_things')
+        self.responses.extend([fixture('status'), {'_paused': True, 'things': [
+            {'id': 'Human169082', 'label': 'Chaz', 'kind': 'Town_Trader', 'x': 140, 'z': 94}]}])
+        value = self.body('rw_observe', {'queries': [
+            {'key': 'now', 'preset': 'decision', 'include': ['core', 'visitors']}]})
+        self.assertEqual(self.calls[-1]['arguments'],
+                         {'category': 'pawn', 'faction': 'neutral', 'limit': 40})
+        self.assertEqual(value['decisions']['now']['visitors']['things'][0]['label'], 'Chaz')
+
+    def test_a_large_world_no_longer_cancels_the_rest_of_a_decision_packet(self):
+        self.add_tools('list_world_objects')
+        self.responses.extend([fixture('status'), LARGE_WORLD,
+                               {'_paused': True, 'id': 'Human1', 'name': 'Tatyana', 'mood': 40}])
+        value = self.body('rw_observe', {'queries': [
+            {'key': 'now', 'preset': 'decision', 'include': ['core', 'world'],
+             'world_kind': 'all', 'pawns': [{'id': 'Human1', 'include': ['summary']}]}]})
+        self.assertNotIn('stopped', value)
+        self.assertEqual(value['decisions']['now']['pawns'][0]['facets']['summary']['name'], 'Tatyana')
+        self.assertEqual(value['degraded'], ['now.world'])
+
+    def test_the_food_facet_names_what_it_cannot_see(self):
+        self.responses.extend([fixture('status')])
+        value = self.body('rw_observe', {'queries': [
+            {'key': 'now', 'preset': 'decision', 'include': ['food']}]})
+        note = value['decisions']['now']['food']['not_covered']
+        self.assertIn('list_bills', note)
+        self.assertIn('list_unmanaged_items', note)
+
+    def test_automatic_world_context_is_narrow_and_finds_map_visitors(self):
+        self.add_tools('list_world_objects', 'list_things')
+        self.responses.extend([
+            {'_paused': True, 'cause': 'letter', 'event': 'A trade caravan is arriving',
+             'ticksWaited': 900, 'pausedAfter': True},
+            fixture('status'),
+            {'_paused': True, 'objects': [], 'ok': True},
+            {'_paused': True, 'things': [{'id': 'Human169082', 'label': 'Chaz', 'kind': 'Town_Trader'}]}])
+        value = self.body('rw_wait', {'maxSeconds': 30})
+        context = value['event_context']
+        self.assertEqual(context['world']['scope'], 'kind=caravans')
+        self.assertEqual(context['visitors']['rows'][0]['label'], 'Chaz')
+        self.assertIn('map pawns', context['visitors']['basis'])
