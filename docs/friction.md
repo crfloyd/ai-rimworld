@@ -19,51 +19,73 @@ Ranked by measured cost to the decision loop.
 Three separate mechanisms each cut a wait short. Together they are why play degenerates into
 short bursts separated by model turns. This is the single highest-value area to fix.
 
-### 1a. The crisis cap is invisible, and its trigger is a bad proxy
+### 1a. The crisis cap is reported, classified as a safety stop, and never documented
 
-`wait_for_event` caps a wait at 2500 ticks, one in-game hour, whenever hostiles are on the
-map, fire is in the home area, or a colonist has a life-threatening condition. `force:true`
-bypasses it. This is upstream behavior, documented in the tool's own schema, not ours.
+**Correction, 2026-09-11.** An earlier draft of this item claimed the response never says the
+cap applied, and recommended inferring it by comparing `ticksWaited` to the request. That was
+wrong. Upstream already returns a `crisisCap` object and it is fully self-explanatory:
 
-Two problems.
+```json
+{"cappedAtTicks": 2500, "reasons": ["hostiles"],
+ "note": "Wait was capped at 1 in-game hour because of an active crisis. Address it, or pass force:true to wait longer."}
+```
 
-**The response never says the cap applied.** A request for 20000 ticks returns
-`ticksWaited: 2505, cause: "timeout"` with `wait_budget: null`. That reads as "nothing
-happened", not "your horizon was cut to an eighth". The agent has no signal to act on.
+It is documented in the `wait_for_event` catalog description, listed in `observations.FLAGS`,
+classified in `safety.py`, and present in 35 receipts in this campaign, including 32 from the
+playtest itself. The playtest agent missed it by printing only selected fields from each wait
+and never dumping the whole body. Do not add a second inferred field; promote the existing one.
 
-**"Hostiles on the map" stays true for days.** A dormant mechanoid cluster sits on the map for
-its whole countdown. During this playtest the cluster's fuse was 4.3 in-game days, danger
-rating was `None`, nobody was downed, and there was no fire, yet every wait was still capped.
-The cap was pinned on by three sleeping machines 55 cells away.
+The real defects are three, and they compound.
 
-Measured directly, same colony, same conditions, requesting 20000 ticks each time:
+**It is classified `critical`.** `safety.signals` adds `crisis_cap` at `critical`;
+`safety.assess` treats any severity above `info` as a blocker, which sets `stop`, which sets
+`requires_review`. A routine capped timeout therefore presents as a safety stop.
 
-| Path | Calls | Ticks advanced | Ticks per call |
-|---|---|---|---|
-| Default | ~20 | 48,816 | ~2,500 |
-| `force: true` | 4 | 48,816 | 12,204 |
+**That also forces an event packet on every quiet capped wait.** `wait_sequence` computes
+`event = data.event or data._notifications or body.requires_review`. Because `crisisCap` sets
+`requires_review`, a wait that advanced 2500 ticks with nothing happening still runs a
+post-wait `get_status` and builds a decision packet. Measured in the playtest: **47 of 52
+waits ran an event-context read**, most of them on quiet capped timeouts. Demoting the
+severity is not cosmetic; it removes an entire extra game read per quiet wait.
 
-One forced call reached the full 20,004 ticks with `cause: timeout`, eight times the cap.
+**Nothing the agent is told to read mentions it.** `facade.md` is required reading before the
+first live call and never names `crisisCap` or `force`; it points at `wait_budget`, which is
+only our own deadline clamp and is `null` in this situation. The `rw_wait` description says to
+inspect `pausedAfter` and `ticksWaited`, not the cap.
+
+**Why it matters even when reported.** The cap's trigger is "hostiles on the map", which stays
+true for a dormant mechanoid cluster's entire countdown. During the playtest the fuse was 4.3
+in-game days, danger rating was `None`, nobody was downed and there was no fire, yet every
+wait was cut to an hour by three sleeping machines 55 cells away. Measured on the same colony,
+requesting 20,000 ticks each time:
+
+| Path | Calls | Ticks advanced |
+|---|---|---|
+| Default | ~20 | 48,816 |
+| `force: true` | 4 | 48,816 |
+
+One forced call reached the full 20,004 ticks.
 
 **The cap is not what makes a wait safe.** `wait_for_event` already returns on a new letter, a
 notable message, a hostile-count transition, or a forced pause. `force` removes only the time
-cap; every one of those triggers still fires. So during a genuine firefight the wait ends on
-the event anyway, and during four quiet days the cap does nothing but bill round trips.
+limit; every one of those triggers still fires. In a real firefight the wait ends on the event
+regardless; across four quiet days the cap only bills round trips.
 
-**Recommended fix.** Do not auto-force, and do not remove the cap. Make it visible and let the
-agent choose:
-- When `ticksWaited` is materially below the requested tick budget and `cause` is `timeout`,
-  add a field naming the likely crisis cap, the condition that triggered it (hostiles present,
-  fire, life-threatening condition), and `force:true` as the deliberate override.
-- Surface the same condition proactively in the wait result so the agent can decide before
-  burning several capped calls.
-- Keep `force` opt-in with the existing "according to actual risk, never automatically" rule,
-  which held up well in play: it was correctly withheld while two colonists were dying of
-  hypothermia and correctly used once danger was `None`.
+**Recommended fix.**
+- Reclassify `crisis_cap` from `critical` to `review` or `info` so a capped timeout is not a
+  safety stop and does not by itself trigger event context. Keep the field literal and
+  visible; it must never be referenced away or dropped.
+- Name `crisisCap` and `force` in the `rw_wait` description and in the `facade.md` wait
+  section, alongside the existing `wait_budget` explanation, making clear the two are
+  different things.
+- Keep `force` opt-in with the existing "according to actual risk, never automatically" rule.
+  It held up in play: withheld while two colonists were dying of hypothermia, used once danger
+  was `None`.
+- The bad proxy itself is upstream and is not ours to fix. Surfacing why is the local lever.
 
-**How to verify offline.** A fixture where the requested `maxGameTicks` greatly exceeds
-`ticksWaited` with `cause: timeout` must produce the cap explanation; a wait that ends on a
-real event must not.
+**How to verify offline.** A fixture wait carrying `crisisCap` with `cause: timeout` must not
+set `requires_review`, must not run an event-context read, and must still show the `crisisCap`
+object verbatim. A fixture wait with a real letter must still build its packet.
 
 ### 1b. Every notification ends a wait, including ones that cannot change a decision
 
@@ -73,16 +95,29 @@ waits advanced about 6,000 ticks total. After `force` removed the cap, notificat
 the new binding constraint: three of four forced waits ended on `cause: notification`, two of
 them on a repeat of the same "Major break risk" alert already visible in the previous packet.
 
-There is no way to say which notification classes are decision-relevant.
+**This is the hardest item here and should be built last.** `wait_for_event` has no ignore
+parameter, so suppression cannot be pushed upstream. The facade would have to keep waiting
+internally while still returning the ignored notifications, which makes one public `rw_wait`
+into a composition of several game advances. That carries real obligations:
 
-**Recommended fix.** Give `rw_wait` a caller-selected notification filter, for example
-`ignore: ["plantDied", "healed"]` or a coarser `notifications: "all" | "significant"`, and
-have the facade suppress wait termination for the ignored classes while still returning them
-in the packet. Never silently drop a class the caller did not name. A repeat of a message
-already delivered in the previous wait packet is the clearest candidate for suppression.
+- Bound it hard: a maximum internal iteration count and a wall-clock budget, both reported.
+- Record every internal wait in the durable composition manifest, as `rw_observe` already does
+  for its sub-reads, so an interrupted loop is reconcilable and never replayed.
+- Stop immediately on a letter, a threat transition, a `forcePaused`, or a zero-tick advance.
+  A re-wait loop must never mask item 1c.
+- Never drop a class the caller did not name. Ignored notifications are still returned in the
+  packet; only wait termination is suppressed.
 
-**How to verify offline.** A fixture stream of repeated plant-death notifications with one
-letter must terminate once, at the letter, when the plant class is ignored.
+**Do not start with a coarse `notifications: "significant"` enum.** The taxonomy is not well
+enough understood. Stage it:
+
+1. Suppress termination on a notification identical to one already delivered in the previous
+   wait packet of the same session.
+2. Add an explicit caller `ignore` list of notification kinds.
+
+**How to verify offline.** A fixture stream of repeated plant-death notifications plus one
+letter must terminate once, at the letter, when the plant class is ignored, and the manifest
+must list each internal wait.
 
 ### 1c. A modal dialog freezes time and the wait does not say so
 
@@ -106,33 +141,38 @@ dismissal call.
 ### 2a. `truncated` from the caller's own limit is misreported as degraded
 
 The decision preset's `threat` topic hardcodes `limit: 20`. On a map with 33 matching pawns
-upstream returns 20 and sets `truncated: true`, the normalizer maps that to `partial`, and
-0.9.1 then marks the section `degraded`. Honoring a requested limit is not degradation. The
-same happened to a deliberate `list_unmanaged_items limit: 60` against 1123 matches.
+upstream returns `matched: 33, returned: 20, truncated: true`, the normalizer maps that to
+`partial`, and 0.9.1 then marks the section `degraded`. Honoring a requested limit is not
+degradation. The same happened to a deliberate `list_unmanaged_items limit: 60` against 1123
+matches.
 
-This also means that before 0.9.1 any decision packet including `threat` on a busy map
-silently stopped mid-packet. That is very likely one of the four recorded observe stops in the
-0.9.0 baseline.
+**Precise condition for the implementer.** This is upstream `truncated`, not our own `cap()`.
+Evidence `obs-5f31a7f9ac3a410b98632269b7209077` has `args.limit == 20` and
+`data.returned == 20` with no `reason` field at all. Our `caller_limit` marker is set only by
+`facade.cap()` on the projection path and was never involved. So the test is
+`data.truncated and data.returned == args.limit`, not `reason == "caller_limit"`.
 
-**Recommended fix.** In `coverage_problem`, treat `truncated` as neither blocking nor degraded
-when `returned` equals the caller's requested `limit`. Keep the truncation metadata visible.
-Only an upstream-initiated bound should degrade.
+Also note this means that before 0.9.1 any decision packet including `threat` on a busy map
+silently stopped mid-packet, which is very likely one of the four recorded observe stops in
+the 0.9.0 baseline.
+
+**Recommended fix.** In `coverage_problem`, treat that shape as `known` with its truncation
+metadata intact. Keep `largeOutput` degraded.
 
 **How to verify offline.** A fixture with `limit: 20`, `matched: 33`, `returned: 20` must be
-`known`, not degraded; a `largeOutput` fixture must still degrade.
+`known`; a `largeOutput` fixture must still degrade; a fixture where `returned < limit` but
+`truncated` is set must still degrade, because that bound came from somewhere else.
 
-### 2b. An unknown thing id blocks a whole composition
+### 2b. An unknown thing id blocks a whole composition — closed, leave as is
 
 `inspect_thing` on `Campfire169350`, a campfire that no longer existed, returned an upstream
-error, which is correctly blocking, and the two pawn reads after it were `not_run`. An
-unknown-id error is arguably also a complete, self-describing answer that says nothing about
-sibling queries.
+error and the two pawn reads after it were `not_run`.
 
-**Recommendation.** Judgement call, deliberately left open. If it is made recoverable, it must
-be scoped narrowly to "target not found" and must not swallow other upstream errors. A guard
-must continue to abstain beside it, as it already does for degraded sections.
-
----
+**Decision: leave it blocking.** An unknown id means the agent's world model is stale, which
+is categorically different from a size guard reporting its own bound. Two skipped pawn reads
+are cheap next to a guard acting beside a target that is not there. If this is ever revisited,
+scope it narrowly to "target not found", never to upstream errors generally, and keep the
+guard abstention.
 
 ## 3. Response shaping is inconsistent between tools
 
@@ -152,22 +192,23 @@ entire raw `get_status` bundle, because `materialize_decisions` runs only in
 `Composer.execute`. Same input, two different and oppositely sized outputs depending on which
 tool ran it.
 
-**Recommended fix.** Materialize decision presets in `run_reads` as well, or reject the preset
-in `verify` with a message naming the supported forms. Silently returning the bigger thing is
-the worst of the three options.
+**Recommended fix: materialize, do not reject.** `verify` exists precisely to avoid a post-wait
+handover, and a decision packet is the most useful thing to ask for there. Call
+`materialize_decisions` in `run_reads` on the same query specs. Silently returning the fatter
+object is the bug; rejecting the preset would remove the reason `verify` exists.
 
 ### 3c. `_threatWarning` is repeated on every one-shot receipt
 
 Each receipt carries the full nine-colonist threat block, roughly 500 bytes, including on pure
 mutation receipts. The `same_as` dedupe that exists to solve this is connection-scoped, and
-one-shot CLI, the documented default transport, opens a new connection per call, so the dedupe
-never fires. `--select` works around it but every unselected call pays.
+one-shot CLI, the documented default transport, opens a new connection per call, so it never
+fires.
 
-**Recommended fix.** Either persist the reference table across one-shot calls for a run, or
-drop `_threatWarning` from receipts by default and keep it in reads, since a mutation receipt
-is not where a standing threat should be discovered.
-
----
+**Recommended fix: drop `_threatWarning` from mutation receipts.** Do not persist the
+reference table across one-shot CLI processes; a stale `same_as` pointing at a table from a
+dead process is worse than 500 repeated bytes, and references are deliberately
+connection-scoped for that reason. A standing threat belongs on reads and waits, which is
+where an agent should be discovering it. Keep it on `rw_read` and `rw_wait` output unchanged.
 
 ## 4. Discovery and filter gaps
 
@@ -186,11 +227,13 @@ arrival may still be in progress. Do not fabricate a count.
 ### 4b. `list_things` pawn rows carry no weapon
 
 The friendly-fire rule depends on knowing who is armed, but roster rows return `weapon: None`
-for every pawn; only per-pawn `get_pawn` carries it. Finding a safe melee pawn cost two extra
-reads during an active mental break.
+for every pawn. Finding a safe melee pawn cost two extra reads during an active mental break.
 
-**Recommended fix.** Add `weapon` to pawn rows if upstream exposes it; otherwise say in the
-trade and combat workflow notes that the roster view cannot answer "who is armed".
+**Recommended fix: a workflow note, not a new field.** RimMolt does not send `weapon` on
+`list_things` rows, and we must not promise a field upstream does not provide. `get_pawn`
+summary does carry it, confirmed in evidence (Remy, "Bolt-action rifle (normal)"). Say in the
+`combat_event` and `resume_crisis` workflow notes that the roster view cannot answer "who is
+armed" and that `get_pawn` summary is the read that can.
 
 ### 4c. A silent limit hit looks like absence
 
@@ -260,3 +303,33 @@ That is wrong on a mature map: it matched 1123 items with no positional filter, 
 map-wide corpses and old steel. The correct confirmation is
 `list_things category=item nearId=<trader> radius=12`, which returned 8 rows and showed the
 exact bought stacks. Change the workflow note.
+
+---
+
+## 8. Recommended sequencing
+
+Reviewed and agreed with a second pass on 2026-09-11.
+
+1. **Wait loop.** Demote `crisis_cap` from critical, stop it triggering event context, name
+   `crisisCap` and `force` in the `rw_wait` contract and `facade.md`, and auto-name the
+   pausing window on a zero-tick `forcePaused`. Items 1a and 1c.
+2. **Correctness already measured.** Caller-limit is not degraded (2a); annotate inside
+   compositions (3a); materialize decision presets in `verify` (3b); drop `_threatWarning`
+   from mutation receipts (3c); extend the same-dialog exception to `set_trade` (section 5,
+   live-verified); correct the trade confirmation note (section 7).
+3. **Notification suppression.** Item 1b, only after 1a and 1c land and a playtest shows
+   notifications as the new ceiling. Build it as a bounded, manifest-recorded composition.
+4. **Documentation only.** Items 4a, 4b, 4c, 4d.
+5. **Closed, do not implement.** Item 2b.
+
+Constraints that still apply: no new public tool, no auto-force, no silent drops, offline
+fixtures built from the recorded receipts in this campaign, and the section 6 list stays
+frozen.
+
+## 9. Process lesson from the playtest
+
+The `crisisCap` field was present in every capped receipt and the playtest agent still
+reported it as missing, because every wait was inspected through a hand-written selector that
+printed `cause`, `ticksWaited` and `wait_budget` and nothing else. Selective printing is the
+right habit for context, but a finding of the form "the response never tells me X" must be
+checked against a full body dump before it is written down.

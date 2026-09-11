@@ -9,25 +9,32 @@ Current open items, with evidence and recommended fixes, live in [friction.md](d
 They came from the measured 0.9.1 live playtest on `continuance`, 2026-09-11. Ranked by
 measured cost:
 
-- [ ] Report the upstream crisis time cap when it fires, name the triggering condition, and
-      name `force`. Do not auto-force. Measured: 4 forced calls covered the same 48,816 ticks
-      that would take about 20 capped calls.
-- [ ] Let a caller ignore notification classes that cannot change a decision. One wait
-      advanced 58 ticks for a dead rice plant.
+- [ ] Demote `crisis_cap` from `critical` so a capped timeout is not a safety stop and does
+      not by itself trigger an event-context read. Measured: 47 of 52 playtest waits ran an
+      extra `get_status` because of it. Name `crisisCap` and `force` in the `rw_wait`
+      contract and `facade.md`. Do not infer a second cap field; upstream already sends one.
 - [ ] On a wait that returns `ticksWaited: 0` with `forcePaused`, name the blocking window and
       the `window_action` that clears it.
-- [ ] Do not classify `truncated` as degraded when `returned` equals the caller's own `limit`.
+- [ ] Do not classify upstream `truncated` as degraded when `data.returned == args.limit`.
+      This is not our `caller_limit` marker; test the upstream shape.
 - [ ] Run receipt annotations in the composition capture path, not only `rw_read`/`rw_act`.
-- [ ] Materialize decision presets inside `rw_wait verify`, or reject them there explicitly.
-- [ ] Extend the same-dialog batch exception to `set_trade`. Verified live; see friction.md.
+- [ ] Materialize decision presets inside `rw_wait verify` rather than returning the raw
+      status bundle. Do not reject them; `verify` exists to avoid the extra handover.
+- [ ] Extend the same-dialog batch exception to `set_trade`. Live-verified; see friction.md.
 - [ ] Correct the `trade` workflow: confirm goods with `list_things` anchored on the trader,
-      not `list_unmanaged_items`.
-- [ ] Stop repeating `_threatWarning` on every one-shot receipt, or persist the reference
-      table across one-shot calls.
-- [ ] Add `weapon` to `list_things` pawn rows, or say in the workflows that it is unavailable.
-- [ ] Say why `order_pawn` returned `options: []`.
-- [ ] Decide whether an unknown-thing-id error should join the recoverable class. Open
-      judgement call, scoped narrowly if taken.
+      not map-wide `list_unmanaged_items`.
+- [ ] Drop `_threatWarning` from mutation receipts. Do not persist the reference table across
+      one-shot CLI processes.
+- [ ] Suppress wait termination on repeated notifications, then add an explicit caller
+      `ignore` list. Build only after the cap work lands, as a bounded composition that
+      records every internal wait and never masks a zero-tick `forcePaused`.
+- [ ] Documentation only: empty hostile scan after a ThreatBig letter (4a), `get_pawn` summary
+      is the read that carries `weapon` (4b), scan by `defName` not radius+limit (4c), say why
+      `order_pawn` returned `options: []` (4d).
+
+Closed, do not implement:
+
+- [x] An unknown thing id stays blocking. A stale world model is not a size guard.
 
 Still unverified, needs a future live run:
 
