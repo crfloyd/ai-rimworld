@@ -10,6 +10,7 @@ from .composition import (TOOLS as COMPOSED, QUERY, PAWN, capture, compact_resul
                           expand, interruptions, obj, preflight)
 from .core import Error, atomic_json, canonical, identifier, lock, now, read_json
 from .mcp import validate
+from .hints import NARROW, already_satisfied, narrowing, oversized, withheld_rows
 from .observations import compact, delta_view, same_value
 from .presentation import present
 
@@ -83,14 +84,6 @@ def reserved(catalog):
     """Refuse a captured catalog that shadows a local name."""
     if set(local()) & set(catalog.get('tools',catalog)):
         raise Error('Local composition name collides with upstream catalog.')
-
-
-NATIVE={'list_things':'category, defName, faction, nearId or nearX/nearZ with radius, limit, summary',
-        'get_area':'minX/maxX/minZ/maxZ bounds, thing, layer, scale, summary',
-        'get_pawn':'tab (needs/health/gear/bio), detail',
-        'list_world_objects':'mapIndex, limit where offered',
-        'list_trade':'filter, limit',
-        'get_window_ui':'For a trade dialog use list_trade; otherwise inspect list_windows and select only needed fields.'}
 
 
 def classify(control, tool, args):
@@ -204,6 +197,26 @@ def change_metadata(value):
     return result
 
 
+def annotate(body, obs):
+    """Facade interpretation alongside the receipt. Upstream fields are never edited."""
+    data=obs.get('data') if isinstance(obs.get('data'),dict) else {}
+    tool,args=obs.get('tool'),obs.get('args') or {}
+    if oversized(data):
+        hint=narrowing(tool,data)
+        if hint:body['retry']=hint
+    found=already_satisfied(tool,args,data)
+    if found:body['already_satisfied']=found
+    gap=withheld_rows(tool,data)
+    if gap:body['rows_withheld']=gap
+    if tool=='trade_action' and args.get('action')=='accept' and data.get('ok') is True:
+        body['deal']={'committed':bool(data.get('traded')),'dialog_open':bool(data.get('_dialogOpen')),
+                      'next':'A blocking message box must be dismissed with window_action before trade_action cancel.',
+                      'confirm_goods':'Bought goods land on the ground at the trader. Confirm with list_things near the '
+                                      'trader or list_unmanaged_items; get_resources counts hauled stock only.',
+                      'unverified':'Whether cancel can undo a committed deal is not established by this receipt.'}
+    return body
+
+
 def self_contained(control,value):
     """Current compact facts plus separate novelty metadata."""
     obs=control.campaign.observation(value['id'])
@@ -213,6 +226,7 @@ def self_contained(control,value):
     if obs.get('tool')=='get_window_ui' and 'trade' in canonical(obs.get('data',{})).lower():
         body={'affordance':{'prefer':['list_trade','set_trade','trade_action'],
               'reason':'A trade dialog is open; semantic trade tools avoid generic button geometry and expose prices/counts directly.'},**body}
+    body=annotate(body,obs)
     change=change_metadata(value)
     if change:body['change']=change
     return body,obs
@@ -295,7 +309,9 @@ def action_batch(control,token,args,setup,memo,observed):
             results.append({'index':index,'tool':action['tool'],'receipt':body})
             dialog_ok,dialog_window=expected_same_dialog(action,body,expected_window)
             if dialog_ok:expected_window=dialog_window
-            if explicit_failure(body) or (body.get('requires_review') and not dialog_ok):
+            # An order the pawn is already running changed nothing and blocks nothing.
+            satisfied=bool(body.get('already_satisfied'))
+            if (explicit_failure(body) and not satisfied) or (body.get('requires_review') and not dialog_ok and not satisfied):
                 remaining=list(range(index+1,len(actions)))
                 result={'composition':sequence.record['request_id'],'completed':index+1,'not_run':remaining,
                         'stopped':True,'reason':'Action response requires review','results':results}
@@ -830,13 +846,13 @@ def budget(body, obs, tool, ceiling=PAYLOAD_BUDGET):
                 trial['total']=total;trial['returned']=keep_n;trial['e']=obs['id']
                 trial['budget_bytes']=ceiling
                 trial['recover']='rw_retrieve {observation, view:"full"}'
-                if tool in NATIVE: trial['suggest']=NATIVE[tool]
+                if tool in NARROW: trial['suggest']=NARROW[tool]
                 return trial
     return {'e':obs['id'],'truncated':True,'reason':'model_payload_budget','budget_bytes':ceiling,
             'total':None,'returned':0,'tool':obs['tool'],'completeness':obs['completeness'],
             'risks':body.get('risks'),'requires_review':body.get('requires_review'),
             'recover':'rw_retrieve {observation, view:"full"}',
-            **({'suggest':NATIVE[tool]} if tool in NATIVE else {})}
+            **({'suggest':NARROW[tool]} if tool in NARROW else {})}
 
 
 def shape(campaign, obs, view, fields=None):

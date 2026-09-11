@@ -154,3 +154,62 @@ class FrictionBatch(ControlFixture):
         self.assertEqual(context['world']['scope'], 'kind=caravans')
         self.assertEqual(context['visitors']['rows'][0]['label'], 'Chaz')
         self.assertIn('map pawns', context['visitors']['basis'])
+
+    # --- Task 4: receipts say what they mean ------------------------------------------
+
+    def test_an_already_running_job_is_named_not_just_reported_as_an_error(self):
+        self.responses.extend([{'ok': False, '_paused': True,
+                                'error': "No order matched 'Prioritize working on campfire (blueprint)'.",
+                                'available': ['Already working on campfire (blueprint)']}])
+        value = self.body('rw_act', {'tool': 'order_pawn', 'args': {
+            'id': 'Human738', 'targetId': 'Blueprint_Campfire169343',
+            'command': 'Prioritize working on campfire (blueprint)'}})
+        self.assertTrue(value['already_satisfied']['intent_already_met'])
+        self.assertFalse(value['already_satisfied']['executed'])
+        self.assertIs(value['data']['ok'], False)
+
+    def test_an_already_running_job_does_not_abort_an_independent_batch(self):
+        self.responses.extend([
+            {'ok': False, '_paused': True,
+             'error': "No order matched 'Prioritize working on campfire (blueprint)'.",
+             'available': ['Already working on campfire (blueprint)']},
+            {'ok': True, '_paused': True, 'queued': False}])
+        value = self.body('rw_act', {'independent': True, 'actions': [
+            {'tool': 'order_pawn', 'args': {'id': 'a', 'command': 'Prioritize working on campfire (blueprint)'}},
+            {'tool': 'order_pawn', 'args': {'id': 'b', 'command': 'Go here', 'x': 1, 'z': 2}}]})
+        self.assertFalse(value['stopped'])
+        self.assertEqual(value['completed'], 2)
+
+    def test_a_genuine_order_failure_still_aborts_the_batch(self):
+        self.responses.extend([{'ok': False, '_paused': True, 'error': 'Pawn is downed.', 'available': []}])
+        value = self.body('rw_act', {'independent': True, 'actions': [
+            {'tool': 'order_pawn', 'args': {'id': 'a', 'command': 'Prioritize working on campfire (blueprint)'}},
+            {'tool': 'order_pawn', 'args': {'id': 'b', 'command': 'Go here', 'x': 1, 'z': 2}}]})
+        self.assertTrue(value['stopped'])
+        self.assertEqual(value['not_run'], [1])
+
+    def test_a_single_oversized_read_returns_its_retry_advice(self):
+        self.add_tools('list_world_objects')
+        self.responses.extend([LARGE_WORLD])
+        value = self.body('rw_read', {'tool': 'list_world_objects', 'args': {}})
+        self.assertIn('kind', value['retry']['narrow_with'])
+        self.assertIn('confirm:true', value['retry']['wide_read'])
+
+    def test_a_trade_list_names_the_rows_upstream_withheld(self):
+        self.add_tools('list_trade')
+        self.responses.extend([{'_paused': True, '_dialogOpen': True, 'ok': True, 'active': True,
+                                'silver': 144, 'returned': 2, 'tradeableCount': 3,
+                                'tradeables': [{'index': 0, 'label': 'Alpaca meat'},
+                                               {'index': 1, 'label': 'Egg'}]}])
+        value = self.body('rw_read', {'tool': 'list_trade', 'args': {}})
+        self.assertEqual(value['rows_withheld']['returned'], 2)
+        self.assertEqual(value['rows_withheld']['counted'], 3)
+
+    def test_an_accepted_deal_states_what_the_receipt_proves(self):
+        self.add_tools('trade_action')
+        self.responses.extend([{'_paused': True, '_dialogOpen': True, 'ok': True, 'traded': True}])
+        value = self.body('rw_act', {'tool': 'trade_action', 'args': {'action': 'accept'}})
+        self.assertTrue(value['deal']['committed'])
+        self.assertTrue(value['deal']['dialog_open'])
+        self.assertIn('list_unmanaged_items', value['deal']['confirm_goods'])
+        self.assertNotIn('reverse', value['deal']['next'].lower())
