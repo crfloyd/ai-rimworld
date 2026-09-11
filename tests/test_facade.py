@@ -285,7 +285,12 @@ class Facade(ControlFixture):
         workflow=self.body('rw_capabilities',{'workflow':'new_game'},3)
         self.assertEqual(workflow['steps'][0]['tool'],'main_menu')
         trade=self.body('rw_capabilities',{'workflow':'trade'},4)
-        self.assertEqual([x['tool'] for x in trade['steps']][:2],['list_trade','set_trade'])
+        names=[x['tool'] for x in trade['steps']]
+        # Discovery comes before the dialog: a visiting trader must be found and
+        # a negotiator checked before list_trade can ever be active.
+        self.assertLess(names.index('order_pawn'),names.index('list_trade'))
+        self.assertEqual(names[names.index('list_trade'):names.index('list_trade')+2],['list_trade','set_trade'])
+        self.assertTrue(all(x.get('note') for x in trade['steps']))
         crisis=self.body('rw_capabilities',{'workflow':'resume_crisis'},5)
         self.assertEqual(crisis['steps'][0]['tool'],'get_status')
         with self.assertRaises(Error):self.body('rw_capabilities',{'overview':True,'domain':'food'},6)

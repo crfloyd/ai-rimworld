@@ -63,15 +63,92 @@ PURPOSE = {
 }
 
 WORKFLOWS = {
-    'new_game': ('main_menu','game_setup_status','select_scenario','select_storyteller','create_world',
-                 'game_setup_status','choose_ideoligion','edit_ideoligion','select_starting_site',
-                 'edit_starting_pawn','start_game','game_setup_status','get_status','get_map'),
-    'medical_event': ('get_status','get_pawn','set_medical_care','order_pawn','list_surgeries','add_surgery'),
-    'combat_event': ('get_status','list_things','list_fires','get_area','draft','order_pawn','rw_wait'),
-    'caravan': ('list_world_objects','form_caravan','caravan_action','get_world_tile','world_object_action'),
-    'food_crisis': ('get_status','get_resources','list_things','list_bills','set_work_priority','order_pawn'),
-    'trade': ('list_trade','set_trade','list_trade','trade_action'),
-    'resume_crisis': ('get_status','rw_observe','read_letter','get_pawn','list_things','draft','order_pawn','rw_wait'),
+    'new_game': (
+        ('main_menu','Only valid at the entry screen.'),
+        ('game_setup_status','Ask where you are and what the next legal step is; re-read it between stages.'),
+        ('select_scenario','Pick by name.'),
+        ('select_storyteller','Storyteller, difficulty and reload mode together.'),
+        ('create_world','Asynchronous; poll game_setup_status until the starting-site stage.'),
+        ('choose_ideoligion','Ideology only.'),
+        ('edit_ideoligion','Ideology only.'),
+        ('select_starting_site','Pick the landing tile.'),
+        ('edit_starting_pawn','Fix starting colonists before the game begins; they are not editable afterward.'),
+        ('start_game','Commits the setup.'),
+        ('get_status','Confirm a colony is actually loaded before any colony read.'),
+        ('get_map','Establish home coordinates once.'),
+    ),
+    'medical_event': (
+        ('get_status','Danger and colonist state first.'),
+        ('get_pawn','tab=health for hediffs, bleeding rate, the immunity race and capacities.'),
+        ('set_medical_care','Medicine quality is a policy, not an order.'),
+        ('order_pawn','Rescue, tend or prioritize a doctor; a receipt is not treatment.'),
+        ('list_surgeries','Only what this pawn can actually receive.'),
+        ('add_surgery','Queues an operation; it still needs a surgeon, medicine and time.'),
+    ),
+    'combat_event': (
+        ('get_status','Danger rating and who is down.'),
+        ('list_things','category=pawn faction=hostile for the actual attackers.'),
+        ('list_fires','Fires spread and are often the larger loss.'),
+        ('get_area','Bounded terrain and cover around the fight only.'),
+        ('draft','A drafted colonist with a ranged weapon shoots at anything hostile, including a berserk colonist. '
+                 'Do not draft an armed pawn beside one you want alive.'),
+        ('order_pawn','Move, attack, or carry a downed pawn to a bed.'),
+        ('rw_wait','Short horizons during a fight; the event packet reports who changed.'),
+    ),
+    'caravan': (
+        ('list_world_objects','kind=caravans or kind=settlements. An unfiltered call trips the size guard.'),
+        ('form_caravan','mode=status is the read form and is how a departure is verified.'),
+        ('caravan_action','Move, rest or split an existing caravan.'),
+        ('get_world_tile','Terrain and travel cost for the next leg.'),
+        ('world_object_action','Interact with whatever the caravan reached.'),
+    ),
+    'food_crisis': (
+        ('get_status','Confirm the alert and the colonist count it applies to.'),
+        ('list_bills','Do this before concluding there are no ingredients. A suspended cooking bill looks exactly '
+                      'like an empty larder, and the Low Food alert never mentions bills.'),
+        ('get_resources','Stockpiled counts only. It does not see loose or forbidden food.'),
+        ('list_unmanaged_items','Forbidden and unhauled food a human would see lying on the floor.'),
+        ('list_things','category=item with a defName to locate one specific food on the map.'),
+        ('add_bill','Add or unsuspend the meal bill once ingredients are confirmed.'),
+        ('set_work_priority','A cook who will never cook is the other common cause.'),
+        ('order_pawn','Prioritize the cook or a hauler directly.'),
+    ),
+    'trade': (
+        ('get_alerts','A trade letter names an approaching trader and expires; read it before it is dismissed.'),
+        ('list_things','Find the trader with category=pawn faction=neutral. Visiting traders are map pawns, not '
+                       'list_world_objects caravans, so that world list can be legitimately empty while the trader '
+                       'stands in your colony.'),
+        ('get_pawn','tab=health on the intended negotiator. Social incapability blocks the deal outright and a '
+                    'damaged talking capacity silently worsens prices.'),
+        ('order_pawn','Execute "Trade with …" on the trader. The colonist walks there first, so the dialog is not '
+                      'open yet and list_trade is not active yet.'),
+        ('list_trade','Poll until active is true. returned below tradeableCount means rows were withheld.'),
+        ('set_trade','One row per call. Do not batch these: every receipt carries the open-dialog review flag.'),
+        ('trade_action','accept commits the deal and may leave the dialog plus a message box open.'),
+        ('window_action','Dismiss a blocking message box before trade_action cancel.'),
+        ('list_unmanaged_items','Bought goods drop on the ground at the trader, so get_resources still reads '
+                                'pre-trade until a hauler moves them. This is how you confirm the deal delivered.'),
+    ),
+    'build_structure': (
+        ('list_architect','Find the exact defName and footprint before guessing a cell.'),
+        ('get_area','Bounded terrain and existing buildings where you intend to place it.'),
+        ('build','A refusal carries placement.interactionCell and a reason. A cell can be empty and still be refused '
+                 'because the new building\'s interaction spot overlaps a research bench, shelf or another interaction '
+                 'spot. Read interactionCell, then try rot 0 through 3 before moving the cell: rotation moves the offset.'),
+        ('inspect_thing','The inspect pane is where fuel, power and toggles live; a list_things row does not carry them.'),
+        ('order_pawn','Prioritize a builder at the blueprint. A reply that the pawn is already working on it means the '
+                      'intent is already met.'),
+    ),
+    'resume_crisis': (
+        ('get_status','Identity, pause and danger before anything else.'),
+        ('rw_observe','One decision packet instead of a read-per-fact rebuild.'),
+        ('read_letter','The letter text is the only place the actual event is spelled out.'),
+        ('get_pawn','Only the facets the next decision needs.'),
+        ('list_things','Bounded and anchored; never the whole map.'),
+        ('draft','Only once the target is chosen.'),
+        ('order_pawn','Immediate order first, then queue=true for reviewed follow-up jobs.'),
+        ('rw_wait','The longest horizon the current evidence justifies.'),
+    ),
 }
 
 @lru_cache(maxsize=1)

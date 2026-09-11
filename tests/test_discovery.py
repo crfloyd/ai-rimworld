@@ -48,6 +48,44 @@ class Coverage(unittest.TestCase):
         self.assertIn('list_things',names)
         self.assertIn('list_unmanaged_items',names)
 
+    def test_trade_workflow_starts_at_finding_the_trader_and_ends_at_confirming_goods(self):
+        steps=overview(ROOT,workflow='trade')['steps']
+        names=[row['tool'] for row in steps]
+        self.assertEqual(names[0],'get_alerts')
+        self.assertLess(names.index('list_things'),names.index('list_trade'))
+        self.assertLess(names.index('order_pawn'),names.index('list_trade'))
+        self.assertEqual(names[-1],'list_unmanaged_items')
+        notes=' '.join(row.get('note','') for row in steps).lower()
+        self.assertIn('map pawns',notes)
+        self.assertIn('ground',notes)
+        self.assertIn('do not batch',notes)
+
+    def test_food_crisis_reaches_bills_before_concluding_there_is_no_food(self):
+        steps=overview(ROOT,workflow='food_crisis')['steps']
+        names=[row['tool'] for row in steps]
+        self.assertLess(names.index('list_bills'),names.index('get_resources'))
+        self.assertIn('list_unmanaged_items',names)
+        notes={row['tool']:row.get('note','') for row in steps}
+        self.assertIn('suspended',notes['list_bills'].lower())
+
+    def test_building_workflow_teaches_the_interaction_spot_rule(self):
+        steps=overview(ROOT,workflow='build_structure')['steps']
+        notes={row['tool']:row.get('note','') for row in steps}
+        self.assertIn('interactionCell',notes['build'])
+        self.assertIn('rot',notes['build'])
+
+    def test_the_facade_workflow_enum_matches_the_capability_map(self):
+        from tools.rimworld.facade import CAPABILITY_WORKFLOWS
+        self.assertEqual(set(CAPABILITY_WORKFLOWS),set(WORKFLOWS))
+
+    def test_every_workflow_step_is_a_name_and_note_pair(self):
+        for name,steps in WORKFLOWS.items():
+            for entry in steps:
+                self.assertEqual(len(entry),2,name)
+                self.assertIsInstance(entry[0],str)
+                self.assertIsInstance(entry[1],str)
+                self.assertTrue(entry[1],name+':'+entry[0])
+
     def test_facade_domain_enum_matches_the_capability_map(self):
         from tools.rimworld.facade import CAPABILITY_DOMAINS
         self.assertEqual(set(CAPABILITY_DOMAINS),set(DOMAINS))
