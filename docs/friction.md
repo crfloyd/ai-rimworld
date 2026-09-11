@@ -1,3 +1,13 @@
+> **Status (2026-09-11).** Every tooling item below is addressed in
+> `docs/plans/2026-09-11-decision-loop-friction.md` and landed in version 0.9.1.
+> Two questions are deliberately left open for the next live run, because saved
+> receipts cannot settle them: whether a `set_trade` batch can safely continue on
+> an unchanged trade dialog, and whether `trade_action cancel` after a committed
+> deal can reverse it. The trade workflow currently says not to batch `set_trade`,
+> and no tooling text claims anything about what `cancel` does to a committed deal.
+> The slave medical bed question also remains open and needs an inspect before and
+> after on a live bed.
+
 The biggest slowdowns were **tooling contracts and evidence shape**, not “what should Haven do next.” Strategy was usually clear; getting a reliable next action through the facade often was not.
 
 **Where the tooling cost time**

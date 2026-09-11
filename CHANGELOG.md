@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1
+
+- An upstream large-output guard or truncation flag no longer cancels the rest of a composition. The affected section is marked `degraded` with structured `retry` advice naming both exits, narrowing filters and `confirm:true`, while every sibling query still runs. Unconfirmed pause, identity mismatch, unparseable JSON, upstream errors and missing or malformed fields keep their original hard stop.
+- The decision preset reads `list_world_objects` with `kind` defaulting to `caravans` and gains a `visitors` topic over neutral map pawns, which is where a visiting trade caravan actually is. Automatic wait context uses the same narrow world read and adds map visitors. The `food` facet now states that suspended bills and loose piles are outside it.
+- Receipts carry facade interpretation alongside unedited upstream fields: an `order_pawn` refusal whose only offered option is the already-running form of the same job reports `already_satisfied` and no longer aborts an independent batch; `list_trade` names rows upstream counted but withheld; an accepted `trade_action` states whether the deal committed, whether a dialog is still open, and how to confirm goods that landed on the ground.
+- Event context is chosen from the event narrative rather than from a substring match over the whole serialized body, so a standing threat warning no longer re-triggers a full pawn and responder sweep on every later wait. `rw_wait` gains `context:"brief"` for the status packet without that sweep.
+- Capability domains now cover all 112 permitted catalog tools, up from 54. The default overview is a domain index of about 2,000 bytes rather than a 12,000-byte tool map; `domain`, `workflow` and `overview` with `full:true` drill in. Workflows carry operational notes, trade begins at finding the trader and ends at confirming delivered goods, food_crisis reaches bills before concluding there are no ingredients, and a new `build_structure` workflow explains interaction-spot placement refusals.
+- The `capabilities` CLI subcommand serves `--overview`, `--full`, `--domain` and `--workflow`, matching the MCP tool. Argument mistakes return one JSON object naming the sibling command's flags instead of a usage dump, and a failed `--select` suggests real JSON Pointers from the response it received.
+
 ## 0.9.0
 
 - Fixed automatic wait event context generating invalid `get_pawn tab=summary`; all pawn facets now share one expansion. Optional post-wait enrichment errors preserve the completed paused wait as partial/no-replay. Resume defaults to one-shot CLI unless the host supports interactive stdin, and unknown compositions expose a concrete reconciliation template.

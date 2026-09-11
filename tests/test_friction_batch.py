@@ -275,3 +275,16 @@ class FrictionBatch(ControlFixture):
         self.assertTrue(value['operation_completed'])
         self.assertIn('/data', value['available_pointers'])
         self.assertIn('Do not replay', value['replay'])
+
+    # --- Task 9: the guide names what play had to rediscover ---------------------------
+
+    def test_the_operational_guide_names_the_facts_play_had_to_rediscover(self):
+        text = (ROOT / 'docs/facade.md').read_text()
+        for phrase in ('confirm:true', 'Never run two', 'seen_structure', 'context:"brief"',
+                       'degraded', 'list_unmanaged_items'):
+            self.assertIn(phrase, text, 'facade.md must document ' + phrase)
+
+    def test_the_cli_flag_sets_are_written_down_once(self):
+        text = (ROOT / 'docs/facade.md').read_text()
+        for phrase in ('call TOOL --args', 'observe --json', 'retrieve --observation'):
+            self.assertIn(phrase, text)

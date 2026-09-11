@@ -26,6 +26,25 @@ The active implementation scope is in PLAN.md; tested claims are in VALIDATION.m
 - [x] Clarify cached session metadata versus a running stdio process and when reconnect is actually needed.
 - [x] Keep STRATEGY current-only; preserve evidence/history in indexed journals instead of onboarding context.
 
+## Live friction batch two (docs/friction.md)
+
+- [x] Continue a composition past a recoverable upstream size guard; keep every real safety stop.
+- [x] Return structured narrowing advice naming both exits, filters and `confirm:true`.
+- [x] Default the decision preset's world read to `kind=caravans` and add a `visitors` topic over neutral map pawns.
+- [x] State in the food facet that suspended bills and loose piles are outside it.
+- [x] Recognize an `order_pawn` refusal whose only option is the already-running form of the same job.
+- [x] Name the trade rows upstream counted but withheld, and what an accepted deal receipt does and does not prove.
+- [x] Scope event topics to the event narrative; add `context:"brief"`.
+- [x] Cover every permitted catalog tool in a domain; serve a small domain index by default.
+- [x] Rewrite the trade and food workflows around what live play actually missed; add `build_structure`.
+- [x] Serve overview/domain/workflow from the `capabilities` CLI subcommand.
+- [x] Replace argparse usage dumps with one JSON object naming the right sibling flags.
+- [x] Suggest real JSON Pointers when a `--select` path is absent.
+- [ ] Confirm in the next live run whether a `set_trade` batch can safely continue on an unchanged trade dialog. The trade workflow currently says not to batch them.
+- [ ] Confirm in the next live run whether `trade_action cancel` after a committed deal can reverse it. No tooling text currently claims either way.
+- [ ] Reproduce the slave medical bed toggle with an `inspect_thing` before and after on the same id, paused.
+- [ ] Re-measure wait, discovery and composition bytes in the next live run against the recorded baseline: 304 facade calls, 926,845 bytes, wait event context 387,143 of them.
+
 ## Current-memory cleanup
 
 - [x] Define informal, multi-horizon STRATEGY update triggers without requiring per-order writes or a parser schema.

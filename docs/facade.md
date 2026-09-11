@@ -26,11 +26,11 @@ For several unrelated, already-reviewed mutations, pass `actions` and `independe
 
 `rw_wait` wraps `wait_for_event` and injects `pause:always`, so a supervised pause is never optional. Choose a horizon; `maxGameTicks` is clamped to the earliest recorded deadline and reported as `wait_budget`. RimWorld may cross a requested tick bound by a few simulation ticks, so do not create tiny terminal waits for exact clock arithmetic. A wait ending before its wall budget may have reached its game-time limit. An unconfirmed pause writes the pause guard and requires review.
 
-When a wait reports an event or risk, `context:auto` (the default) performs one post-wait status read and returns a materialized packet with core/alerts plus event-relevant food, medical, mood, threat/fire or world facets. Event pawn matching accepts IDs, full names and unambiguous name/nickname tokens. Mental-break threats include the event letter, affected health/needs/gear and nearby pawn positions/readiness around the hostile pawn; ordinary threats include current hostiles and fires include the fire list. Use `context:none` when the wait result alone is sufficient. Optional `verify` accepts the same query objects as `rw_observe`; every query is preflighted before time advances and runs after the wait in the same public exchange. The durable manifest records requested and actual verification tool/arguments plus reuse. Event context and verification never choose an action.
+When a wait reports an event or risk, `context:auto` (the default) performs one post-wait status read and returns a materialized packet with core/alerts plus event-relevant food, medical, mood, threat/fire or world facets. Event pawn matching accepts IDs, full names and unambiguous name/nickname tokens. Mental-break threats include the event letter, affected health/needs/gear and nearby pawn positions/readiness around the hostile pawn; ordinary threats include current hostiles and fires include the fire list. Use `context:none` when the wait result alone is sufficient. `context:"brief"` keeps the post-wait status packet and skips the pawn facet, responder, threat-row and letter sweep; use it for a routine wait inside a situation you already understand, and `auto` when the event is new. Event topics are chosen from the event narrative itself, not from a standing threat flag, so a berserk colonist does not re-trigger a full sweep on every later wait. The threat flag is on every response regardless, so nothing is hidden; only the extra reads stop. Optional `verify` accepts the same query objects as `rw_observe`; every query is preflighted before time advances and runs after the wait in the same public exchange. The durable manifest records requested and actual verification tool/arguments plus reuse. Event context and verification never choose an action.
 
 ## Strategic affordances
 
-`rw_capabilities {"overview":true}` returns the compact domain map. Use `domain` for one area or `workflow` for an ordered `new_game`, `resume_crisis`, `medical_event`, `combat_event`, `caravan`, `food_crisis` or `trade` guide. An unknown exact tool returns close-name suggestions before requiring another search. These contain names and one-line purposes, not live availability or permission; fetch only a selected exact contract with `{"tool":"NAME"}`. When `get_window_ui` detects a trade dialog, the facade also reads a bounded semantic `list_trade` view and reduces generic geometry to control counts.
+`rw_capabilities {"overview":true}` returns a domain index: every domain with its tool count and a one-line purpose, covering the whole catalog in about two kilobytes. Drill in with `domain`, or pass `full:true` for every tool in every domain. Use `domain` for one area or `workflow` for an ordered `new_game`, `resume_crisis`, `medical_event`, `combat_event`, `caravan`, `food_crisis` or `trade` guide. An unknown exact tool returns close-name suggestions before requiring another search. These contain names and one-line purposes, not live availability or permission; fetch only a selected exact contract with `{"tool":"NAME"}`. When `get_window_ui` detects a trade dialog, the facade also reads a bounded semantic `list_trade` view and reduces generic geometry to control counts.
 
 This overview replaces loading the complete one-line catalog at every session start. Search remains useful for a concept outside the curated map.
 
@@ -44,6 +44,8 @@ This overview replaces loading the complete one-line catalog at every session st
   "pawns":[{"id":"Human123","include":["summary","health","needs","gear"]}]}]}
 ```
 
+The `world` topic reads `list_world_objects` with `kind` defaulting to `caravans`; pass `world_kind` to choose another. The `visitors` topic reads neutral pawns on the current map, which is where a visiting trade caravan actually is. The world caravan list can be legitimately empty while the trader stands in your base. The `food` facet reports what it cannot see: a suspended cooking bill needs `list_bills` on the stove and loose or forbidden food needs `list_unmanaged_items`.
+
 `reuse:true` may skip an upstream read only when the same tool/arguments are still current in this connection. Time advancement invalidates volatile facts; mutations conservatively invalidate every prior fact. Only explicitly stable facets such as biography, schedule reads and building assignments survive a wait. Reused sections say `reused:true` and retain their original evidence. Omit reuse when a genuinely fresh capture is required.
 
 ## Views
@@ -53,6 +55,8 @@ This overview replaces loading the complete one-line catalog at every session st
 Compact reads are self-contained by default. General reads use `data`; pawn health/needs and status may use their named `health`, `needs`, or `status` container. Usable partial general results remain under `data`. Optional `change` metadata reports whether the same scope was unchanged and names its previous evidence. Never assume a successful read is an automatic delta.
 
 Delta-only reads are explicit: pass both `delta:true` and `since:"obs-…"`. The base must be a complete observation from this session with the same tool and arguments; otherwise the request is rejected before contacting the game. Explicit deltas use compact view and may return empty `data` with `unchanged:true` because the caller deliberately supplied the baseline. `rw_retrieve {"observation":"obs-…","view":"full"}` recovers complete stored evidence.
+
+`seen_structure` on a raw retrieved record is the union of every field path that tool has ever returned in this run. It is not a claim about this capture. Read the current `data` for the live fact: a flag listed in `seen_structure` and absent from `data` is history, not a present threat.
 
 Model-facing row collections are ordinary JSON arrays of objects. Internal evidence may use lossless columnar packing, but callers never need a decoder merely to iterate, index or slice a result. Speed takes precedence over small byte savings when a conventional bounded response is likely to prevent another model handover.
 
@@ -64,11 +68,36 @@ Usable partial or caller-bounded results also stay under `data`; `completeness`,
 
 A response that would still be very large is bounded by a serialized payload budget. It returns the evidence id, `total` and `returned` counts, `truncated`, reason, and native filters where known. Nothing is silently discarded: the complete response was already persisted, and `rw_retrieve` returns it in full.
 
+## When a read is too large
+
+The game itself refuses a response over roughly 25,000 characters and answers with a guard instead of the data. The query never ran. Two exits are sanctioned and the response names both under `retry`:
+
+- **Narrow it.** `retry.narrow_with` lists the filters that tool accepts at the source. `list_world_objects` takes `kind`; `list_things` takes category, defName, faction and an anchor with a radius. Narrowing is almost always the right answer.
+- **Confirm it.** `confirm:true` on `list_things`, `list_world_objects`, `list_unmanaged_items`, `get_area`, `get_map`, `get_world`, `room_graph` and `find_world_tiles` accepts the full result deliberately. Delivery is still bounded by the payload budget, and `rw_retrieve {"observation":"obs-…","view":"full"}` then returns everything locally without another game call.
+
+A guard like this no longer stops a composition. The affected section is marked `degraded` with its retry advice, every other query still runs, and the response lists `degraded` keys separately from `stopped`. A genuine problem, meaning unconfirmed pause, identity mismatch, unparseable JSON, an upstream error, or missing and malformed fields, still stops everything after it and says so in `stopped`.
+
 ## References
 
 One global value repeated across different subjects — a threat warning attached to every pawn read, for instance — is delivered once and afterwards referenced as `{"same_as":"th1"}`, with `refs` naming the evidence it came from. The field itself always stays present, so an appearance is never hidden, and risk kind, severity, subject and `requires_review` stay literal in every response. A changed value is never referenced, nor is anything at critical severity.
 
 References are valid only inside the connection that minted them. They are cleared on reconnect and on any presentation reset, so a reference never has to be interpreted across sessions. Small values remain literal when a reference would not be materially shorter. The original value always remains in evidence: `rw_retrieve {"ref":"th1"}` returns it literally, and an unknown reference is an error rather than a guess.
+
+## One-shot CLI flag sets
+
+Three commands, three argument shapes. Getting this wrong costs a turn before any game decision is made.
+
+| Invocation | Arguments |
+|---|---|
+| `./rw --run NAME call TOOL --args JSON --token TOKEN` | `--args` |
+| `./rw --run NAME observe --json JSON --token TOKEN` | `--json` or `--file`, never `--args` |
+| `./rw --run NAME guard --json JSON --token TOKEN` | `--json` or `--file` |
+| `./rw --run NAME retrieve --observation OBS` | local evidence only, no `--token` |
+| `./rw capabilities --overview` | offline; no run and no token needed |
+
+`./rw capabilities` also takes `--domain NAME`, `--workflow NAME`, `--overview --full` and `--tool NAME`, the same selectors `rw_capabilities` serves. Argument mistakes return one JSON object naming the flag to use instead.
+
+Never run two `./rw` processes at once; never run two concurrent game calls from any transport. Every controller entry point takes one exclusive `operation.lock`, so two reads issued together fail rather than running in parallel. Batch inside `rw_observe` or `rw_act actions` instead.
 
 ## Fast decision-loop guidance
 
