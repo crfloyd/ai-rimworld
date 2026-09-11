@@ -375,7 +375,9 @@ class Facade(ControlFixture):
         self.responses.append({'matched':128,'returned':4,'truncated':True,'things':rows})
         value=self.body('rw_read',{'tool':'list_things','args':{'defName':'MineableSteel','limit':4}})
         self.assertEqual(value['data']['things'],rows)
-        self.assertEqual(value['completeness'],'partial')
+        self.assertTrue(value['data']['truncated'])
+        self.assertEqual(value['data']['returned'],4)
+        self.assertNotIn('completeness',value)
 
     def test_caller_limit_reports_true_total(self):
         self.add_tools('list_things')

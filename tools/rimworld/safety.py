@@ -61,7 +61,7 @@ def signals(obs):
         if d.get('pausedAfter') is not True: add('pause_unconfirmed', {'pausedAfter': d.get('pausedAfter', 'missing')}, 'critical')
         if d.get('cause') not in ('timeout', 'gameHours', 'gameTicks', 'gameDays', 'budget', 'timeElapsed'):
             add('wait_event', {'cause': d.get('cause'), 'event': d.get('event')})
-        add('crisis_cap', d.get('crisisCap'), 'critical')
+        add('crisis_cap', d.get('crisisCap'), 'info')
     if '_delta' in d:
         delta = d.get('_delta', {})
         if isinstance(delta, dict):

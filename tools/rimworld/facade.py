@@ -7,10 +7,10 @@ import os
 import time
 
 from .composition import (TOOLS as COMPOSED, QUERY, PAWN, capture, compact_result,
-                          expand, interruptions, obj, preflight)
+                          expand, interruptions, materialize_decisions, obj, preflight)
 from .core import Error, atomic_json, canonical, identifier, lock, now, read_json
 from .mcp import validate
-from .hints import NARROW, already_satisfied, narrowing, oversized, withheld_rows
+from .hints import NARROW, already_satisfied, empty_options, narrowing, oversized, withheld_rows
 from .observations import compact, delta_view, same_value
 from .presentation import present
 
@@ -57,14 +57,16 @@ TOOLS={
   'Mutating arguments are refused here. Evidence is stored whole; rw_retrieve recovers it.',
   'inputSchema':READ_SCHEMA,'annotations':{'readOnlyHint':True}},
  'rw_act':{'name':'rw_act','description':
-  'Run one mutation, or a pre-reviewed fail-stop actions[] batch with independent=true. Reads use rw_read; time uses rw_wait. '
+  'Run one mutation, or a pre-reviewed fail-stop actions[] batch with independent=true. '
+  'A batch continues past an unchanged dialog or standing _threatWarning; it stops on a new or changed threat, '
+  'any other review signal, or trade_action. '
   'set_speed pause remains available during uncertainty. order_pawn queue=true appends a Shift-click job. '
   'A receipt is not arrival, treatment, delivery or completed construction.',
   'inputSchema':ACT_SCHEMA,'annotations':{'readOnlyHint':False}},
  'rw_wait':{'name':'rw_wait','description':
-  'Advance supervised time until an event and return paused. Choose wall/game horizons; hard deadlines clamp them. '
-  'context defaults auto and adds a compact event decision packet; brief keeps only the status packet; none disables it. verify runs preflighted reads after the wait '
-  'in the same exchange. Inspect pausedAfter and ticksWaited.',
+  'Advance supervised time until an event and return paused. Horizons clamp as wait_budget. '
+  'crisisCap is the upstream 2500-tick crisis cap, not wait_budget; force:true bypasses it by actual risk, never automatically. '
+  'context auto/brief/none; verify runs preflighted post-wait reads. Inspect pausedAfter, ticksWaited and crisisCap.',
   'inputSchema':WAIT_SCHEMA,'annotations':{'readOnlyHint':False}},
  'rw_retrieve':{'name':'rw_retrieve','description':
   'Recover already-captured evidence. observation replays one stored response (view full is the complete original), '
@@ -214,12 +216,17 @@ def annotate(body, obs):
     if found:body['already_satisfied']=found
     gap=withheld_rows(tool,data)
     if gap:body['rows_withheld']=gap
+    empty=empty_options(tool,args,data)
+    if empty:body['empty_options']=empty
     if tool=='trade_action' and args.get('action')=='accept' and data.get('ok') is True:
         body['deal']={'committed':bool(data.get('traded')),'dialog_open':bool(data.get('_dialogOpen')),
                       'next':'A blocking message box must be dismissed with window_action before trade_action cancel.',
-                      'confirm_goods':'Bought goods land on the ground at the trader. Confirm with list_things near the '
-                                      'trader or list_unmanaged_items; get_resources counts hauled stock only.',
+                      'confirm_goods':'Bought goods land on the ground at the trader. Confirm with list_things '
+                                      'category=item nearId=<trader> radius=12; get_resources counts hauled stock only.',
                       'unverified':'Whether cancel can undo a committed deal is not established by this receipt.'}
+    from .control import effect
+    if effect(tool,args)=='mutation':
+        body=compact_standing_threat(body)
     return body
 
 
@@ -283,18 +290,77 @@ def explicit_failure(body):
     return body.get('completeness') not in (None,'known')
 
 
-def expected_same_dialog(action,body,window):
-    """A successful window action requires its dialog to remain open."""
-    if action.get('tool')!='window_action':return False,None
-    data=body.get('data') if isinstance(body,dict) else None
-    if not isinstance(data,dict) or data.get('ok') is not True or not data.get('window'):return False,None
-    if data.get('applied') is False or data.get('warning') or data.get('error'):return False,None
-    if window is not None and data['window']!=window:return False,None
+THREAT_KEEP=('count','nearestDist')
+
+
+def small_threat(value):
+    """The comparable core of a standing-threat block, without its row payloads."""
+    if not isinstance(value,dict):return value
+    kept={key:value[key] for key in THREAT_KEEP if key in value}
+    kept['omitted']='Standing-threat detail is on reads and waits, not on mutation receipts.'
+    return kept
+
+
+def compact_standing_threat(body):
+    """Shed the bulky standing-threat payload while keeping the signal it carries.
+
+    The block is roughly 500 bytes of colonist and hostile rows on every mutation receipt,
+    which is why it is trimmed here. Its presence is also what interruptions() and the action
+    batch use as a fail-stop, so the field, its risk card and requires_review all stay. Only
+    the row payloads go; the full block remains on reads, waits and in evidence.
+    """
+    body=dict(body)
+    for container in ('data','warnings'):
+        value=body.get(container)
+        if isinstance(value,dict) and isinstance(value.get('_threatWarning'),dict):
+            value=dict(value);value['_threatWarning']=small_threat(value['_threatWarning'])
+            body[container]=value
+    return body
+
+
+def threat_signature(data):
+    """Comparable identity of the standing threat, taken from raw observation data.
+
+    Never read this from the presented body: connection references replace a repeated
+    _threatWarning with {"same_as": ...}, which would read as a changed threat.
+    """
+    warning=data.get('_threatWarning') if isinstance(data,dict) else None
+    if not isinstance(warning,dict):return None
+    return canonical({key:warning.get(key) for key in THREAT_KEEP})
+
+
+def only_standing_threat(body):
+    """True when the sole review signal on this receipt is the standing threat warning."""
     risks=body.get('risks') or []
-    if any(r.get('kind')!='_dialogOpen' for r in risks):return False,None
+    if any(risk.get('kind')!='_threatWarning' for risk in risks):return False
     warnings=body.get('warnings') or {}
-    if any(key not in ('_dialogOpen','_paused') for key in warnings):return False,None
-    return True,data['window']
+    if any(key not in ('_threatWarning','_paused') for key in warnings):return False
+    return bool(risks) or '_threatWarning' in warnings
+
+
+def expected_same_dialog(action,body,window):
+    """A successful window or trade-row action requires its dialog to remain open."""
+    data=body.get('data') if isinstance(body,dict) else None
+    if not isinstance(data,dict) or data.get('ok') is not True: return False,None
+    if data.get('applied') is False or data.get('warning') or data.get('error'): return False,None
+    risks=body.get('risks') or []
+    if any(r.get('kind')!='_dialogOpen' for r in risks): return False,None
+    warnings=body.get('warnings') or {}
+    if any(key not in ('_dialogOpen','_paused') for key in warnings): return False,None
+    tool=action.get('tool')
+    if tool=='window_action':
+        if not data.get('window'): return False,None
+        if window is not None and data['window']!=window: return False,None
+        return True,data['window']
+    if tool=='set_trade':
+        # A set_trade receipt carries no window name, so it cannot establish dialog identity;
+        # it can only require that a dialog is still open and that this row actually applied.
+        # The expected window therefore passes through unchanged, which also lets a batch mix
+        # set_trade and window_action on one trade dialog.
+        if data.get('_dialogOpen') is not True: return False,None
+        if not any(key in data for key in ('transfer','index','def','label')): return False,None
+        return True,window
+    return False,None
 
 
 def action_batch(control,token,args,setup,memo,observed):
@@ -304,6 +370,7 @@ def action_batch(control,token,args,setup,memo,observed):
         kind=classify(control,action['tool'],action.get('args',{}));gate(kind,action['tool'],'act')
         if action['tool']=='set_speed':raise Error('Pause/speed changes cannot be precommitted in an action batch.')
     sequence=Sequence(control,token,'rw_act',args).start();results=[];expected_window=None
+    expected_threat=UNSET
     try:
         for index,action in enumerate(actions):
             sequence.record.update(phase='action',next_action=index);sequence.save()
@@ -317,7 +384,15 @@ def action_batch(control,token,args,setup,memo,observed):
             if dialog_ok:expected_window=dialog_window
             # An order the pawn is already running changed nothing and blocks nothing.
             satisfied=bool(body.get('already_satisfied'))
-            if (explicit_failure(body) and not satisfied) or (body.get('requires_review') and not dialog_ok and not satisfied):
+            # A threat warning that was already standing when the batch was reviewed is not a
+            # new reason to stop; one that appears or changes mid-batch is.
+            signature=threat_signature(control.campaign.observation(value['id']).get('data') or {})
+            if expected_threat is UNSET:
+                expected_threat=signature;threat_ok=only_standing_threat(body)
+            else:
+                threat_ok=signature==expected_threat and only_standing_threat(body)
+            if (explicit_failure(body) and not satisfied) or (body.get('requires_review') and not dialog_ok
+                                                              and not threat_ok and not satisfied):
                 remaining=list(range(index+1,len(actions)))
                 result={'composition':sequence.record['request_id'],'completed':index+1,'not_run':remaining,
                         'stopped':True,'reason':'Action response requires review','results':results}
@@ -353,6 +428,39 @@ def run_reads(control,token,queries,memo,observed,driver,sequence=None):
         if problem and problem['blocking']:
             not_run=[q['key'] for q in expanded[index+1:]];break
     return sections,evidence,not_run,degraded
+
+
+def event_happened(data):
+    """An event is what the game reported, not our review flags."""
+    if not isinstance(data,dict): return False
+    return bool(data.get('event') or data.get('_notifications'))
+
+
+def pausing_dialog(data):
+    """Name the force-pausing window and a concrete dismissal, or None."""
+    windows=data.get('windows') if isinstance(data,dict) else None
+    if not isinstance(windows,list): return None
+    pausing=[w for w in windows if isinstance(w,dict) and w.get('forcePause') is True]
+    # Never point at a window that is not the blocker; the inspect tab is always present.
+    if not pausing: return None
+    chosen=pausing[0]
+    index=chosen.get('index',0)
+    dismiss={'tool':'window_action','args':{'index':index,'close':True}}
+    options=chosen.get('options') or []
+    buttons=chosen.get('buttons') or []
+    if options:
+        first=options[0]
+        label=first.get('label') if isinstance(first,dict) else first
+        if label not in (None,''):
+            dismiss={'tool':'window_action','args':{'index':index,'option':label}}
+    elif buttons:
+        first=buttons[0]
+        label=first.get('label') if isinstance(first,dict) else first
+        if label not in (None,''):
+            dismiss={'tool':'window_action','args':{'index':index,'button':label}}
+    named={k:chosen[k] for k in ('index','type','kind','text','title','forcePause','options','buttons') if k in chosen}
+    named['dismiss']=dismiss
+    return named
 
 
 def event_text(body):
@@ -535,7 +643,21 @@ def wait_sequence(control,token,args,setup,memo,observed):
         obs=control.campaign.observation(value['id'])
         body=shape(control.campaign,obs,view) if view!='compact' else presented(control,value,args,memo,'wait_for_event')
         data=obs.get('data') if isinstance(obs,dict) else None
-        event=bool(isinstance(data,dict) and (data.get('event') or data.get('_notifications'))) or bool(body.get('requires_review'))
+        if isinstance(data,dict) and data.get('cause')=='forcePaused' and data.get('ticksWaited')==0:
+            try:
+                sequence.record['phase']='pausing_window';sequence.save()
+                gate(classify(control,'list_windows',{}),'list_windows','read')
+                listing=control.call(token,'list_windows',{},driver='facade_wait_context')
+                if observed:observed(listing['id'])
+                sequence.observed('pausing_window',listing)
+                named=pausing_dialog(control.campaign.observation(listing['id']).get('data') or {})
+                body['pausing_window']=named or {'none_found':True,
+                    'note':'No force-pausing window is open now; the block may already have cleared. '
+                           'Re-run the wait rather than dismissing an unrelated window.'}
+            except Error as exc:
+                body['pausing_window_error']={'error':str(exc),'wait_completed':True,'no_replay':True}
+                body['requires_review']=True
+        event=event_happened(data)
         context_safe=not body.get('pause_guard') and not (control.path/'pause-uncertain.json').exists()
         mode=args.get('context','auto')
         if mode!='none' and event and context_safe:
@@ -570,7 +692,13 @@ def wait_sequence(control,token,args,setup,memo,observed):
         if verify:
             sequence.record['phase']='verification';sequence.save()
             sections,evidence,not_run,degraded=run_reads(control,token,verify,memo,observed,'facade_wait_verify',sequence)
-            body['verification']=sections;body['verification_evidence']=evidence
+            expanded=expand(verify)
+            evidence_by_key={expanded[i]['key']:evidence[i] for i in range(len(evidence))}
+            shaped=materialize_decisions({'sections':sections,'stopped':None,'degraded':degraded,
+                                         'capture':[],'unrequested':'unknown'},verify,evidence_by_key)
+            body['verification']=shaped.get('sections',sections)
+            if shaped.get('decisions'):body['decisions']=shaped['decisions']
+            body['verification_evidence']=evidence
             body['verification_complete']=not not_run;body['verification_not_run']=not_run
             body['verification_degraded']=degraded
         body['composition']=sequence.record['request_id']
@@ -657,6 +785,7 @@ def retrieve(control, args, memo=None):
             'basis':'Latest stored observation per query scope; not a live read.'}
 
 
+UNSET=object()
 BODIES=('data','health','needs','status','known_subset')
 
 

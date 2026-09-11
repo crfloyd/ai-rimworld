@@ -13,6 +13,17 @@ FLAGS = ("error", "message", "warning", "warnings", "largeOutput", "truncated",
          "crisisCap", "pausedAfter", "_paused", "_normalizationWarnings", "_mcpAdditionalText", "_protocolNotifications")
 
 
+def honored_caller_limit(args, data):
+    """True when upstream truncated exactly at the caller's requested limit."""
+    if not isinstance(data, dict) or not isinstance(args, dict):
+        return False
+    if data.get('truncated') is not True:
+        return False
+    if type(args.get('limit')) is not int:
+        return False
+    return data.get('returned') == args['limit']
+
+
 def decode(payload):
     """Accept a direct result, JSON-RPC, or MCP content; keep ambiguity explicit."""
     if not isinstance(payload, dict):
@@ -160,7 +171,9 @@ def normalize(tool, args, payload, campaign_id, session_id, origin="live",
     state = forced or "known"
     if data.get("ok") is False or data.get("_mcpError") or data.get("error"):
         state = "unavailable"
-    elif data.get("largeOutput") or data.get("truncated"):
+    elif data.get("largeOutput"):
+        state = "partial"
+    elif data.get("truncated") and not honored_caller_limit(args, data):
         state = "partial"
     elif data.get("rejected", 0) or missing or malformed:
         state = "partial"

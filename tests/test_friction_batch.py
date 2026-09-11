@@ -211,7 +211,8 @@ class FrictionBatch(ControlFixture):
         value = self.body('rw_act', {'tool': 'trade_action', 'args': {'action': 'accept'}})
         self.assertTrue(value['deal']['committed'])
         self.assertTrue(value['deal']['dialog_open'])
-        self.assertIn('list_unmanaged_items', value['deal']['confirm_goods'])
+        self.assertIn('list_things', value['deal']['confirm_goods'])
+        self.assertIn('near', value['deal']['confirm_goods'].lower())
         self.assertNotIn('reverse', value['deal']['next'].lower())
 
     # --- Task 5: event context matches the event --------------------------------------

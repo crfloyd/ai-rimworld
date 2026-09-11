@@ -85,3 +85,15 @@ def withheld_rows(tool, data):
     return {'returned': returned, 'counted': counted,
             'note': 'Upstream returned fewer rows than it counted. Colony silver is reported separately '
                     'in the silver field. Use filter to locate a specific item by label.'}
+
+
+def empty_options(tool, args, data):
+    """A listing with no float-menu options is not a failed lookup."""
+    if tool != 'order_pawn' or not isinstance(data, dict):
+        return None
+    if args and any(k in args for k in ('command', 'index')):
+        return None
+    if data.get('options') != []:
+        return None
+    return ('No float-menu options. Common causes: the target is in a mental state, asleep, '
+            'or unreachable.')

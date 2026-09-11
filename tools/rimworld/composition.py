@@ -192,6 +192,7 @@ def coverage_problem(value, obs, result, children):
     keeps its original hard stop.
     """
     from .hints import narrowing, oversized
+    from .observations import honored_caller_limit
     data=obs.get('data') if isinstance(obs.get('data'),dict) else {}
     review=(bool(value.get('identity_mismatch') or value.get('pause_guard'))
             or bool(result.get('metadata',{}).get('unusable_json_blocks'))
@@ -203,7 +204,7 @@ def coverage_problem(value, obs, result, children):
         return {'blocking':True,'reason':REVIEW}
     if obs['completeness']=='known':
         return None
-    if oversized(data) or data.get('truncated'):
+    if oversized(data) or (data.get('truncated') and not honored_caller_limit(obs.get('args') or {}, data)):
         reason=('The upstream large-output guard answered instead of the query'
                 if oversized(data) else 'Upstream bounded this result')
         return {'blocking':False,'reason':reason,'retry':narrowing(obs['tool'],data)}
@@ -211,8 +212,10 @@ def coverage_problem(value, obs, result, children):
 
 
 def capture(control, value):
+    from .facade import annotate
     obs=control.campaign.observation(value['id'])
     result=section(control.campaign,obs)
+    result=annotate(result,obs)
     children=[control.campaign.observation(c['id']) for c in value.get('bundle',[])]
     if children:
         result['bundle_coverage']=[{'observation':c['id'],'tool':c['tool'],

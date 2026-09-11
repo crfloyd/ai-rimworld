@@ -54,11 +54,12 @@ class Coverage(unittest.TestCase):
         self.assertEqual(names[0],'get_alerts')
         self.assertLess(names.index('list_things'),names.index('list_trade'))
         self.assertLess(names.index('order_pawn'),names.index('list_trade'))
-        self.assertEqual(names[-1],'list_unmanaged_items')
+        self.assertEqual(names[-1],'list_things')
         notes=' '.join(row.get('note','') for row in steps).lower()
         self.assertIn('map pawns',notes)
         self.assertIn('ground',notes)
-        self.assertIn('do not batch',notes)
+        self.assertIn('nearid',notes)
+        self.assertIn('batch',notes)
 
     def test_food_crisis_reaches_bills_before_concluding_there_is_no_food(self):
         steps=overview(ROOT,workflow='food_crisis')['steps']

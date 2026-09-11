@@ -6,36 +6,16 @@ still open. Active implementation scope is in `PLAN.md`.
 ## Open tooling friction
 
 Current open items, with evidence and recommended fixes, live in [friction.md](docs/friction.md).
-They came from the measured 0.9.1 live playtest on `continuance`, 2026-09-11. Ranked by
-measured cost:
+They came from the measured 0.9.1 live playtest on `continuance`, 2026-09-11. The 0.9.2 batch
+landed 1a, 1c, 2a, 3a–3c, `set_trade` same-dialog batches, trade confirmation near the trader,
+and documentation 4a–4d.
 
-- [ ] Reclassify `crisis_cap` to `info`, not `review`: `assess` blocks on anything above
-      `info`, so `review` still sets `requires_review`. Land it together with decoupling event
-      context from `requires_review` (`event = data.event or data._notifications`); either
-      change alone is ineffective, because `_threatWarning`, `delta:pawnDamage` and
-      `wait_event` also set the flag. Measured: event context runs on 47 of 52 playtest waits
-      now and 35 after, removing 12 extra `get_status` reads. Verified safe: all 142 event-ish
-      waits in campaign history carry `data.event` or `_notifications`. Also name `crisisCap`
-      versus `wait_budget` and `force` in the `rw_wait` contract and `facade.md`. Do not infer
-      a second cap field; upstream already sends one.
-- [ ] On a wait that returns `ticksWaited: 0` with `forcePaused`, name the blocking window and
-      the `window_action` that clears it.
-- [ ] Do not classify upstream `truncated` as degraded when `data.returned == args.limit`.
-      This is not our `caller_limit` marker; test the upstream shape.
-- [ ] Run receipt annotations in the composition capture path, not only `rw_read`/`rw_act`.
-- [ ] Materialize decision presets inside `rw_wait verify` rather than returning the raw
-      status bundle. Do not reject them; `verify` exists to avoid the extra handover.
-- [ ] Extend the same-dialog batch exception to `set_trade`. Live-verified; see friction.md.
-- [ ] Correct the `trade` workflow: confirm goods with `list_things` anchored on the trader,
-      not map-wide `list_unmanaged_items`.
-- [ ] Drop `_threatWarning` from mutation receipts. Do not persist the reference table across
-      one-shot CLI processes.
+Still open:
+
 - [ ] Suppress wait termination on repeated notifications, then add an explicit caller
-      `ignore` list. Build only after the cap work lands, as a bounded composition that
-      records every internal wait and never masks a zero-tick `forcePaused`.
-- [ ] Documentation only: empty hostile scan after a ThreatBig letter (4a), `get_pawn` summary
-      is the read that carries `weapon` (4b), scan by `defName` not radius+limit (4c), say why
-      `order_pawn` returned `options: []` (4d).
+      `ignore` list. Build only after a playtest shows notifications as the new ceiling, as a
+      bounded composition that records every internal wait and never masks a zero-tick
+      `forcePaused`.
 
 Closed, do not implement:
 
@@ -44,9 +24,20 @@ Closed, do not implement:
 Still unverified, needs a future live run:
 
 - [ ] Whether `trade_action cancel` after a committed deal can reverse it. Never had to be
-      tested, because dismissing the message box also closed the trade dialog.
-- [ ] Reproduce the slave medical bed toggle with `inspect_thing` before and after, same id,
-      paused.
+      tested, because dismissing the message box also closed the trade dialog. No trader was
+      present on the 0.9.2 live check, so `set_trade` batches and goods-near-the-trader were
+      also not exercised.
+- [ ] Mutation receipts omitting `_threatWarning`: that block was not attached on the 0.9.2
+      live check.
+
+Closed from the 0.9.2 live check:
+
+- [x] Slave medical bed toggle with `inspect_thing` before and after, same id `Bed74667`,
+      paused. Medical turned on while the bed stayed `For slave use`, then restored.
+
+Nearby `category=building` + radius + limit filling with walls is the same 0.9.1 PassiveCooler
+failure mode, reproduced on Campfire. Keep requiring `defName` for a specific building; do
+not change the scan. An optional truncated-building annotation is considered, not scheduled.
 
 ## Standing measurement notes
 
@@ -68,4 +59,6 @@ across 36 waits. Neither the 32,768-byte payload backstop, the 32-query composit
 
 From the 0.9.1 playtest: `context:"brief"` waits measured 3,800 to 6,000 bytes; the capability
 overview index is 2,009 bytes against 12,008 for the 0.9.0 tool map, covering 112 tools
-instead of 54.
+instead of 54. Event context ran on 47 of 52 waits; the 0.9.2 event-context rule would have
+run on 35 of those (12 extra `get_status` reads removed). That remaining 35 is why item 1b
+is the next wait-loop lever.

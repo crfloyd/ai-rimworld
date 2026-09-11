@@ -1,6 +1,30 @@
+# Validation —0.9.2
+
+Review of the 0.9.2 wait-loop batch found two safety regressions in the mutation-receipt path and both are fixed with regressions that fail without the fix. Deleting `_threatWarning` from a mutation receipt also deleted the signal two interlocks read: `interruptions()` keys on that field, so `rw_guard` stopped stopping after its action, and popping `requires_review` removed the check that halted an `independent:true` batch when a threat appeared mid-batch. Both were reproduced directly before the fix. The receipt now keeps the field, its risk card and `requires_review`, and sheds only the row payloads: a recorded block measured 420 bytes before and 111 after, so 74% of the saving is retained without removing the interlock. To keep the original decision-loop goal, a batch continues past an unchanged standing threat and stops only on a new or changed one; the signature is taken from raw observation data because connection references replace a repeated block with `same_as`. Three further review findings are fixed: a zero-tick `forcePaused` wait no longer names a non-pausing window, the `set_trade` continuation token passes the expected window through so mixed `set_trade`/`window_action` batches no longer fail-stop in either order, and a `set_trade` receipt that applied no row stops the batch. The advertised surface stayed inside its 14,278-byte budget by moving the rw_read/rw_wait routing hint out of the always-loaded description into the `gate()` error that already names the correct tool at the moment it matters.
+
+**328 offline tests pass**, including the 0.9.1 live-friction follow-up covering crisis-cap salience, event-context decoupling, zero-tick pause naming, honored caller limits, composition annotation, wait-verify materialization, mutation threat omission, `set_trade` same-dialog batches and workflow-note corrections, alongside every earlier regression batch. No game/MCP/UI calls or save changes were used for 0.9.2 implementation testing. Notification re-wait (item 1b) is not implemented. An unknown thing id remains blocking.
+
+A quiet `crisisCap` timeout with `cause: timeout` does not set `requires_review` and does not run a post-wait `get_status`; the same wait still carrying `_threatWarning` and a healing `pawnDamage` delta also skips event context; a `cause: threatAppeared` wait with `data.event` still builds its packet. `force` is never injected. A `ticksWaited: 0` `forcePaused` wait reads `list_windows` and returns a named dismissal; a progressing wait does not. Upstream `truncated` with `returned == args.limit` stays `known`; `returned < limit` and `largeOutput` still degrade siblings-continue. `rw_wait verify` with `preset:"decision"` returns `decisions` rather than the raw status bundle. Mutation receipts omit `_threatWarning`; reads and waits keep it.
+
+These tests establish routing and response shape—not fewer live waits, better force decisions or a measured play improvement. Advertised `tools/list` is 14,164 bytes against the 14,278-byte budget.
+
+Live check on `continuance`, 2026-09-11, ticks 3896438–3908000, paused throughout except supervised `rw_wait`. This is not a measured playtest of colony quality.
+
+Confirmed on this colony:
+
+- Quiet `crisisCap` timeout (`obs-be90ac6ebcce4b05b28d4e70bbbe77bf`, composition `compose-acba194259364fef807fb0d3791423cc`): `crisis_cap` is `info`, no `requires_review`, no `event_context` read; only the requested verify `get_status` ran. `force` was not sent. Later waits with a real letter or notification still built event context.
+- Decision `threat` with hardcoded `limit: 20`: `matched: 54`, `returned: 20`, `truncated: true`, observe stayed complete with no `degraded`.
+- `rw_wait verify` with `preset: "decision"` returned `decisions.now.core`; `verification` was empty.
+- Zero-tick `forcePaused` wait (`obs-4f216567ce1247b29d49edac1df1c33d`): a bed-use confirm `Dialog_MessageBox` was already open; the wait named it under `pausing_window` with `window_action`. The dialog came from changing bed assignment, not from the wait.
+- Empty `order_pawn` listings inside `rw_observe` carried `empty_options` (`compose-1937b310e40f48b1b4226ac1d27ac5da`).
+- `list_things category=building nearId=… radius=12 limit=20` returned 20 nearest walls of 107 matches and missed Campfire182321; `defName: Campfire` found it (`compose-b81f0baffa9043399fb768ad95429487` plus the earlier defName read). Same failure mode as the 0.9.1 PassiveCooler note.
+- Slave medical bed, same id `Bed74667`, paused: `obs-f3f74d2f24b04e87b1ffd99d5968067f` slave / medical off, then `obs-7af48854d9c4417fa447f008de662a4a` slave / medical on. Restored afterward.
+
+Not exercised: `_threatWarning` was absent on reads, so mutation omission has no live proof here. No trader and no comms console, so `set_trade` batches, goods-near-trader, and `trade_action cancel` after accept remain unverified. The 0.9.1 confirmed-working list is unchanged.
+
 # Validation —0.9.1
 
-**305 offline tests pass**, including the new live-friction batch covering recoverable coverage, receipt annotation, event-context scoping, complete capability coverage and command-line parity, alongside every earlier regression batch. No game/MCP/UI calls or save changes were used for0.9.1 implementation testing.
+**336 offline tests pass**, including the new live-friction batch covering recoverable coverage, receipt annotation, event-context scoping, complete capability coverage and command-line parity, alongside every earlier regression batch. No game/MCP/UI calls or save changes were used for0.9.1 implementation testing.
 
 Recoverable coverage is separated from blocking coverage by cause, not by severity guesswork. A fixture reproducing the recorded `list_world_objects` guard (58,785 chars,263 items) now degrades one section and still runs its siblings; regressions confirm that an upstream error, a malformed field list and an unconfirmed pause each still stop every later query with the original `Identity, pause, JSON or coverage requires review` reason. The same rule covers `rw_wait verify`, which reports `verification_degraded` separately from `verification_not_run`.
 

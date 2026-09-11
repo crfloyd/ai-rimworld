@@ -87,12 +87,16 @@ WORKFLOWS = {
     ),
     'combat_event': (
         ('get_status','Danger rating and who is down.'),
-        ('list_things','category=pawn faction=hostile for the actual attackers.'),
+        ('list_things','category=pawn faction=hostile for the actual attackers. An empty hostile list just after a '
+                       'ThreatBig letter can mean the raid is still landing; do not treat matched:0 as absence. '
+                       'Roster rows do not carry weapon; get_pawn summary does. Scan a specific building by defName, '
+                       'not by radius and limit.'),
         ('list_fires','Fires spread and are often the larger loss.'),
         ('get_area','Bounded terrain and cover around the fight only.'),
         ('draft','A drafted colonist with a ranged weapon shoots at anything hostile, including a berserk colonist. '
                  'Do not draft an armed pawn beside one you want alive.'),
-        ('order_pawn','Move, attack, or carry a downed pawn to a bed.'),
+        ('order_pawn','Move, attack, or carry a downed pawn to a bed. options:[] is not a failed lookup; common causes '
+                      'are a mental state, sleep, or unreachable target.'),
         ('rw_wait','Short horizons during a fight; the event packet reports who changed.'),
     ),
     'caravan': (
@@ -108,7 +112,7 @@ WORKFLOWS = {
                       'like an empty larder, and the Low Food alert never mentions bills.'),
         ('get_resources','Stockpiled counts only. It does not see loose or forbidden food.'),
         ('list_unmanaged_items','Forbidden and unhauled food a human would see lying on the floor.'),
-        ('list_things','category=item with a defName to locate one specific food on the map.'),
+        ('list_things','category=item with a defName to locate one specific food on the map. Filter by defName when scanning for one building or item; a radius+limit hit can look like absence.'),
         ('add_bill','Add or unsuspend the meal bill once ingredients are confirmed.'),
         ('set_work_priority','A cook who will never cook is the other common cause.'),
         ('order_pawn','Prioritize the cook or a hauler directly.'),
@@ -123,11 +127,13 @@ WORKFLOWS = {
         ('order_pawn','Execute "Trade with …" on the trader. The colonist walks there first, so the dialog is not '
                       'open yet and list_trade is not active yet.'),
         ('list_trade','Poll until active is true. returned below tradeableCount means rows were withheld.'),
-        ('set_trade','One row per call. Do not batch these: every receipt carries the open-dialog review flag.'),
+        ('set_trade','One row per call. independent:true batches may continue while the same trade dialog stays open; '
+                     'trade_action accept is a terminator and always stops.'),
         ('trade_action','accept commits the deal and may leave the dialog plus a message box open.'),
         ('window_action','Dismiss a blocking message box before trade_action cancel.'),
-        ('list_unmanaged_items','Bought goods drop on the ground at the trader, so get_resources still reads '
-                                'pre-trade until a hauler moves them. This is how you confirm the deal delivered.'),
+        ('list_things','Bought goods drop on the ground at the trader. Confirm with category=item nearId=<trader> '
+                       'radius=12. Do not use list_unmanaged_items: on a mature map that matches corpses and old steel '
+                       'map-wide. get_resources counts hauled stock only.'),
     ),
     'build_structure': (
         ('list_architect','Find the exact defName and footprint before guessing a cell.'),
@@ -144,7 +150,7 @@ WORKFLOWS = {
         ('rw_observe','One decision packet instead of a read-per-fact rebuild.'),
         ('read_letter','The letter text is the only place the actual event is spelled out.'),
         ('get_pawn','Only the facets the next decision needs.'),
-        ('list_things','Bounded and anchored; never the whole map.'),
+        ('list_things','Bounded and anchored; never the whole map. Roster rows do not carry weapon; get_pawn summary does.'),
         ('draft','Only once the target is chosen.'),
         ('order_pawn','Immediate order first, then queue=true for reviewed follow-up jobs.'),
         ('rw_wait','The longest horizon the current evidence justifies.'),
