@@ -261,3 +261,17 @@ class FrictionBatch(ControlFixture):
         value = self.body('rw_wait', {'maxSeconds': 30, 'context': 'none'})
         self.assertEqual(len(self.calls) - before, 1)
         self.assertNotIn('event_context', value)
+
+    # --- Task 8: local selection failures suggest real pointers -----------------------
+
+    def test_a_failed_selector_suggests_pointers_from_the_response(self):
+        from tools.rimworld.cli import main
+        out = io.StringIO()
+        with redirect_stdout(out):
+            code = main(['--root', str(self.root), '--run', 'example',
+                         'retrieve', '--observation', self.bound_observation, '--select', '/needs'])
+        value = json.loads(out.getvalue())
+        self.assertEqual(code, 2)
+        self.assertTrue(value['operation_completed'])
+        self.assertIn('/data', value['available_pointers'])
+        self.assertIn('Do not replay', value['replay'])

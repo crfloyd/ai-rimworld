@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 import time
 
@@ -57,18 +58,82 @@ def evidence_ids(value):
     return list(dict.fromkeys(found))
 
 
+FLAG_HELP={
+ 'observe':'observe takes --json JSON or --file FILE (not --args). Only call takes --args.',
+ 'guard':'guard takes --json JSON or --file FILE (not --args). Only call takes --args.',
+ 'call':'call takes TOOL --args JSON --token TOKEN. observe and guard take --json.',
+ 'retrieve':'retrieve reads local evidence and takes no --token. Use --observation OBS, or --tool/--entity.',
+ 'capabilities':'capabilities is offline: a bare query, or --tool NAME, --overview [--full], --domain NAME, --workflow NAME.',
+ 'spatial':'spatial selects inside a saved observation: --observation OBS with --rect or --ids.',
+ 'act':'act takes --json JSON --token TOKEN.',
+ 'batch':'batch takes --file FILE --token TOKEN.',
+}
+
+
+class Parser(argparse.ArgumentParser):
+    """One JSON object per failure, matching every other result on this surface.
+
+    A usage dump costs context and never names the sibling command whose flags
+    the caller actually wanted.
+    """
+    def parse_args(self, args=None, namespace=None):
+        # The root parser reports unrecognized arguments, so it needs to know
+        # which subcommand the caller was actually trying to use.
+        self.rw_argv = list(args) if args is not None else list(sys.argv[1:])
+        return super().parse_args(args, namespace)
+
+    def subcommand(self):
+        name=getattr(self,'rw_command',None)
+        if name:return name
+        known=getattr(self,'rw_subcommands',())
+        for token in getattr(self,'rw_argv',None) or ():
+            if token in known:return token
+        return None
+
+    def error(self, message):
+        name=self.subcommand()
+        body={'ok':False,'error':message,'game_contact':False}
+        if name:body['command']=name
+        if name in FLAG_HELP:body['use']=FLAG_HELP[name]
+        print(json.dumps(body,ensure_ascii=False),flush=True)
+        raise SystemExit(2)
+
+
+def pointer_examples(value, limit=12):
+    """Real JSON Pointers into the response the caller just received.
+
+    Breadth first: every top-level key is more useful as a suggestion than a
+    deep path under whichever key happens to sort first.
+    """
+    found=[];frontier=[(value,'',0)]
+    while frontier and len(found)<limit:
+        node,path,depth=frontier.pop(0)
+        if depth>2:continue
+        if isinstance(node,dict):
+            for key,child in node.items():
+                pointer=path+'/'+str(key).replace('~','~0').replace('/','~1')
+                found.append(pointer)
+                if isinstance(child,(dict,list)):frontier.append((child,pointer,depth+1))
+        elif isinstance(node,list) and node:
+            frontier.append((node[0],path+'/0',depth+1))
+    return found[:limit]
+
+
 def parser():
-    p = argparse.ArgumentParser(description="RimWorld evidence, control, memory and history support.")
+    p = Parser(description="RimWorld evidence, control, memory and history support.")
     p.add_argument("--full-output", action="store_true", help="Return full structured provenance/risk fingerprints; retrieve is always full.")
     p.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     p.add_argument("--campaign", "--run", dest="campaign", help="Explicit named run in campaigns/.")
     p.add_argument("--version", action="version", version=__version__)
-    sub = p.add_subparsers(dest="command", required=True)
+    sub = p.add_subparsers(dest="command", required=True, parser_class=Parser)
     q = sub.add_parser("mechanics", help="Shared sourced knowledge; no run required, no game contact.")
     q.add_argument("query", nargs="?", default=""); q.add_argument("--id"); q.add_argument("--limit", type=int, default=8)
     q.add_argument("--file", type=Path, help="Save a reviewed sourced mechanics record, never campaign state.")
     q = sub.add_parser("capabilities", help="Offline API discovery; run optional, no game contact.")
     q.add_argument("query", nargs="?", default=""); q.add_argument("--tool")
+    q.add_argument("--overview", action="store_true", help="Compact domain index over the whole catalog.")
+    q.add_argument("--full", action="store_true", help="With --overview, list every tool in every domain.")
+    q.add_argument("--domain"); q.add_argument("--workflow")
     q = sub.add_parser("spatial", help="Select full recorded entity properties by ID or rectangle.")
     q.add_argument("--observation", required=True); q.add_argument("--rect", nargs=4, type=int)
     q.add_argument("--ids", nargs="+")
@@ -100,6 +165,7 @@ def parser():
     q.add_argument("--source-captured-at")
     q = sub.add_parser("retrieve", help="Read full saved evidence selectively.")
     q.add_argument("--tool"); q.add_argument("--entity"); q.add_argument("--observation")
+    q.add_argument('--select',action='append',help='Return one or more JSON Pointer paths from the completed response.')
     q = sub.add_parser("retire", help="Remove resolved detail from working context while preserving evidence.")
     q.add_argument("--observation", required=True); q.add_argument("--evidence", required=True)
     q.add_argument("--reason", required=True)
@@ -169,6 +235,10 @@ def parser():
     q.add_argument("--evidence", nargs="+"); q.add_argument("--map-index", type=int)
     q = sub.add_parser("checkpoint")
     q.add_argument("--file", type=Path, help="Omit to inspect which checkpoint is due.")
+    p.rw_subcommands = set(sub.choices)
+    for name, child in sub.choices.items():
+        child.rw_command = name
+        child.rw_subcommands = p.rw_subcommands
     return p
 
 
@@ -179,8 +249,11 @@ def run(args):
         env=Campaign(args.root,args.campaign).meta.get('setup',{}) if args.campaign else None
         return search(args.root,args.query,args.id,args.limit,env)
     if args.command == "capabilities":
-        from .capabilities import discover
-        return discover(args.root,args.query,args.tool,Campaign(args.root,args.campaign) if args.campaign else None)
+        from .capabilities import discover, overview
+        campaign = Campaign(args.root, args.campaign) if args.campaign else None
+        if args.overview or args.domain or args.workflow:
+            return overview(args.root, campaign, args.domain, args.workflow, full=args.full)
+        return discover(args.root,args.query,args.tool,campaign)
     if args.command in ("runs", "list"):
         return list_runs(args.root)
     if args.command in ("init", "new", "resume"):
@@ -405,6 +478,7 @@ def main(argv=None):
                 display={'ok':False,'phase':'local_selection','operation_completed':True,
                          'error':selection_error,'evidence':evidence_ids(result),
                          'available_top_level':list(result) if isinstance(result,dict) else None,
+                         'available_pointers':pointer_examples(display if isinstance(display,dict) else {}),
                          'replay':'Do not replay the completed game operation; correct only the local selector.'}
         print(display if isinstance(display, str) else json.dumps(display, ensure_ascii=False,separators=(",", ":"), allow_nan=False), flush=True)
         if composed:
