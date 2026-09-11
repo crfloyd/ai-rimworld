@@ -1,15 +1,13 @@
 # Strategy
 
-No commitment is assumed. Record the intended victory route and why it fits this campaign.
+Keep this as short, informal current memory. Use any headings that fit the campaign; several planning horizons can coexist.
 
-## Current milestone
+Long term: what the colony is trying to become or which ending it is pursuing, and why.
 
-Record the next useful outcome, dependencies, risks, and alternatives.
+Next few days: the outcomes that currently deserve attention, including dependencies or alternatives.
 
-## Critical dependencies and continuity
+Current constraints: only durable risks, critical-worker dependencies, temporary settings/restoration duties, and meaningful unknowns.
 
-Preserve known participant roles and relevant needs/capacities, critical-worker dependencies, temporary changes and restoration conditions. Link focused evidence for missing details; do not paste the whole roster or assume a summary is complete.
+Reconsider when: events or evidence that would materially change the plan.
 
-## Reconsideration
-
-Record what would change the plan and link to decision evidence.
+Replace stale statements. Do not append old handoffs, routine orders, progress narration or incident history.

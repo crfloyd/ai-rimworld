@@ -151,8 +151,22 @@ class MemoryTests(Workspace):
         fresh = Campaign(self.root, "example")
         self.assertIn(issue["id"], fresh.refresh())
         self.assertIn("Recovered and equipped", fresh.refresh())
+        self.assertEqual(fresh.issue_record(issue["id"])["rationale"], "Causing breaks")
+        current_view = (fresh.path / "ISSUES.md").read_text()
+        self.assertIn("Inspect conversion", current_view)
+        self.assertNotIn('"rationale"', current_view)
         with self.assertRaises(Error):
             fresh.issue({"status": "resolved"}, issue["id"])
+
+    def test_generated_current_views_are_bounded_indexes(self):
+        for number in range(30):
+            self.ingest("get_pawn", {"id": f"Pawn{number}"},
+                        {"id": f"Pawn{number}", "name": "P" + str(number),
+                         "job": "working", "hediffs": [{"label": "old detail " + "x" * 500}]})
+        state = (self.camp.path / "STATE.md").read_text()
+        self.assertIn("additional indexed scopes omitted", state)
+        self.assertNotIn("old detail", state)
+        self.assertLess(len(state.encode()), 20000)
 
     def test_action_acceptance_not_completion_and_fresh_check(self):
         action = self.fixture_action("order_pawn", {}, "Reach refuge", "movement",

@@ -2,6 +2,7 @@
 
 ## 0.9.0
 
+- Current memory is now explicitly present-tense rather than chain-of-custody: informal STRATEGY supports several planning horizons and event-driven coalesced updates, ISSUES renders short action cards with full ID retrieval, and optional STATE is a bounded evidence index instead of a nested historical dump.
 - Fresh resume now returns controller-aware command templates and pointer-based handoff metadata by default; archived rules, strategy and packets require `--full-output`. Strategy guidance forbids appending old handoff bodies because immutable snapshots already preserve them.
 - Decision observations add a general threat facet and `resume_crisis` workflow; capability misses suggest close tool names, upstream pawn summary is documented as an omitted tab, and controller docs distinguish cached session metadata from a live process.
 - Every live player must read the audited operational `docs/facade.md` before its first facade call and after tooling changes; historical benchmark material was removed from that guide.

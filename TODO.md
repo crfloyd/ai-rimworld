@@ -26,6 +26,14 @@ The active implementation scope is in PLAN.md; tested claims are in VALIDATION.m
 - [x] Clarify cached session metadata versus a running stdio process and when reconnect is actually needed.
 - [x] Keep STRATEGY current-only; preserve prior strategy and history in immutable handoffs/journals instead of onboarding context.
 
+## Current-memory cleanup
+
+- [x] Define informal, multi-horizon STRATEGY update triggers without requiring per-order writes or a parser schema.
+- [x] Render ISSUES.md as concise current action cards while preserving full issue journals and exact-ID retrieval.
+- [x] Bound STATE.md to evidence pointers, current risk/incomplete records, a small pawn sample and recent tracked outcomes.
+- [x] Keep historical provenance in journals/handoffs rather than current startup documents.
+- [ ] Replace multi-megabyte immutable handoff copies of every fact/knowledge body with integrity-checked indexes and selective retrieval; measure handoff wall time before changing the safety contract.
+
 - Independently measure whether event packets, decision observations, action batches and cache reuse reduce model handovers and wall time in live resumed play.
 - Test compact overview/workflow discovery with a fresh-context new-game planner before trusting it for a live setup.
 - Measure rw_capabilities lookup volume after overview/workflow adoption; exact schemas remain deferred and heavy lookup can still erode the surface saving.

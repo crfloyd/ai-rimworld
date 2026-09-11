@@ -52,12 +52,15 @@ class Isolation(Workspace):
 
 
 class ObservationRegression(Workspace):
-    def test_full_health_conditions_survive_resume(self):
-        self.ingest('get_pawn', {'id': 'patient', 'tab': 'health'},
-                    {'id': 'patient', 'overallHealthPercent': 100, 'downed': False, 'dead': False,
-                     'hediffs': [{'label': 'Heatstroke (initial)', 'severity': 0.05}], 'capacities': {'moving': 95}})
+    def test_full_health_conditions_remain_retrievable_from_bounded_state_index(self):
+        result = self.ingest('get_pawn', {'id': 'patient', 'tab': 'health'},
+                             {'id': 'patient', 'overallHealthPercent': 100, 'downed': False, 'dead': False,
+                              'hediffs': [{'label': 'Heatstroke (initial)', 'severity': 0.05}], 'capacities': {'moving': 95}})
         brief = Campaign(self.root, 'example').refresh()
-        self.assertIn('Heatstroke', brief); self.assertIn('0.05', brief); self.assertIn('95', brief)
+        self.assertNotIn('Heatstroke', brief)
+        full = Campaign(self.root, 'example').observation(result['id'])['data']
+        self.assertEqual(full['hediffs'][0]['severity'], 0.05)
+        self.assertEqual(full['capacities']['moving'], 95)
 
     def test_filters_do_not_collide(self):
         keys = set()

@@ -105,7 +105,7 @@ def parser():
     q.add_argument("query"); q.add_argument("--entity"); q.add_argument("--limit", type=int, default=8)
     q = sub.add_parser("context", help="Retrieve situation-specific lessons and evidence pointers.")
     q.add_argument("topic"); q.add_argument("--entity")
-    q = sub.add_parser("issue")
+    q = sub.add_parser("issue", help="List current issue reviews, retrieve one full record, or update from a file.")
     q.add_argument("--file", type=Path); q.add_argument("--id")
     q = sub.add_parser("event", help="Record a decision, verification, observation or milestone.")
     q.add_argument("--file", type=Path, required=True)
@@ -240,7 +240,8 @@ def run(args):
     if command == "context":
         return context(campaign, args.topic, args.entity)
     if command == "issue":
-        return campaign.issue(read_json(args.file), args.id) if args.file else campaign.issue_reviews()
+        if args.file: return campaign.issue(read_json(args.file), args.id)
+        return campaign.issue_record(args.id) if args.id else campaign.issue_reviews()
     if command == "event":
         value = read_json(args.file)
         if value.get("kind") == "decision":

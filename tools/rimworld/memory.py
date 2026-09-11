@@ -222,6 +222,14 @@ class Campaign:
                                 recurring=issue.get("occurrences", 1) >= issue.get("review_after_occurrences", 2)))
         return reviews
 
+    def issue_record(self, issue_id):
+        """Return one issue record without turning the startup view into a ledger."""
+        slug(issue_id)
+        issue = self._issues().get(issue_id)
+        if issue is None:
+            raise Error("Unknown issue.")
+        return issue
+
     def _retired(self):
         return set(self.event_view()["retired"])
 
@@ -508,10 +516,30 @@ class Campaign:
     def _write_views(self, state):
         self._save_projection(state)
         open_issues = self.issue_reviews(state)
-        atomic_text(self.path / "ISSUES.md", "# Unresolved issues\n\n" +
-                    "\n\n".join(json.dumps(i, ensure_ascii=False, indent=2) for i in open_issues) +
-                    ("\nNo open issues recorded. This is not evidence of absence of problems.\n"
-                     if not open_issues else "\n"))
+        issue_lines = ["# Current issues", "",
+                       "This is current working memory, not an incident history. Replace or close stale items.",
+                       "Full record: `./rw --run %s issue --id ISSUE_ID`." % self.meta["name"], ""]
+        for issue in sorted(open_issues, key=lambda i: (not i.get("critical", False), i.get("title", ""))):
+            flags = [name for name, enabled in (("critical", issue.get("critical")),
+                                                ("due", issue.get("revisit_due")),
+                                                ("temporary", issue.get("temporary_override")),
+                                                ("recurring", issue.get("recurring"))) if enabled]
+            issue_lines += ["## " + issue["title"], "",
+                            "- ID: `%s`%s" % (issue["id"], " — " + ", ".join(flags) if flags else ""),
+                            "- Next: " + issue["next_action"],
+                            "- Revisit: " + issue["revisit"],
+                            "- Resolved when: " + issue["resolution"]]
+            if issue.get("restore_when"):
+                issue_lines.append("- Restore: " + issue["restore_when"])
+            if issue.get("blocker"):
+                issue_lines.append("- Blocker: " + issue["blocker"])
+            evidence = issue.get("evidence") or []
+            if evidence:
+                issue_lines.append("- Evidence: " + ", ".join("`%s`" % item for item in evidence[-3:]))
+            issue_lines.append("")
+        if not open_issues:
+            issue_lines += ["No open issues recorded. This is not evidence that no problems exist.", ""]
+        atomic_text(self.path / "ISSUES.md", "\n".join(issue_lines))
         actions = list(self._actions(open_only=True).values())
         last = state.get("last_metadata", {})
         atomic_json(self.path / "summary.json", {
@@ -520,43 +548,86 @@ class Campaign:
             "last_observation_at": last.get("captured_at"), "observation_origin": last.get("origin"),
             "open_issues": len(open_issues), "pending_actions": len(actions),
         })
-        lines = ["# Current evidence", "", f"Campaign: {self.meta['name']} ({self.meta['id']}).",
+        lines = ["# Evidence index (optional)", "", f"Campaign: {self.meta['name']} ({self.meta['id']}).",
                  f"Generated: {now()}. Tick: {state['latest_tick']} ({state.get('tick_basis', 'unknown')}).",
                  f"Session: {self.meta.get('session_id') or 'unbound; live identity not verified'}.",
-                 "Recorded observations are not a live connection. Revalidate before game control.", ""]
+                 "Recorded observations are not a live connection. Revalidate before game control.",
+                 "This page is a bounded navigation aid, not required startup reading and not a colony narrative.", ""]
         if state.get("clock_warning"):
             lines += ["CLOCK WARNING: " + state["clock_warning"], ""]
         retired = self._retired()
-        for entry in entries(state, tools=("get_status", "get_alerts", "get_resources", "list_colonists", "get_research", "get_conditions", "wait_for_event", "list_fires", "get_pawn"), risks=True):
+        candidates = []
+        tools = ("get_status", "get_alerts", "get_resources", "list_colonists", "get_research",
+                 "get_conditions", "wait_for_event", "list_fires", "get_pawn")
+        for entry in entries(state, tools=tools, risks=True):
             obs = entry["latest"]
-            if obs["id"] in retired:
-                continue
-            # A failed read still carries the previous known fact, explicitly stale.
-            if obs["completeness"] != "known":
-                lines += [canonical(evidence_index(obs))]
-                if entry.get("last_known"):
-                    old = entry["last_known"]
-                    lines += ["Last known, requiring revalidation: " +
-                              canonical({"observation": old["id"], "captured_at": old["captured_at"],
-                                         "tick": old["tick"], "detail": old["raw"], "retrieve_required": True})]
-                continue
-            if obs["tool"] not in ("get_status", "get_alerts", "get_resources", "list_colonists",
-                                   "get_research", "get_conditions", "wait_for_event", "list_fires",
-                                   "get_pawn"):
-                continue
+            if obs["id"] in retired: continue
             if obs["tool"] == "get_pawn" and obs["args"].get("tab") not in ("health", "needs", None):
                 continue
+            candidates.append(entry)
+        candidates.sort(key=lambda e: e["latest"].get("captured_at", ""), reverse=True)
+        # Prioritize distinct signalled risks/incomplete reads, the newest record per ordinary
+        # tool, and a small pawn sample within a hard view bound. Full facts remain retrievable.
+        selected, seen_tools, seen_risks, pawn_count = [], set(), set(), 0
+        from .safety import signals
+        for entry in candidates:
+            obs = entry["latest"]
+            risk_ids = {risk["id"] for risk in signals(obs)}
+            important = bool(risk_ids - seen_risks) or obs["completeness"] != "known"
+            if obs["tool"] == "get_pawn":
+                keep = important or pawn_count < 8
+                if keep: pawn_count += 1
+            else:
+                keep = important or obs["tool"] not in seen_tools
+            if keep and len(selected) < 16:
+                selected.append(entry); seen_tools.add(obs["tool"]); seen_risks |= risk_ids
+        lines += ["## Latest pointers", ""]
+        rendered_risks = set()
+        for entry in selected:
+            obs = entry["latest"]
             stale = freshness(obs, state, self.meta)["revalidate"]
             label = "REVALIDATE" if stale else "OBSERVED"
-            c = evidence_index(obs)
-            lines += [label + " " + canonical(c), ""]
+            index = evidence_index(obs)
+            risk_pairs = zip(signals(obs), index.get("risks", []))
+            index["risks"] = [card for risk, card in risk_pairs if risk["id"] not in rendered_risks]
+            rendered_risks |= {risk["id"] for risk in signals(obs)}
+            for risk in index["risks"]:
+                for key, value in list(risk.get("scalars", {}).items()):
+                    if isinstance(value, str) and len(value) > 240:
+                        risk["scalars"][key] = value[:237] + "…"
+            card = {k:index[k] for k in ("id", "tool", "scope", "tick", "captured_at", "completeness", "origin", "scalars", "nested", "risks") if index.get(k) not in (None, {}, [])}
+            if card.get("nested"):
+                for nested in card["nested"].values():
+                    keys = nested.get("keys")
+                    if isinstance(keys, list) and len(keys) > 12:
+                        nested["keys"] = keys[:12]; nested["keys_omitted"] = len(keys) - 12
+            if obs.get("tick_basis"): card["tick_basis"] = obs["tick_basis"]
+            # Status map identity is valuable orientation; retain only the small map headers.
+            if obs["tool"] == "get_status" and isinstance(obs["data"].get("maps"), list):
+                card["maps"] = [{k:m[k] for k in ("mapIndex", "name", "kind", "colonists") if k in m}
+                                for m in obs["data"]["maps"] if isinstance(m, dict)]
+            lines += [label + " " + canonical(card)]
+            if obs["completeness"] != "known" and entry.get("last_known"):
+                old = entry["last_known"]
+                lines += ["Last known, requiring revalidation: " + canonical({
+                    "observation": old["id"], "captured_at": old["captured_at"], "tick": old["tick"]})]
+            lines.append("")
+        omitted = len(candidates) - len(selected)
+        if omitted:
+            lines += [f"{omitted} additional indexed scopes omitted from this bounded view.",
+                      "Use `./rw --run %s retrieve --tool TOOL` or an observation ID when needed." % self.meta["name"], ""]
         if not state["facts"]:
             lines += ["No observations yet. Game identity, threats and all colony facts are unknown.", ""]
-        lines += ["## Unfinished actions", ""]
-        lines += [canonical({k:a[k] for k in ('id','tool','args','intent','family','status','check','evidence',
-                                               'requires_completed','reason') if k in a}) for a in actions] or ["None recorded; verify existing in-game orders."]
-        lines += ["", "## Open issues and temporary overrides", ""]
-        lines += [canonical(i) for i in open_issues] or ["None recorded."]
+        lines += ["## Tracked unfinished outcomes", ""]
+        recent_actions = sorted(actions, key=lambda a: a.get("updated_at", a.get("requested_at", "")), reverse=True)[:5]
+        lines += [canonical({k:a[k] for k in ('id','intent','family','status','reason') if k in a}) for a in recent_actions] or ["None recorded; verify existing in-game orders."]
+        if len(actions) > len(recent_actions):
+            lines += [f"{len(actions) - len(recent_actions)} older open records omitted; use `./rw --run {self.meta['name']} action`."
+                      " Old accepted orders are not instructions to replay."]
+        lines += ["", "## Current issues", ""]
+        lines += [canonical({k:i[k] for k in ("id", "title", "next_action", "restore_when") if i.get(k)})
+                  for i in open_issues] or ["None recorded."]
+        lines += [f"Full current cards are in ISSUES.md; retrieve one full record with `./rw --run {self.meta['name']} issue --id ISSUE_ID`."]
         lines += ["", "## Strategy and deeper evidence", "",
                   "Read STRATEGY.md for decisions and rationale; ISSUES.md for unresolved problems.",
                   "Use context/retrieve for relevant reference details. Full evidence is in raw/.",

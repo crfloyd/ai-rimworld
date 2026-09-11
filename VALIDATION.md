@@ -1,6 +1,8 @@
 # Validation —0.9.0
 
-**247 offline tests pass**, including the complete live-friction and fresh-onboarding regression batches. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No live endpoint, game UI or saves were used for0.9.0 implementation testing.
+**248 offline tests pass**, including the complete live-friction, fresh-onboarding and bounded-current-memory regression batches. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No game/MCP/UI calls or save changes were used for0.9.0 implementation testing.
+
+Current-memory coverage confirms that generated STATE omits large nested medical bodies while preserving exact observation retrieval, caps its pointer sample, reports omitted indexed scopes and retains current risk summaries. ISSUES exposes concise current action cards while exact-ID retrieval returns the full journal record. The live campaign's generated views were migrated locally from412KB STATE,12KB ISSUES and24KB STRATEGY to approximately17KB,1.8KB and2.3KB respectively; these campaign files are excluded from the source commit and the measurements are not a gameplay-quality claim.
 
 Fresh-resume coverage confirms the default result does not duplicate archived strategy/rules/packet text, exposes current-file pointers and returns controller-aware command templates with global `--run` placement. `--full-output` still recovers the immutable strategy and packet. Invalid exact capability names provide close suggestions, and a threat decision preset anchors a bounded pawn listing around the first selected pawn while retaining status threat/mental-state context.
 

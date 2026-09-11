@@ -28,6 +28,8 @@ This is not a fixed cadence. The player decides how much attention the situation
 
 Do not create extra calls merely to make the UI appear active, issue routine status commentary, or prove again that an unchanged fact remains unchanged. Conversely, never suppress a necessary read or rush a decision merely to improve call counts or wall-time metrics.
 
+Use the conversation for transient tactics and STRATEGY/ISSUES for facts that must survive compaction. At meaningful decision boundaries, coalesce any material current-memory changes into one ordinary Markdown replacement. Preserve multiple planning horizons, but do not write routine commands or progress reports and do not append historical state. If the current plan remains accurate, make no file write.
+
 ## User steering
 
 Because the current agent is the player, apply user steering directly at the next safe boundary. A stop request takes priority: resolve the actual pending operation or wait handle, verify pause, preserve continuity and release control. Status questions should be answered from the latest reliable evidence without manufacturing another game read unless the requested fact is genuinely unknown or stale.
