@@ -20,15 +20,15 @@ Upstream names are not served directly. Start `session --expose-upstream-tools`,
 
 `rw_act` carries ordinary orders. `set_speed` with `action` pause remains the ordinary pause and stays available while a request is unresolved, exactly as before. An accepted order is a receipt, not arrival, treatment, delivery or completed construction.
 
-For several unrelated, already-reviewed mutations, pass `actions` and `independent:true`. Every schema/effect is checked before the first dispatch. Execution is sequential and stops after a response that reports failure, incomplete evidence or risk; `not_run` identifies untouched steps. The durable composition remains until the response is delivered. Do not put dependent actions in this form: use pawn `queue:true` for compatible job chains, or inspect an outcome before choosing the next action.
+For several unrelated, already-reviewed mutations, pass `actions` and `independent:true`. Every schema/effect is checked before the first dispatch. Execution is sequential and stops after a response that reports failure, incomplete evidence or unexpected risk; `not_run` identifies untouched steps. A successful `window_action` may continue on the same dialog when the unchanged `_dialogOpen` flag is its only review signal—the open window is required for the remaining fields. A changed/closed window, unapplied action or any other warning still stops. The durable composition remains until delivery. Do not put dependent actions in this form: use pawn `queue:true` for compatible job chains, or inspect an outcome before choosing the next action.
 
 `rw_wait` wraps `wait_for_event` and injects `pause:always`, so a supervised pause is never optional. Choose a horizon; `maxGameTicks` is still clamped to the earliest recorded deadline and reported as `wait_budget`. A wait ending before its wall budget may have reached its game-time limit. An unconfirmed pause still writes the pause guard and requires review.
 
-When a wait reports an event or risk, `context:auto` (the default) performs one post-wait status read and returns a materialized packet with core/alerts plus event-relevant food, medical, mood, threat/fire or world facets. Named medical/mood events include bounded affected-pawn health/needs; threats include current hostiles and fires include the fire list. Use `context:none` when the wait result alone is sufficient. Optional `verify` accepts the same query objects as `rw_observe`; every query is preflighted before time advances and runs after the wait in the same public exchange. Event context and verification never choose an action.
+When a wait reports an event or risk, `context:auto` (the default) performs one post-wait status read and returns a materialized packet with core/alerts plus event-relevant food, medical, mood, threat/fire or world facets. Event pawn matching accepts IDs, full names and unambiguous name/nickname tokens. Mental-break threats include the event letter, affected health/needs/gear and nearby pawn positions/readiness around the hostile pawn; ordinary threats include current hostiles and fires include the fire list. Use `context:none` when the wait result alone is sufficient. Optional `verify` accepts the same query objects as `rw_observe`; every query is preflighted before time advances and runs after the wait in the same public exchange. The durable manifest records requested and actual verification tool/arguments plus reuse. Event context and verification never choose an action.
 
 ## Strategic affordances
 
-`rw_capabilities {"overview":true}` returns the compact domain map. Use `domain` for one area or `workflow` for an ordered `new_game`, `medical_event`, `combat_event`, `caravan` or `food_crisis` guide. These contain names and one-line purposes, not schemas, live availability or permission. Fetch only a selected exact contract with `{"tool":"NAME"}`.
+`rw_capabilities {"overview":true}` returns the compact domain map. Use `domain` for one area or `workflow` for an ordered `new_game`, `medical_event`, `combat_event`, `caravan`, `food_crisis` or `trade` guide. These contain names and one-line purposes, not schemas, live availability or permission. Fetch only a selected exact contract with `{"tool":"NAME"}`. When `get_window_ui` detects a trade dialog, the facade also reads a bounded semantic `list_trade` view, leads with that state and the dedicated list/set/finalize tools, and reduces generic UI geometry to control counts; full window evidence remains locally retrievable.
 
 This overview replaces loading the complete one-line catalog at every session start. Search remains useful for a concept outside the curated map.
 
@@ -42,9 +42,13 @@ This overview replaces loading the complete one-line catalog at every session st
 
 `view` is `compact` by default; `summary` is the navigation index; `full` replays the complete stored original. `full` and `summary` read local evidence and never call the game again, so starting compact costs nothing to escalate.
 
-Compact carries the evidence id, the game facts, risk cards and, on a repeated read of the same scope, only what changed. `rw_retrieve {"observation":"obs-…","view":"full"}` recovers everything.
+Compact reads are self-contained by default: `data` always carries the current requested facts, while optional `change` metadata reports whether the same scope was unchanged and names its previous evidence. This stable shape is intentionally larger than an empty automatic delta because it avoids parser failures and retrieval handovers.
+
+Delta-only reads are explicit: pass both `delta:true` and `since:"obs-…"`. The base must be a complete observation from this session with the same tool and arguments; otherwise the request is rejected before contacting the game. Explicit deltas use compact view and may return empty `data` with `unchanged:true` because the caller deliberately supplied the baseline. `rw_retrieve {"observation":"obs-…","view":"full"}` recovers complete stored evidence.
 
 Model-facing row collections are ordinary JSON arrays of objects. Internal evidence may use lossless columnar packing, but callers never need a decoder merely to iterate, index or slice a result. Speed takes precedence over small byte savings when a conventional bounded response is likely to prevent another model handover.
+
+Usable partial or caller-bounded results also stay under `data`; `completeness`, coverage, matched/returned counts and `truncated` describe their limits. The primary container never switches to `known_subset` merely because a requested limit returned only the nearest/top rows.
 
 ## Selection and limits
 
@@ -66,5 +70,5 @@ References are valid only inside the connection that minted them. They are clear
 - Select `fields`/`row_fields` when only part of a response matters, and pass `limit` when a list is expected to be long.
 - Prefer `rw_wait` over repeated reads to see whether something finished. One finite event-driven wait replaces a polling loop.
 - For a reviewed sequence of compatible pawn jobs, send the immediate `order_pawn` normally and append later jobs with `queue:true`. This is the Shift-click queue and can remove intermediate stop/reissue cycles. Do not queue unstable combat, urgent medical work or steps whose validity depends on an earlier outcome; a queue receipt is not completion evidence.
-- Repeated reads of one scope return only what changed; re-reading a stable scope is cheap, and re-reading everything to be sure is not.
+- Repeated reads remain self-contained unless the caller explicitly supplies `delta:true` and `since`. Prefer opt-in cached reuse for stable facts over automatic empty deltas.
 - Compact responses omit nothing silently. `omitted_keys`, `truncated` and `same_as` each name their recovery path; act on the report rather than re-issuing the call.

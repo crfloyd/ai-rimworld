@@ -37,6 +37,9 @@ class Session:
              'response_bytes_basis':'Exact UTF-8 bytes of the single model-facing text content; excludes JSON-RPC framing.'}
         if name in ('rw_read','rw_act'):
             row['upstream_tool']=args.get('tool')
+            if name=='rw_read':
+                row['delta_requested']=args.get('delta') is True
+                row['delta_base']=args.get('since')
             if name=='rw_act' and args.get('actions') is not None:row['batch_actions']=len(args['actions'])
         elif name=='rw_capabilities':
             row['capability_query']=args.get('query');row['capability_tool']=args.get('tool')

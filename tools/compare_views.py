@@ -7,7 +7,7 @@ import sys
 import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from tools.rimworld.memory import Campaign, init_campaign
-from tools.rimworld.observations import decode
+from tools.rimworld.observations import compact, decode
 from tools.rimworld.presentation import present
 from tools.rimworld.core import canonical
 from tools.rimworld import facade
@@ -29,7 +29,11 @@ def compare(records, facade_view=False):
                  'unchanged':view.get('unchanged',False),'evidence':view['id']}
             if facade_view:
                 obs=c.observation(view['id'])
-                body=present(view)
+                # Current facade default: full compact facts plus separate change
+                # metadata. Delta-only output is an explicit caller choice.
+                body=facade.stable_data(facade.literal_rows(present(compact(obs))))
+                change=facade.change_metadata(view)
+                if change:body['change']=change
                 body,_minted=memo.substitute(body,obs)
                 body=facade.budget(body,obs,record['tool'])
                 row['facade_view_bytes']=len(canonical(body).encode())

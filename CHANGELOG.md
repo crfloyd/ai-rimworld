@@ -2,6 +2,10 @@
 
 ## 0.9.0
 
+- Compact reads are self-contained by default with separate change metadata. Delta-only output now requires `delta:true` plus an explicit same-scope `since` observation, preventing empty automatic responses when callers need current state.
+- Capability discovery adds a semantic trade domain/workflow, and trade-window reads lead with `list_trade`/`set_trade`/`trade_action` guidance instead of encouraging generic button scraping.
+- One-shot `call`/`observe`/`guard` commands add repeatable JSON-Pointer `--select`; local selection failures report completed-operation evidence and no-replay guidance. Shell guidance forbids `echo` round-trips that corrupt escaped JSON and requires one-pass parsing.
+- Caller-bounded partial results keep usable facts under `data`; successful same-dialog window batches tolerate only their expected persistent dialog flag; mental-break packets include the letter, affected pawn facets and nearby responders; verification manifests record requested and actual calls.
 - Model-facing row collections are conventional arrays of objects; lossless columnar packing is internal only, avoiding decoder failures and recovery calls during live decisions.
 - Presets always preserve the caller's exact key: one facet returns its section there, while multiple facets nest by name instead of inventing dotted top-level keys.
 - `rw_capabilities` adds compact domain overviews and staged workflow maps so the model can see strategic affordances without loading113 schemas.

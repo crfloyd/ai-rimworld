@@ -154,9 +154,9 @@ class Facade(ControlFixture):
     def test_wait_auto_context_and_explicit_verification_share_one_public_call(self):
         self.responses.extend([
             {'event':True,'cause':'notification','pausedAfter':True,
-             '_notifications':[{'text':'P has an infection'}]},
+             '_notifications':[{'text':'Tatyana has an infection'}]},
             {'loaded':True,'colonyName':'Fixture Colony','ticksGame':301000,'paused':True,'bundled':{
-                'list_colonists':{'colonists':[{'id':'p','name':'P','health':80}]},
+                'list_colonists':{'colonists':[{'id':'p','name':'Tatyana Contreras','health':80}]},
                 'get_alerts':{'dangerByMap':[],'activeAlerts':[]},
                 'get_resources':{'resources':[{'defName':'MedicineHerbal','count':3}]}}},
             {'id':'p','tab':'health','hediffs':[{'label':'Infection','severity':.1}]},
@@ -170,6 +170,8 @@ class Facade(ControlFixture):
         self.assertTrue(value['verification_complete']);self.assertEqual(value['verification_not_run'],[])
         self.assertTrue((self.control.path/'composition.json').exists())
         from tools.rimworld.composition import delivered
+        manifest=read_json(self.camp.path/'reference/compositions'/(value['composition']+'.json'))
+        self.assertIn(('verify_patient','get_pawn'),[(o['key'],o['tool']) for o in manifest['observations']])
         delivered(self.control,self.token,value['composition'])
 
     def test_wait_verification_preflights_before_advancing(self):
@@ -178,6 +180,36 @@ class Facade(ControlFixture):
             self.body('rw_wait',{'maxGameTicks':1000,
                 'verify':[{'key':'bad','tool':'order_pawn','args':{'id':'p','command':'Go'}}]})
         self.assertEqual(before,len(self.calls));self.assertFalse((self.control.path/'composition.json').exists())
+
+    def test_berserk_event_context_includes_letter_patient_and_nearby_responders(self):
+        self.add_tools('read_letter','list_things')
+        self.responses.extend([
+            {'event':True,'cause':'letter','pausedAfter':True,
+             '_notifications':[{'kind':'letter','id':195,'type':'ThreatSmall','text':'Berserk: Tatyana'}]},
+            {'loaded':True,'colonyName':'Fixture Colony','ticksGame':301000,'paused':True,'bundled':{
+                'list_colonists':{'colonists':[{'id':'p','name':'Tatyana Contreras','health':98,'mood':0,'mentalState':'berserk'},
+                                                 {'id':'w','name':'Ward Vale','health':100,'mood':60}]},
+                'get_alerts':{'dangerByMap':[],'activeAlerts':[{'label':'Major break risk','explanation':'Tatyana'}]},
+                'get_resources':{'resources':[]}}},
+            {'id':'p','name':'Tatyana Contreras','mood':0,'mentalState':'berserk','x':10,'z':10,'weapon':'Handgun'},
+            {'id':'p','tab':'needs','mood':0,'thoughts':[{'label':'Intense pain'}]},
+            {'id':'p','tab':'health','painPercent':42,'hediffs':[{'label':'Bite'}]},
+            {'id':'p','tab':'gear','equipment':[{'label':'Handgun'}],'apparel':[]},
+            {'id':195,'label':'Berserk: Tatyana','text':'The final straw was intense pain','ok':True},
+            {'things':[{'id':'p','label':'Tatyana','hostile':True,'x':10,'z':10},
+                       {'id':'w','label':'Ward','hostile':False,'x':12,'z':10,'weapon':'SMG'}]},
+            {'id':'w','name':'Ward','health':100,'mood':60,'x':12,'z':10,'weapon':'SMG'}
+        ])
+        value=self.body('rw_wait',{'maxGameHours':1})
+        context=value['event_context']
+        self.assertEqual([x['facet'] for x in context['affected_pawns']],['summary','needs','health','gear'])
+        self.assertEqual(context['letters'][0]['data']['id'],195)
+        self.assertEqual(context['threats']['anchor'],'p')
+        self.assertEqual(context['threats']['nearby_pawns'][0]['label'],'Ward')
+        self.assertEqual(context['threats']['responders'][0]['data']['weapon'],'SMG')
+        self.assertEqual(self.calls[-2]['arguments']['nearId'],'p')
+        from tools.rimworld.composition import delivered
+        delivered(self.control,self.token,value['composition'])
 
     def test_independent_action_batch_preflights_and_stops_on_reported_failure(self):
         self.add_tools('set_work_priority','draft')
@@ -195,6 +227,16 @@ class Facade(ControlFixture):
             self.body('rw_act',{'independent':False,'actions':[{'tool':'order_pawn','args':{'id':'p','command':'Go'}}]},3)
         self.assertEqual(before,len(self.calls))
 
+    def test_successful_same_dialog_batch_continues(self):
+        self.add_tools('window_action')
+        self.responses.extend([{'ok':True,'window':'Dialog_Trade','did':'textQueued','field':i,'text':str(i),
+                                '_dialogOpen':True,'_paused':True} for i in range(3)])
+        value=self.body('rw_act',{'independent':True,'actions':[
+            {'tool':'window_action','args':{'field':i,'text':str(i)}} for i in range(3)]})
+        self.assertFalse(value['stopped']);self.assertEqual(value['completed'],3)
+        from tools.rimworld.composition import delivered
+        delivered(self.control,self.token,value['composition'])
+
     def test_action_batch_preflights_every_step_before_dispatch(self):
         before=len(self.calls)
         with self.assertRaises(Error):
@@ -211,7 +253,7 @@ class Facade(ControlFixture):
         self.assertIn('inputSchema',one['tool'])
 
     def test_capability_overview_and_workflow_preserve_affordances_without_schemas(self):
-        self.add_tools('main_menu','game_setup_status')
+        self.add_tools('main_menu','game_setup_status','list_trade','set_trade','trade_action')
         overview=self.body('rw_capabilities',{'overview':True})
         self.assertIn('setup',overview['domains']);self.assertIn('combat',overview['domains'])
         self.assertNotIn('inputSchema',canonical(overview))
@@ -219,7 +261,9 @@ class Facade(ControlFixture):
         self.assertIn('game_setup_status',[x['tool'] for x in setup['domains']['setup']])
         workflow=self.body('rw_capabilities',{'workflow':'new_game'},3)
         self.assertEqual(workflow['steps'][0]['tool'],'main_menu')
-        with self.assertRaises(Error):self.body('rw_capabilities',{'overview':True,'domain':'food'},4)
+        trade=self.body('rw_capabilities',{'workflow':'trade'},4)
+        self.assertEqual([x['tool'] for x in trade['steps']][:2],['list_trade','set_trade'])
+        with self.assertRaises(Error):self.body('rw_capabilities',{'overview':True,'domain':'food'},5)
 
     def test_public_telemetry_includes_offline_tools_and_exact_response_bytes(self):
         value=self.body('rw_capabilities',{'tool':'get_pawn'})
@@ -267,6 +311,41 @@ class Facade(ControlFixture):
         value=self.body('rw_read',{'tool':'list_things','args':{'category':'building','defName':'Bed'}})
         self.assertIsInstance(value['data']['things'],list)
         self.assertEqual(value['data']['things'][:2],rows[:2])
+
+    def test_reads_are_self_contained_unless_delta_has_an_explicit_base(self):
+        self.add_tools('list_things')
+        rows=[{'id':'p','name':'P'}]
+        self.responses.extend([{'things':rows},{'things':rows},{'things':rows}])
+        first=self.body('rw_read',{'tool':'list_things','args':{'category':'pawn'}},1)
+        second=self.body('rw_read',{'tool':'list_things','args':{'category':'pawn'}},2)
+        self.assertEqual(second['data']['things'],rows)
+        self.assertTrue(second['change']['unchanged'])
+        delta=self.body('rw_read',{'tool':'list_things','args':{'category':'pawn'},
+                                   'delta':True,'since':first['id']},3)
+        self.assertTrue(delta['unchanged']);self.assertEqual(delta['data'],{})
+        before=len(self.calls)
+        with self.assertRaises(Error):
+            self.body('rw_read',{'tool':'list_things','args':{'category':'pawn'},'delta':True},4)
+        self.assertEqual(before,len(self.calls))
+
+    def test_trade_window_points_to_semantic_trade_tools(self):
+        self.add_tools('get_window_ui','list_trade')
+        self.responses.extend([
+            {'ok':True,'window':'Dialog_Trade','buttons':[{'label':'<','row':'Steel'}]},
+            {'ok':True,'active':True,'silver':100,'tradeables':[{'label':'Steel','buyPrice':2}]}
+        ])
+        value=self.body('rw_read',{'tool':'get_window_ui','args':{}})
+        self.assertEqual(value['affordance']['prefer'],['list_trade','set_trade','trade_action'])
+        self.assertEqual(value['trade']['data']['tradeables'][0]['label'],'Steel')
+        self.assertNotIn('buttons',value['data']);self.assertEqual(value['ui_control_counts']['buttons'],1)
+
+    def test_partial_bounded_results_keep_the_data_container(self):
+        self.add_tools('list_things')
+        rows=[{'id':str(i),'def':'MineableSteel','distance':i} for i in range(4)]
+        self.responses.append({'matched':128,'returned':4,'truncated':True,'things':rows})
+        value=self.body('rw_read',{'tool':'list_things','args':{'defName':'MineableSteel','limit':4}})
+        self.assertEqual(value['data']['things'],rows)
+        self.assertEqual(value['completeness'],'partial')
 
     def test_caller_limit_reports_true_total(self):
         self.add_tools('list_things')

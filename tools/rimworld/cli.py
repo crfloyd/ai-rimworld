@@ -27,6 +27,36 @@ def obj(text):
     return value
 
 
+def select_output(value, pointers):
+    """Select JSON Pointer paths once, without shell echo/parser round-trips."""
+    def one(pointer):
+        if pointer=='':return value
+        if not pointer.startswith('/'):raise Error('Selection paths use JSON Pointer syntax: /data/cause')
+        current=value
+        for encoded in pointer[1:].split('/'):
+            key=encoded.replace('~1','/').replace('~0','~')
+            if isinstance(current,dict) and key in current:current=current[key]
+            elif isinstance(current,list) and key.isdecimal() and int(key)<len(current):current=current[int(key)]
+            else:raise Error('Selection path is absent: '+pointer)
+        return current
+    selected=[one(pointer) for pointer in pointers]
+    return selected[0] if len(selected)==1 else {pointer:item for pointer,item in zip(pointers,selected)}
+
+
+def evidence_ids(value):
+    found=[]
+    def visit(node):
+        if isinstance(node,dict):
+            for key,item in node.items():
+                if key in ('id','e','evidence','composition') and isinstance(item,str) and item.startswith(('obs-','compose-')):
+                    found.append(item)
+                visit(item)
+        elif isinstance(node,list):
+            for item in node:visit(item)
+    visit(value)
+    return list(dict.fromkeys(found))
+
+
 def parser():
     p = argparse.ArgumentParser(description="RimWorld evidence, control, memory and history support.")
     p.add_argument("--full-output", action="store_true", help="Return full structured provenance/risk fingerprints; retrieve is always full.")
@@ -115,6 +145,7 @@ def parser():
         source=q.add_mutually_exclusive_group(required=True)
         source.add_argument('--json'); source.add_argument('--file',type=Path)
         q.add_argument('--token',required=True)
+        q.add_argument('--select',action='append',help='Return one or more JSON Pointer paths from the completed response.')
     q = sub.add_parser("act", help="Issue one ordinary order with an inline intent and outcome contract.")
     q.add_argument("--json", required=True); q.add_argument("--token", required=True)
     q = sub.add_parser("call", help="Execute one ordinary MCP tool under an existing controller.")
@@ -122,6 +153,7 @@ def parser():
     q.add_argument("--intent"); q.add_argument("--family", default="general")
     q.add_argument("--track", action="store_true", help="Track a strategic outcome; requires --intent. Requests are always journaled.")
     q.add_argument("--check", type=Path); q.add_argument("--setup", action="store_true")
+    q.add_argument('--select',action='append',help='Return one or more JSON Pointer paths from the completed response.')
     q = sub.add_parser("batch", help="Bounded serialized operations; stops at failures or new events.")
     q.add_argument("--file", type=Path, required=True); q.add_argument("--token", required=True)
     q = sub.add_parser("session", help="Persistent standard MCP JSON-RPC over stdin/stdout; reuse owned control.")
@@ -345,6 +377,7 @@ def run(args):
 
 
 def main(argv=None):
+    result=None
     try:
         args = parser().parse_args(argv)
         result = run(args)
@@ -355,10 +388,20 @@ def main(argv=None):
         composed = (args.command in ('observe','guard') or (args.command=='call' and args.tool in TOOLS) or
                     (isinstance(result,dict) and isinstance(result.get('composition'),str)))
         local = composed or (args.command=='call' and args.tool in facade.TOOLS)
-        print(result if isinstance(result, str) else json.dumps(result if args.full_output or args.command == "retrieve" or local else present(result), ensure_ascii=False, separators=(",", ":"), allow_nan=False), flush=True)
+        display=result if args.full_output or args.command == "retrieve" or local else present(result)
+        selection_error=None
+        if getattr(args,'select',None):
+            try:display=select_output(display,args.select)
+            except Error as exc:
+                selection_error=str(exc)
+                display={'ok':False,'phase':'local_selection','operation_completed':True,
+                         'error':selection_error,'evidence':evidence_ids(result),
+                         'available_top_level':list(result) if isinstance(result,dict) else None,
+                         'replay':'Do not replay the completed game operation; correct only the local selector.'}
+        print(display if isinstance(display, str) else json.dumps(display, ensure_ascii=False,separators=(",", ":"), allow_nan=False), flush=True)
         if composed:
             delivered(Control(Campaign(args.root,args.campaign)),args.token,result['composition'])
-        return 0
+        return 2 if selection_error else 0
     except (Error, OSError, ValueError, KeyError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
         return 2

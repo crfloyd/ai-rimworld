@@ -19,6 +19,7 @@ DOMAINS = {
     'world': ('get_world','list_world_objects','get_world_tile','find_world_tiles','form_caravan',
               'caravan_action','world_object_action'),
     'quests': ('get_world','read_letter','get_quest','quest_action'),
+    'trade': ('list_trade','set_trade','trade_action','get_window_ui','window_action'),
     'production': ('inspect_thing','list_bills','list_recipes','add_bill','delete_bill','get_resources'),
 }
 
@@ -30,6 +31,7 @@ WORKFLOWS = {
     'combat_event': ('get_status','list_things','list_fires','get_area','draft','order_pawn','rw_wait'),
     'caravan': ('list_world_objects','form_caravan','caravan_action','get_world_tile','world_object_action'),
     'food_crisis': ('get_status','get_resources','list_things','list_bills','set_work_priority','order_pawn'),
+    'trade': ('list_trade','set_trade','list_trade','trade_action'),
 }
 
 @lru_cache(maxsize=1)

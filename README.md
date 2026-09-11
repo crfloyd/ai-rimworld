@@ -28,6 +28,8 @@ Follow the [control contract](docs/control.md) to claim handed-off ownership, co
 
 Ordinary calls journal requests/evidence without creating unfinished goals or requiring intent text. Opt into tracking with `call --track --intent ...`, a check, or `act`. Any family label can be used; `outcome.checks` or `check` supplies arbitrary scoped predicates. Accepted never means completed. Keep actual unfinished work and temporary changes in current notes; all uncertain requests still block replay. Read `./rw COMMAND --help` for exact arguments.
 
+`call`, `observe`, and `guard` accept repeated `--select /json/pointer` options for shell-safe extraction after one completed response. This avoids ad hoc Python pipelines; selection errors explicitly say the underlying operation completed and must not be replayed.
+
 
 ## Evidence and knowledge
 

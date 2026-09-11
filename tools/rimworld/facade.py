@@ -10,7 +10,7 @@ from .composition import (TOOLS as COMPOSED, QUERY, capture, compact_result,
                           expand, interruptions, obj, preflight)
 from .core import Error, atomic_json, canonical, identifier, lock, now, read_json
 from .mcp import validate
-from .observations import compact
+from .observations import compact, delta_view, same_value
 from .presentation import present
 
 STRING={'type':'string','minLength':1}
@@ -18,12 +18,12 @@ ARGS={'type':'object','additionalProperties':True}
 VIEW={'enum':['compact','summary','full']}
 FIELDS={'type':'array','items':STRING,'minItems':1,'maxItems':32,'uniqueItems':True}
 
-CAPABILITY_DOMAINS=['setup','colony','pawns','medical','food','combat','building','world','quests','production']
-CAPABILITY_WORKFLOWS=['new_game','medical_event','combat_event','caravan','food_crisis']
+CAPABILITY_DOMAINS=['setup','colony','pawns','medical','food','combat','building','world','quests','trade','production']
+CAPABILITY_WORKFLOWS=['new_game','medical_event','combat_event','caravan','food_crisis','trade']
 CAPABILITIES_SCHEMA=obj({'query':{'type':'string'},'tool':STRING,'overview':{'type':'boolean'},
                          'domain':{'enum':CAPABILITY_DOMAINS},'workflow':{'enum':CAPABILITY_WORKFLOWS}})
 READ_SCHEMA=obj({'tool':STRING,'args':ARGS,'view':VIEW,'fields':FIELDS,'row_fields':FIELDS,
-                 'limit':{'type':'integer','minimum':1}},['tool'])
+                 'limit':{'type':'integer','minimum':1},'delta':{'type':'boolean'},'since':STRING},['tool'])
 ACTION=obj({'tool':STRING,'args':ARGS},['tool'])
 ACT_SCHEMA={'type':'object','properties':{'tool':STRING,'args':ARGS,'view':VIEW,
             'actions':{'type':'array','items':ACTION,'minItems':1,'maxItems':16},
@@ -40,14 +40,14 @@ RETRIEVE_SCHEMA=obj({'observation':STRING,'tool':STRING,'entity':STRING,'ref':ST
 TOOLS={
  'rw_capabilities':{'name':'rw_capabilities','description':
   'Discover available actions without loading the catalog. overview/domain gives a compact affordance map; workflow gives an ordered '
-  'new_game, medical_event, combat_event, caravan or food_crisis guide. query finds names; tool returns one exact schema/effect. '
+  'new_game, medical_event, combat_event, caravan, food_crisis or trade guide. query finds names; tool returns one exact schema/effect. '
   'Offline only; grants no permission.',
   'inputSchema':CAPABILITIES_SCHEMA,'annotations':{'readOnlyHint':True}},
  'rw_read':{'name':'rw_read','description':
-  'Run one read-only RimMolt tool by name and get a compact result. Filter at the source: '
+  'Run one read-only RimMolt tool by name and get a self-contained compact result. delta=true with since=OBS returns an explicit patch. Filter at the source: '
   'list_things takes category/defName/faction/nearId+radius/limit/summary; get_area takes minX,maxX,minZ,maxZ bounds/thing/summary; '
   'get_pawn takes tab and detail. fields selects top-level keys, row_fields selects columns within row lists; '
-  'warnings, risks and changed fields are always kept. Repeat reads of one scope return only what changed. '
+  'warnings and risks are always kept. '
   'Mutating arguments are refused here. Evidence is stored whole; rw_retrieve recovers it.',
   'inputSchema':READ_SCHEMA,'annotations':{'readOnlyHint':True}},
  'rw_act':{'name':'rw_act','description':
@@ -88,7 +88,9 @@ def reserved(catalog):
 NATIVE={'list_things':'category, defName, faction, nearId or nearX/nearZ with radius, limit, summary',
         'get_area':'minX/maxX/minZ/maxZ bounds, thing, layer, scale, summary',
         'get_pawn':'tab (needs/health/gear/bio), detail',
-        'list_world_objects':'mapIndex, limit where offered'}
+        'list_world_objects':'mapIndex, limit where offered',
+        'list_trade':'filter, limit',
+        'get_window_ui':'For a trade dialog use list_trade; otherwise inspect list_windows and select only needed fields.'}
 
 
 def classify(control, tool, args):
@@ -141,15 +143,18 @@ def journal(control, name, body, started, *, tool=None, view=None, game_contact=
            'model_bytes':len(canonical(body).encode()),
            'model_bytes_basis':'Exact facade envelope serialized to the caller.'}
     if isinstance(body,dict):
+        change=body.get('change') if isinstance(body.get('change'),dict) else {}
         entry.update(truncated=bool(body.get('truncated')),refs_minted=len(body.get('refs') or {}),
                      projected=bool(body.get('projected')),omitted=len(body.get('omitted_keys') or []),
-                     unchanged=bool(body.get('unchanged')),
-                     changed_fields=len(body.get('changed_fields') or []),
+                     unchanged=bool(body.get('unchanged') or change.get('unchanged')),
+                     changed_fields=len(body.get('changed_fields') or change.get('changed_fields') or []),
                      event_context=bool(body.get('event_context')),
                      verification_sections=len(body.get('verification') or {}),
                      batch_actions=len(body.get('results') or []) if name=='rw_act' else 0,
                      decision_packets=len(body.get('decisions') or {}),
-                     reused_sections=canonical(body).count('"reused":true'))
+                     reused_sections=canonical(body).count('"reused":true'),
+                     trade_context=bool(body.get('trade')),
+                     partial_data=body.get('completeness')=='partial' and 'data' in body)
         if body.get('truncated'): entry['reason']=body.get('reason')
     append_json(control.campaign.path/'telemetry.jsonl',entry)
     return body
@@ -173,8 +178,12 @@ class Sequence:
             self.control._composition_id=self.record['request_id']
         return self
 
-    def observed(self,key,value):
-        self.record['observations'].append({'key':key,'id':value['id']});self.save()
+    def observed(self,key,value,requested=None,reused=False):
+        obs=self.control.campaign.observation(value['id'])
+        entry={'key':key,'id':value['id'],'tool':obs['tool'],'args':obs.get('args',{})}
+        if requested is not None:
+            entry.update(requested_tool=requested['tool'],requested_args=requested.get('args',{}),reused=reused)
+        self.record['observations'].append(entry);self.save()
 
     def ready(self,**fields):
         self.record.update(status='ready_to_deliver',phase='complete',**fields);self.save()
@@ -185,9 +194,62 @@ class Sequence:
     def close(self):self.control._composition_id=None
 
 
+def change_metadata(value):
+    delta=value.get('delta') or {}
+    if 'changed_fields' not in delta and not value.get('unchanged'):return None
+    result={'unchanged':bool(value.get('unchanged')),
+            'previous':delta.get('previous_evidence')}
+    if delta.get('changed_fields'):result['changed_fields']=delta['changed_fields']
+    if delta.get('not_returned_now'):result['not_returned_now']=delta['not_returned_now']
+    return result
+
+
+def self_contained(control,value):
+    """Current compact facts plus separate novelty metadata."""
+    obs=control.campaign.observation(value['id'])
+    current=compact(obs)
+    if value.get('safety') is not None:current['safety']=value['safety']
+    body=stable_data(literal_rows(present(current)))
+    if obs.get('tool')=='get_window_ui' and 'trade' in canonical(obs.get('data',{})).lower():
+        body={'affordance':{'prefer':['list_trade','set_trade','trade_action'],
+              'reason':'A trade dialog is open; semantic trade tools avoid generic button geometry and expose prices/counts directly.'},**body}
+    change=change_metadata(value)
+    if change:body['change']=change
+    return body,obs
+
+
+def trade_window_context(control,token,body,window_obs,memo,observed):
+    """Prefer semantic trade state to hundreds of generic UI controls."""
+    gate(classify(control,'list_trade',{'limit':80}),'list_trade','read')
+    value=control.call(token,'list_trade',{'limit':80},driver='facade_read_context')
+    if observed:observed(value['id'])
+    trade,trade_obs=self_contained(control,value)
+    trade=budget(bound(trade,trade_obs,{},memo),trade_obs,'list_trade')
+    data=body.get('data') if isinstance(body.get('data'),dict) else {}
+    controls=('buttons','textFields','labels','tabs','checkboxes','radios')
+    summary={key:len(data.get(key) or []) for key in controls if isinstance(data.get(key),list)}
+    kept={key:data[key] for key in ('ok','window','captured','hint','_paused','_dialogOpen') if key in data}
+    return {'affordance':{'prefer':['list_trade','set_trade','trade_action'],
+             'reason':'Semantic trade state is included; generic control geometry remains in stored window evidence.'},
+            'id':body.get('id'),'data':kept,'ui_control_counts':summary,'trade':trade,
+            'omitted_keys':['data.'+key for key in controls if key in data],
+            'recover':'rw_retrieve {observation:"'+window_obs['id']+'", view:"full"}',
+            **{key:body[key] for key in ('warnings','risks','requires_review') if key in body}}
+
+
+def delta_base(control,tool,args,since):
+    base=control.campaign.observation(since)
+    if (base.get('tool')!=tool or not same_value(base.get('args',{}),args) or
+        base.get('campaign_id')!=control.campaign.meta['id'] or
+        base.get('session_id')!=control.campaign.meta.get('session_id') or
+        base.get('completeness')!='known'):
+        raise Error('since must name a complete observation from this session with the same tool and arguments.')
+    return base
+
+
 def presented(control,value,args,memo,tool):
     obs=control.campaign.observation(value['id'])
-    body=literal_rows(present(value if 'completeness' in value else compact(obs)))
+    body,obs=self_contained(control,value)
     for key in ('identity_mismatch','pause_guard','wait_budget'):
         if key in value:body[key]=value[key]
     return budget(bound(body,obs,args,memo),obs,tool)
@@ -201,13 +263,27 @@ def explicit_failure(body):
     return body.get('completeness') not in (None,'known')
 
 
+def expected_same_dialog(action,body,window):
+    """A successful window action requires its dialog to remain open."""
+    if action.get('tool')!='window_action':return False,None
+    data=body.get('data') if isinstance(body,dict) else None
+    if not isinstance(data,dict) or data.get('ok') is not True or not data.get('window'):return False,None
+    if data.get('applied') is False or data.get('warning') or data.get('error'):return False,None
+    if window is not None and data['window']!=window:return False,None
+    risks=body.get('risks') or []
+    if any(r.get('kind')!='_dialogOpen' for r in risks):return False,None
+    warnings=body.get('warnings') or {}
+    if any(key not in ('_dialogOpen','_paused') for key in warnings):return False,None
+    return True,data['window']
+
+
 def action_batch(control,token,args,setup,memo,observed):
     if args.get('independent') is not True:raise Error('Action batches require independent=true after reviewing that no step depends on an earlier outcome.')
     actions=args['actions']
     for action in actions:
         kind=classify(control,action['tool'],action.get('args',{}));gate(kind,action['tool'],'act')
         if action['tool']=='set_speed':raise Error('Pause/speed changes cannot be precommitted in an action batch.')
-    sequence=Sequence(control,token,'rw_act',args).start();results=[]
+    sequence=Sequence(control,token,'rw_act',args).start();results=[];expected_window=None
     try:
         for index,action in enumerate(actions):
             sequence.record.update(phase='action',next_action=index);sequence.save()
@@ -217,7 +293,9 @@ def action_batch(control,token,args,setup,memo,observed):
             sequence.observed(str(index),value)
             body=presented(control,value,{},memo,action['tool'])
             results.append({'index':index,'tool':action['tool'],'receipt':body})
-            if explicit_failure(body) or body.get('requires_review'):
+            dialog_ok,dialog_window=expected_same_dialog(action,body,expected_window)
+            if dialog_ok:expected_window=dialog_window
+            if explicit_failure(body) or (body.get('requires_review') and not dialog_ok):
                 remaining=list(range(index+1,len(actions)))
                 result={'composition':sequence.record['request_id'],'completed':index+1,'not_run':remaining,
                         'stopped':True,'reason':'Action response requires review','results':results}
@@ -231,7 +309,7 @@ def action_batch(control,token,args,setup,memo,observed):
     finally:sequence.close()
 
 
-def run_reads(control,token,queries,memo,observed,driver):
+def run_reads(control,token,queries,memo,observed,driver,sequence=None):
     expanded=expand(queries)
     for query in expanded:preflight(control,query)
     sections={};evidence=[]
@@ -242,6 +320,7 @@ def run_reads(control,token,queries,memo,observed,driver):
         else:
             value=control.call(token,query['tool'],query['args'],driver=driver)
             if observed:observed(value['id'])
+        if sequence is not None:sequence.observed('verify_'+query['key'],value,requested=query,reused=bool(cached))
         section,incomplete=capture(control,value)
         compacted=compact_result({'sections':{query['key']:section},'verification':{},'capture':'sequential',
                                   'advancement_requested':False,'unrequested':'unknown','stopped':None})['sections'][query['key']]
@@ -262,15 +341,58 @@ def event_topics(body):
     return list(dict.fromkeys(topics))
 
 
+def mentioned_pawns(colonists,text):
+    """Match IDs, full names, or unambiguous human-scale name tokens."""
+    import re
+    tokens={}
+    for pawn in colonists:
+        for token in set(re.findall(r"[a-z0-9]+",str(pawn.get('name','')).lower())):
+            if len(token)>=3:tokens[token]=tokens.get(token,0)+1
+    text_tokens=set(re.findall(r"[a-z0-9]+",text))
+    result=[]
+    for pawn in colonists:
+        identity=str(pawn.get('id','')).lower();name=str(pawn.get('name','')).lower()
+        aliases=[t for t in re.findall(r"[a-z0-9]+",name) if len(t)>=3 and tokens.get(t)==1]
+        if (identity and identity in text_tokens) or (name and name in text) or any(alias in text_tokens for alias in aliases):
+            result.append(pawn)
+    return result[:2]
+
+
+def event_letter_ids(value):
+    found=[]
+    def visit(node):
+        if isinstance(node,dict):
+            if isinstance(node.get('id'),int) and (node.get('kind')=='letter' or str(node.get('type','')).lower() in ('threatsmall','threatbig','negativeevent','positiveevent','newquest')):
+                found.append(node['id'])
+            for child in node.values():visit(child)
+        elif isinstance(node,list):
+            for child in node:visit(child)
+    visit(value)
+    return list(dict.fromkeys(found))[:2]
+
+
+def responder_row(row):
+    keys=('id','name','label','kind','x','z','distance','weapon','health','mood','downed','drafted','hostile','mentalState','incapableOf')
+    return {key:row[key] for key in keys if key in row}
+
+
+def context_data(data):
+    """Remove only context already represented once by the event packet."""
+    return {key:value for key,value in data.items() if key not in ('_paused','_threatWarning')}
+
+
 def event_details(control,token,wait_data,status_data,topics,memo,observed,sequence):
     """Bounded directly relevant reads; context selection only, never an action."""
     details={};bundled=status_data.get('bundled') or {}
     text=canonical({'wait':wait_data,'alerts':(bundled.get('get_alerts') or {}).get('activeAlerts',[])}).lower()
     colonists=(bundled.get('list_colonists') or {}).get('colonists') or []
-    matched=[p for p in colonists if p.get('id') and p.get('name') and str(p['name']).lower() in text][:3]
+    matched=mentioned_pawns(colonists,text)
     facets=[]
+    if matched and ('mood' in topics or 'threat' in topics):facets.append('summary')
     if 'medical' in topics:facets.append('health')
-    if 'mood' in topics:facets.append('needs')
+    if 'mood' in topics:facets.extend(('needs','health'))
+    if 'threat' in topics and matched:facets.append('gear')
+    facets=list(dict.fromkeys(facets))
     attention=[]
     for pawn in matched:
         for facet in facets:
@@ -278,15 +400,46 @@ def event_details(control,token,wait_data,status_data,topics,memo,observed,seque
             if observed:observed(value['id'])
             sequence.observed('event_'+facet+'_'+pawn['id'],value)
             obs=control.campaign.observation(value['id'])
-            attention.append({'id':pawn['id'],'name':pawn['name'],'facet':facet,'data':obs['data'],'evidence':obs['id'],
+            attention.append({'id':pawn['id'],'name':pawn['name'],'facet':facet,'data':context_data(obs['data']),'evidence':obs['id'],
+                              'omitted_repeated_context':['_paused','_threatWarning'],
                               'coverage':{'completeness':obs['completeness'],'missing':obs['missing']}})
     if attention:details['affected_pawns']=attention
+    letters=[]
+    for letter_id in event_letter_ids(wait_data):
+        value=control.call(token,'read_letter',{'id':letter_id},driver='facade_wait_context')
+        if observed:observed(value['id'])
+        sequence.observed('event_letter_'+str(letter_id),value);obs=control.campaign.observation(value['id'])
+        letters.append({'id':letter_id,'data':context_data(obs['data']),'evidence':obs['id'],
+                        'omitted_repeated_context':['_paused','_threatWarning'],
+                        'completeness':obs['completeness'],'missing':obs['missing']})
+    if letters:details['letters']=letters
     if 'threat' in topics:
-        value=control.call(token,'list_things',{'category':'pawn','limit':40},driver='facade_wait_context')
+        nearby=matched[0] if matched else None
+        query={'category':'pawn','limit':20}
+        if nearby:query.update(nearId=nearby['id'],radius=50)
+        value=control.call(token,'list_things',query,driver='facade_wait_context')
         if observed:observed(value['id'])
         sequence.observed('event_threats',value);obs=control.campaign.observation(value['id'])
         rows=obs['data'].get('things') or []
-        details['threats']={'hostiles':[r for r in rows if isinstance(r,dict) and r.get('hostile')],
+        colonist_ids={p.get('id') for p in colonists}
+        responder_ids=[]
+        for row in rows:
+            if (isinstance(row,dict) and row.get('id') in colonist_ids and
+                    row.get('id') not in {p.get('id') for p in matched} and not row.get('hostile')):
+                responder_ids.append(row['id'])
+        responders=[]
+        for responder_id in responder_ids[:4]:
+            response=control.call(token,'get_pawn',{'id':responder_id},driver='facade_wait_context')
+            if observed:observed(response['id'])
+            sequence.observed('event_responder_'+responder_id,response)
+            response_obs=control.campaign.observation(response['id'])
+            responders.append({'id':responder_id,'data':context_data(response_obs['data']),
+                               'evidence':response_obs['id'],'completeness':response_obs['completeness'],
+                               'missing':response_obs['missing']})
+        details['threats']={'hostiles':[responder_row(r) for r in rows if isinstance(r,dict) and r.get('hostile')],
+                            'nearby_pawns':[responder_row(r) for r in rows if isinstance(r,dict) and not r.get('hostile')],
+                            'responders':responders,
+                            'anchor':nearby.get('id') if nearby else None,'radius':50 if nearby else None,
                             'evidence':obs['id'],'completeness':obs['completeness'],'missing':obs['missing']}
         if 'fire' in text:
             value=control.call(token,'list_fires',{},driver='facade_wait_context')
@@ -340,7 +493,7 @@ def wait_sequence(control,token,args,setup,memo,observed):
             if status_obs['completeness']!='known' or controls:body['requires_review']=True
         if verify:
             sequence.record['phase']='verification';sequence.save()
-            sections,evidence,not_run=run_reads(control,token,verify,memo,observed,'facade_wait_verify')
+            sections,evidence,not_run=run_reads(control,token,verify,memo,observed,'facade_wait_verify',sequence)
             body['verification']=sections;body['verification_evidence']=evidence
             body['verification_complete']=not not_run;body['verification_not_run']=not_run
         body['composition']=sequence.record['request_id']
@@ -375,21 +528,33 @@ def dispatch(control, token, name, args, setup=False, memo=None, observed=None):
     else:
         tool,call_args=args['tool'],args.get('args',{})
         want='read' if name=='rw_read' else 'act'
+        base=None
+        if want=='read':
+            requested_delta=args.get('delta') is True
+            if requested_delta != ('since' in args):
+                raise Error('Explicit delta reads require both delta=true and since=OBS; omit both for current self-contained data.')
         if want=='act' and tool=='set_speed' and call_args=={'action':'pause'}:
             guard=control.ensure_paused(token,emergency=True)
             if not guard.get('confirmed'): raise Error('Ordinary pause could not be confirmed: '+str(guard))
             value={'id':guard['evidence']}
         else:
             gate(classify(control,tool,call_args),tool,want)
+            if want=='read' and requested_delta:
+                if view!='compact':raise Error('Explicit delta reads use compact view; omit delta/since for summary or full.')
+                base=delta_base(control,tool,call_args,args['since'])
             value=control.call(token,tool,call_args,setup=setup,driver='facade_'+want)
             if memo is not None and want=='act':memo.invalidate('mutation')
     if observed: observed(value['id'])
     obs=control.campaign.observation(value['id'])
     if view!='compact':
         return journal(control,name,shape(control.campaign,obs,view),started,tool=tool,view=view)
-    # present() shapes the ingest delta view, which carries risks and changed fields;
-    # the stored observation alone has neither.
-    body=literal_rows(present(value if 'completeness' in value else compact(obs)))
+    if name=='rw_read' and base is not None:
+        body=stable_data(literal_rows(present(delta_view(base,obs))))
+    else:
+        body,_=self_contained(control,value)
+    if (name=='rw_read' and base is None and tool=='get_window_ui' and
+            'trade' in canonical(obs.get('data',{})).lower()):
+        body=trade_window_context(control,token,body,obs,memo,observed)
     for key in ('identity_mismatch','pause_guard','wait_budget'):
         if key in value: body[key]=value[key]
     if (control.path/'pending.json').exists() or (control.path/'composition.json').exists():
@@ -431,6 +596,13 @@ def literal_rows(value):
         return {key:literal_rows(item) for key,item in value.items()}
     if isinstance(value,list):return [literal_rows(item) for item in value]
     return value
+
+
+def stable_data(body):
+    """Keep usable partial facts at the same data path as complete facts."""
+    if isinstance(body,dict) and 'data' not in body and 'known_subset' in body:
+        body=dict(body);body['data']=body.pop('known_subset')
+    return body
 
 
 def rows(value):
@@ -653,7 +825,7 @@ def shape(campaign, obs, view, fields=None):
         return {'e':obs['id'],'view':'full','result':result,'metadata':metadata}
     if view=='summary':
         return {**evidence_index(obs),'e':obs['id'],'view':'summary'}
-    body=literal_rows(present(compact(obs)))
+    body=stable_data(literal_rows(present(compact(obs))))
     if fields:
         body,omitted=project(body,fields)
         if omitted: body['omitted_keys']=omitted

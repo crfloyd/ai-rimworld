@@ -2,6 +2,20 @@
 
 The active implementation scope is in PLAN.md; tested claims are in VALIDATION.md.
 
+## Approved live-friction fix batch
+
+- [x] Make compact reads self-contained by default; require explicit `delta:true` plus same-scope `since` for delta-only output.
+- [x] Keep conventional model-facing row arrays and stable caller keys/nested preset facets.
+- [x] Keep usable partial/bounded facts under `data` with explicit completeness/coverage instead of switching to `known_subset`.
+- [x] Surface and enrich semantic trade state through `list_trade`/`set_trade`/`trade_action` rather than generic window geometry.
+- [x] Allow successful same-dialog `window_action` batches to continue when the unchanged expected `_dialogOpen` flag is their only review signal.
+- [x] Strengthen mental-break/threat wait packets with letter text, robust pawn-name matching, affected health/needs/gear and nearby responder state.
+- [x] Record every post-wait verification observation in the durable composition and expose requested versus actual tool/arguments for mismatch diagnosis.
+- [x] Add shell-safe JSON guidance: never round-trip captured JSON through `echo`; parse once with `printf '%s'`/raw stdin.
+- [x] Add a built-in CLI response selector so common paths do not require ad hoc `python3 -c` pipelines.
+- [x] Distinguish per-operation game success from later local parsing/presentation failure; never imply a completed mutation/wait should be replayed.
+- [x] Update replay measurement, contracts and validation claims for speed-first self-contained responses, then run the full offline suite once.
+
 - Independently measure whether event packets, decision observations, action batches and cache reuse reduce model handovers and wall time in live resumed play.
 - Test compact overview/workflow discovery with a fresh-context new-game planner before trusting it for a live setup.
 - Measure rw_capabilities lookup volume after overview/workflow adoption; exact schemas remain deferred and heavy lookup can still erode the surface saving.
