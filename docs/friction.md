@@ -71,21 +71,49 @@ notable message, a hostile-count transition, or a forced pause. `force` removes 
 limit; every one of those triggers still fires. In a real firefight the wait ends on the event
 regardless; across four quiet days the cap only bills round trips.
 
-**Recommended fix.**
-- Reclassify `crisis_cap` from `critical` to `review` or `info` so a capped timeout is not a
-  safety stop and does not by itself trigger event context. Keep the field literal and
-  visible; it must never be referenced away or dropped.
-- Name `crisisCap` and `force` in the `rw_wait` description and in the `facade.md` wait
-  section, alongside the existing `wait_budget` explanation, making clear the two are
-  different things.
-- Keep `force` opt-in with the existing "according to actual risk, never automatically" rule.
-  It held up in play: withheld while two colonists were dying of hypothermia, used once danger
-  was `None`.
-- The bad proxy itself is upstream and is not ours to fix. Surfacing why is the local lever.
+**Recommended fix.** Two changes, and the first is useless without the second.
 
-**How to verify offline.** A fixture wait carrying `crisisCap` with `cause: timeout` must not
-set `requires_review`, must not run an event-context read, and must still show the `crisisCap`
-object verbatim. A fixture wait with a real letter must still build its packet.
+1. **Reclassify `crisis_cap` to `info`.** Not `review`. `assess` marks anything above `info`
+   as a blocker (`severity != 'info'`), so `review` still sets `stop`, still sets
+   `requires_review`, and still trips event context. Keep the `crisisCap` object literal and
+   visible in the wait body; it must never be referenced away or dropped.
+2. **Drive event context from what the game reported, not from our review flags.** Change
+   `wait_sequence` from `event = data.event or data._notifications or requires_review` to
+   `event = data.event or data._notifications`. `requires_review` is the wrong proxy for "an
+   event happened", and `crisis_cap` is far from the only thing that sets it. On the playtest
+   receipts the other blockers riding along on quiet capped timeouts were `_threatWarning`
+   (`review`), `delta:pawnDamage` (`review` or `critical`, and it fires on *healing* too
+   because the upstream field mixes both), and `wait_event` (`review` for any non-timeout
+   cause). Demoting `crisis_cap` alone leaves every one of those in place.
+3. **Name `crisisCap` and `force` in the `rw_wait` description and the `facade.md` wait
+   section**, making explicit that `crisisCap` is upstream's crisis cap and `wait_budget` is
+   our own deadline clamp, and that they are different things.
+
+Keep `force` opt-in with the existing "according to actual risk, never automatically" rule. It
+held up in play: withheld while two colonists were dying of hypothermia, used once danger was
+`None`. The bad trigger proxy itself is upstream and is not ours to fix; surfacing why is the
+local lever.
+
+**Measured effect, and its limit.** Replaying all 52 playtest wait receipts through both
+rules: event context currently runs on **47**, and would run on **35**. So the combined fix
+removes **12 extra `get_status` reads**, not most of them. The remaining 35 are waits where
+the game genuinely set `event` or `_notifications`. That is a real but bounded win, and it is
+the reason item 1b is where the rest of the volume lives.
+
+**Safety check on change 2.** Across the whole campaign history there are 142 waits whose
+`cause` is `letter`, `notification`, `forcePaused`, `threatAppeared`, `threatsCleared` or
+`pauseButton`. **Every one of them carries `data.event` or `data._notifications`.** Zero would
+lose their packet under the proposed rule. A wait with an unconfirmed pause also keeps its
+existing separate protection: `context_safe` already gates on `pause_guard`, and
+`requires_review` still appears on the body either way.
+
+**How to verify offline.**
+- A fixture wait carrying `crisisCap` with `cause: timeout` must not set `requires_review`,
+  must not run an event-context read, and must still show the `crisisCap` object verbatim.
+- A fixture wait carrying `crisisCap` **and** `_threatWarning` **and** a `delta.pawnDamage`
+  healing entry, with `cause: timeout`, must also run no event-context read. This is the case
+  that demoting `crisis_cap` alone does not fix.
+- A fixture wait with `cause: threatAppeared` and `data.event` set must still build its packet.
 
 ### 1b. Every notification ends a wait, including ones that cannot change a decision
 
@@ -310,9 +338,10 @@ exact bought stacks. Change the workflow note.
 
 Reviewed and agreed with a second pass on 2026-09-11.
 
-1. **Wait loop.** Demote `crisis_cap` from critical, stop it triggering event context, name
-   `crisisCap` and `force` in the `rw_wait` contract and `facade.md`, and auto-name the
-   pausing window on a zero-tick `forcePaused`. Items 1a and 1c.
+1. **Wait loop.** Reclassify `crisis_cap` to `info` (not `review`), decouple event context
+   from `requires_review`, name `crisisCap` versus `wait_budget` and `force` in the `rw_wait`
+   contract and `facade.md`, and auto-name the pausing window on a zero-tick `forcePaused`.
+   Items 1a and 1c. The two parts of 1a must land together; either alone is ineffective.
 2. **Correctness already measured.** Caller-limit is not degraded (2a); annotate inside
    compositions (3a); materialize decision presets in `verify` (3b); drop `_threatWarning`
    from mutation receipts (3c); extend the same-dialog exception to `set_trade` (section 5,

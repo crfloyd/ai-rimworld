@@ -9,10 +9,15 @@ Current open items, with evidence and recommended fixes, live in [friction.md](d
 They came from the measured 0.9.1 live playtest on `continuance`, 2026-09-11. Ranked by
 measured cost:
 
-- [ ] Demote `crisis_cap` from `critical` so a capped timeout is not a safety stop and does
-      not by itself trigger an event-context read. Measured: 47 of 52 playtest waits ran an
-      extra `get_status` because of it. Name `crisisCap` and `force` in the `rw_wait`
-      contract and `facade.md`. Do not infer a second cap field; upstream already sends one.
+- [ ] Reclassify `crisis_cap` to `info`, not `review`: `assess` blocks on anything above
+      `info`, so `review` still sets `requires_review`. Land it together with decoupling event
+      context from `requires_review` (`event = data.event or data._notifications`); either
+      change alone is ineffective, because `_threatWarning`, `delta:pawnDamage` and
+      `wait_event` also set the flag. Measured: event context runs on 47 of 52 playtest waits
+      now and 35 after, removing 12 extra `get_status` reads. Verified safe: all 142 event-ish
+      waits in campaign history carry `data.event` or `_notifications`. Also name `crisisCap`
+      versus `wait_budget` and `force` in the `rw_wait` contract and `facade.md`. Do not infer
+      a second cap field; upstream already sends one.
 - [ ] On a wait that returns `ticksWaited: 0` with `forcePaused`, name the blocking window and
       the `window_action` that clears it.
 - [ ] Do not classify upstream `truncated` as degraded when `data.returned == args.limit`.
