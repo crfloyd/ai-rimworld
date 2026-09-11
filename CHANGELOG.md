@@ -2,6 +2,7 @@
 
 ## 0.9.0
 
+- Fixed automatic wait event context generating invalid `get_pawn tab=summary`; all pawn facets now share one expansion. Optional post-wait enrichment errors preserve the completed paused wait as partial/no-replay. Resume defaults to one-shot CLI unless the host supports interactive stdin, and unknown compositions expose a concrete reconciliation template.
 - Handoffs are now one replaceable compact transfer checkpoint rather than an immutable snapshot chain. They retain bounded current pointers and journal offsets without copying fact/knowledge bodies. Authorized memory compaction removes legacy copies and retains only selected current action tracking without claiming retired gameplay outcomes completed.
 - Current memory is now explicitly present-tense rather than chain-of-custody: informal STRATEGY supports several planning horizons and event-driven coalesced updates, ISSUES renders short action cards with full ID retrieval, and optional STATE is a bounded evidence index instead of a nested historical dump.
 - Fresh resume now returns controller-aware command templates and pointer-based checkpoint metadata by default; the compact checkpoint body requires `--full-output`. Strategy guidance forbids appending old handoff bodies because indexed journals already preserve evidence history.

@@ -35,6 +35,13 @@ The active implementation scope is in PLAN.md; tested claims are in VALIDATION.m
 - [x] Replace multi-megabyte immutable handoff copies with one integrity-checked compact current checkpoint and selective journal/evidence retrieval.
 - [x] Add authorized action-ledger compaction that retains only selected current tracking without asserting retired gameplay outcomes.
 
+## Resume friction found live
+
+- [x] Route automatic wait-context pawn summary through the shared preset mapping so upstream `tab` is omitted.
+- [x] Deliver a durable completed wait when optional post-wait enrichment fails locally; mark partial/no-replay instead of unknown.
+- [x] Default resume guidance to one-shot CLI and reserve persistent sessions for hosts with reliable interactive stdin.
+- [x] Surface a concrete controller reconciliation template for unknown compositions.
+
 - Independently measure whether event packets, decision observations, action batches and cache reuse reduce model handovers and wall time in live resumed play.
 - Test compact overview/workflow discovery with a fresh-context new-game planner before trusting it for a live setup.
 - Measure rw_capabilities lookup volume after overview/workflow adoption; exact schemas remain deferred and heavy lookup can still erode the surface saving.

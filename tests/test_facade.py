@@ -179,6 +179,18 @@ class Facade(ControlFixture):
         self.assertIn(('verify_patient','get_pawn'),[(o['key'],o['tool']) for o in manifest['observations']])
         delivered(self.control,self.token,value['composition'])
 
+    def test_post_wait_enrichment_error_delivers_completed_wait_without_replay(self):
+        self.responses.extend([
+            {'event':True,'cause':'threatAppeared','pausedAfter':True},
+            {'loaded':True,'colonyName':'Fixture Colony','ticksGame':301000,'paused':True,
+             'bundled':{'list_colonists':{'colonists':[]},'get_alerts':{'activeAlerts':[]}}}
+        ])
+        value=self.body('rw_wait',{'maxGameTicks':1000})
+        self.assertTrue(value['event_context_error']['wait_completed'])
+        self.assertTrue(value['event_context_error']['no_replay'])
+        manifest=read_json(self.camp.path/'reference/compositions'/(value['composition']+'.json'))
+        self.assertEqual(manifest['status'],'ready_to_deliver')
+
     def test_wait_verification_preflights_before_advancing(self):
         before=len(self.calls)
         with self.assertRaises(Error):
@@ -208,6 +220,8 @@ class Facade(ControlFixture):
         value=self.body('rw_wait',{'maxGameHours':1})
         context=value['event_context']
         self.assertEqual([x['facet'] for x in context['affected_pawns']],['summary','needs','health','gear'])
+        summary_call=next(c for c in self.calls if c['name']=='get_pawn' and c['arguments'].get('id')=='p')
+        self.assertNotIn('tab',summary_call['arguments'])
         self.assertEqual(context['letters'][0]['data']['id'],195)
         self.assertEqual(context['threats']['anchor'],'p')
         self.assertEqual(context['threats']['nearby_pawns'][0]['label'],'Ward')

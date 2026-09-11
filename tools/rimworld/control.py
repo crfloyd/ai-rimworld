@@ -112,6 +112,13 @@ class Control:
             handle=self.path/(record['request_id']+'.handle.json')
             if handle.exists():record['orchestrator_handle']=read_json(handle)
             record['warning']='Local process exit does not prove the server operation ended.'
+        compound=result.get('composition')
+        owner=result.get('owner')
+        if compound and owner and compound.get('status')=='unknown':
+            evidence=next((item.get('id') for item in reversed(compound.get('observations',[])) if item.get('id')), 'EVIDENCE')
+            result['recovery']={
+                'required_review':'Confirm every recorded subrequest and originating process are terminal; never replay the operation.',
+                'command':f"./rw --run {self.campaign.meta['name']} controller reconcile --token {owner['token']} --evidence {evidence} --server-terminal --basis 'REVIEWED TERMINAL BASIS'"}
         return result
 
     def _owner(self, token):

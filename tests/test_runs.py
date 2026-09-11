@@ -85,6 +85,8 @@ class RunEntryTests(unittest.TestCase):
         self.assertFalse(result['live_game_checked'])
         self.assertEqual(result['next_commands'][0],'./rw --run ember controller inspect')
         self.assertIn('./rw --run ember controller claim',result['next_commands'][1])
+        self.assertFalse(any(' session ' in command for command in result['next_commands']))
+        self.assertIn('one-shot',result['transport']['default'])
         self.assertIn('not a live stdio process',result['cached_session_note'])
         self.assertEqual(self.snapshot(), before)
         self.assertFalse((self.root / '.runtime').exists())

@@ -73,7 +73,7 @@ References are valid only inside the connection that minted them. They are clear
 ## Fast decision-loop guidance
 
 - Optimize first for avoiding another model handover, then for serialized bytes. Prefer one sufficient bounded response over several tiny reads or a representation requiring custom decoding.
-- Use one persistent session for repeated play. One-shot CLI calls reload code but cannot reuse connection-scoped references/cache.
+- Use one-shot CLI calls by default. Use a persistent session only when the host directly supports interactive stdin; its connection-scoped references/cache are an optional optimization. Never invent a pipe or manually frame JSON-RPC.
 - Never request the whole map when a bounded query answers the question. `list_things` accepts category, defName, faction, nearId or nearX/nearZ with radius, and limit; `get_area` accepts explicit bounds. Filtering at the source is faster than fetching and discarding.
 - Use `rw_capabilities {"overview":true}` when broad strategic affordance awareness is needed, or request one domain/workflow. Fetch an exact schema only for a selected action. Prefer semantic tools such as `list_trade` over generic UI scraping.
 - Keep the default compact view. If it is insufficient, retrieve the same observation in full locally instead of repeating the game read.

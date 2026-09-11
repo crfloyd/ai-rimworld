@@ -38,7 +38,9 @@ def schema(properties):
 CATALOG = {
     "get_status": {"name": "get_status", "inputSchema": schema({})},
     "get_pawn": {"name": "get_pawn", "inputSchema": schema({
-        "id": {"type": "string"}, "tab": {"type": "string"}, "detail": {"type": "boolean"}})},
+        "id": {"type": "string"},
+        "tab": {"enum": ["health", "needs", "gear", "bio", "social", "log", "records", "training", "all"]},
+        "detail": {"type": "boolean"}})},
     "order_pawn": {"name": "order_pawn", "inputSchema": schema({
         "id": {"type": "string"}, "targetId": {"type": "string"}, "command": {"type": "string"},
         "x": {"type": "integer"}, "z": {"type": "integer"}})},
@@ -375,6 +377,15 @@ class ControlTests(ControlFixture):
             self.control.reconcile(self.token, 'only a timeout', 'assumed', False)
         self.control.reconcile(self.token, 'fixture terminal response', 'Reviewed terminal evidence', True)
         self.assertNotIn('pending', self.control.inspect())
+
+    def test_unknown_composition_inspect_surfaces_exact_recovery_template(self):
+        atomic_json(self.control.path/'composition.json', {
+            'request_id':'compose-fixture','status':'unknown','pid':99999999,
+            'observations':[{'id':'obs-terminal'}]})
+        inspected=self.control.inspect()
+        self.assertIn('controller reconcile',inspected['recovery']['command'])
+        self.assertIn('--evidence obs-terminal',inspected['recovery']['command'])
+        self.assertIn('--server-terminal',inspected['recovery']['command'])
 
     def test_prohibited_load_and_unvalidated_argument_do_not_send(self):
         count = len(self.calls)

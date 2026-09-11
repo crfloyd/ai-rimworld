@@ -6,7 +6,7 @@ and persists only durable compound-delivery manifests; it never decides strategy
 import os
 import time
 
-from .composition import (TOOLS as COMPOSED, QUERY, capture, compact_result,
+from .composition import (TOOLS as COMPOSED, QUERY, PAWN, capture, compact_result,
                           expand, interruptions, obj, preflight)
 from .core import Error, atomic_json, canonical, identifier, lock, now, read_json
 from .mcp import validate
@@ -396,7 +396,8 @@ def event_details(control,token,wait_data,status_data,topics,memo,observed,seque
     attention=[]
     for pawn in matched:
         for facet in facets:
-            value=control.call(token,'get_pawn',{'id':pawn['id'],'tab':facet},driver='facade_wait_context')
+            tool,pawn_args=PAWN[facet]({'id':pawn['id']})
+            value=control.call(token,tool,pawn_args,driver='facade_wait_context')
             if observed:observed(value['id'])
             sequence.observed('event_'+facet+'_'+pawn['id'],value)
             obs=control.campaign.observation(value['id'])
@@ -475,22 +476,30 @@ def wait_sequence(control,token,args,setup,memo,observed):
         event=bool(isinstance(data,dict) and (data.get('event') or data.get('_notifications'))) or bool(body.get('requires_review'))
         context_safe=not body.get('pause_guard') and not (control.path/'pause-uncertain.json').exists()
         if args.get('context','auto')=='auto' and event and context_safe:
-            sequence.record['phase']='event_context';sequence.save()
-            status=control.call(token,'get_status',{},driver='facade_wait_context')
-            if observed:observed(status['id'])
-            sequence.observed('event_context',status)
-            status_data=control.campaign.observation(status['id'])['data']
-            from .composition import decision_status
-            topics=event_topics(body)
-            packet=decision_status(status_data,topics)
-            status_obs=control.campaign.observation(status['id'])
-            packet.update(evidence=status['id'],topics=topics,captured_after_wait=True,
-                          coverage={'completeness':status_obs['completeness'],'missing':status_obs['missing']})
-            controls={k:status[k] for k in ('identity_mismatch','pause_guard') if k in status}
-            if controls:packet['control']=controls
-            packet.update(event_details(control,token,data or {},status_data,topics,memo,observed,sequence))
-            body['event_context']=packet
-            if status_obs['completeness']!='known' or controls:body['requires_review']=True
+            try:
+                sequence.record['phase']='event_context';sequence.save()
+                status=control.call(token,'get_status',{},driver='facade_wait_context')
+                if observed:observed(status['id'])
+                sequence.observed('event_context',status)
+                status_data=control.campaign.observation(status['id'])['data']
+                from .composition import decision_status
+                topics=event_topics(body)
+                packet=decision_status(status_data,topics)
+                status_obs=control.campaign.observation(status['id'])
+                packet.update(evidence=status['id'],topics=topics,captured_after_wait=True,
+                              coverage={'completeness':status_obs['completeness'],'missing':status_obs['missing']})
+                controls={k:status[k] for k in ('identity_mismatch','pause_guard') if k in status}
+                if controls:packet['control']=controls
+                packet.update(event_details(control,token,data or {},status_data,topics,memo,observed,sequence))
+                body['event_context']=packet
+                if status_obs['completeness']!='known' or controls:body['requires_review']=True
+            except Error as exc:
+                # The wait and pause evidence are already durable. Optional read-only enrichment
+                # failure must not make the completed wait replayable or composition-unknown.
+                body['event_context_error']={'error':str(exc),'wait_completed':True,
+                                             'no_replay':True,'phase':'post_wait_enrichment'}
+                body['requires_review']=True
+                sequence.record['enrichment_error']=body['event_context_error'];sequence.save()
         if verify:
             sequence.record['phase']='verification';sequence.save()
             sections,evidence,not_run=run_reads(control,token,verify,memo,observed,'facade_wait_verify',sequence)

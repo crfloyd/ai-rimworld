@@ -46,6 +46,8 @@ Presets select information; they are not an outcome whitelist. Unknown preset se
 
 Captures are sequential, not atomic. No game-time advancement is requested, but normal reads can change UI selection and external clients can change state. Coverage/identity/pause problems stop remaining reads, which are listed under not_run. Partial bundled observations are also reported. Omitted sections remain unqueried, not healthy/empty. Direct tools remain available.
 
+`rw_wait verify` accepts these same query objects and preflights their expanded reads before time advances. Pawn `summary` omits upstream `tab` in every path. If optional post-wait read-only enrichment fails locally after a durable paused wait, the facade returns the completed wait with `event_context_error`, `requires_review` and `no_replay`; it does not turn the wait itself into an unknown operation.
+
 ## Preselect one conditional action
 
 Use `rw_guard`, or `./rw --run NAME guard --json JSON --token TOKEN`, only when the agent has already chosen the rule and its action (plus an optional otherwise action). It is not a readiness or safety verdict. If interpretation is still needed, use rw_observe and reason before acting.

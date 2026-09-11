@@ -94,11 +94,12 @@ def resume_run(root, name, *, full=False):
         commands.extend([
             f'./rw --run {name} controller claim --owner OWNER --control-available --basis BASIS',
             f'./rw --run {name} call rw_read --token TOKEN --args \'{{"tool":"get_status","args":{{}}}}\'',
-            f'./rw --run {name} bind --observation OBS --expected EXPECTED_JSON --basis BASIS --token TOKEN',
-            f'./rw --run {name} session --token TOKEN'])
+            f'./rw --run {name} bind --observation OBS --expected EXPECTED_JSON --basis BASIS --token TOKEN'])
     result['next_commands']=commands
     result['cached_session_metadata']=bool(runtime.get('session'))
     result['cached_session_note']='Cached protocol metadata is not a live stdio process and does not by itself require reconnecting.'
+    result['transport']={'default':'one-shot ./rw call/observe/wait',
+                         'persistent_session':'Use only when the host provides reliable interactive stdin; never invent a pipe or manually frame JSON-RPC.'}
     result['live_game_checked'] = False
     result['next'] = (
         f'Read this run\'s rules, current strategy and issues; use --run {name} explicitly. '

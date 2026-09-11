@@ -10,4 +10,4 @@ Validation: offline regressions cover overview/workflow discovery, event context
 
 Current-memory follow-up: STRATEGY remains informal and multi-horizon, updated in one coalesced write only at meaningful boundaries. Generated ISSUES and STATE views are bounded indexes. Handoff now replaces one compact transfer checkpoint rather than copying facts, knowledge and older snapshots; authorized action compaction retains only selected current tracking without claiming retired outcomes.
 
-Status: implementation, documentation, campaign migration and250-test offline validation complete. The next independent live run can evaluate whether the smaller current memory and transfer checkpoint improve onboarding and compaction recovery. No game/MCP/UI calls or save changes were used during implementation.
+Status: implementation, documentation, campaign migration and252-test offline validation complete. Live resume feedback additionally fixed event-context pawn-summary routing, recoverable post-wait enrichment, host-adaptive transport guidance and reconciliation discovery. No game/MCP/UI calls or save changes were used during implementation.

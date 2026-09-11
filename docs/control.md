@@ -12,12 +12,17 @@ Keep global `--run` before the subcommand. `./rw resume NAME` returns equivalent
 ./rw --run NAME controller claim --owner OWNER --control-available --basis 'HANDOFF BASIS'
 ./rw --run NAME call rw_read --token TOKEN --args '{"tool":"get_status","args":{}}'
 ./rw --run NAME bind --observation OBS --expected 'IDENTITY JSON' --basis 'REVIEW BASIS' --token TOKEN
-./rw --run NAME session --token TOKEN
 ```
 
 Do not claim when inspect shows an owner or unresolved request. A retained `session` object in controller inspection is cached RimMolt protocol metadata, not a running stdio process. Reuse it through ordinary calls/session; run `connect` only when the catalog/session is absent, stale, or the documented control flow requires a reconnect.
 
 Ownership prevents cooperating clients from interleaving. It cannot stop unrelated software or a human changing the game. All game reads may pause/change UI. Other agents remain offline while a player owns control. Never infer the authorized save from a colony name alone, and never reinterpret resume as permission to start/load another game.
+
+## Transport choice
+
+Use one-shot `./rw --run NAME call/observe/wait` commands by default. They are the intended facade, journal evidence normally, and fit hosts that execute isolated shell commands. Do not build a pipe, background stdin feeder or handwritten JSON-RPC wrapper.
+
+Use the persistent connection only when the host directly supports reliable interactive stdin or provides a native MCP client. It can preserve connection-scoped references/cache and avoid process launches, but it is an optional optimization rather than an onboarding requirement.
 
 ## Persistent connection
 
@@ -27,7 +32,7 @@ After ownership and binding, run:
 ./rw --run NAME session --token TOKEN
 ```
 
-This accepts ordinary newline-delimited MCP JSON-RPC on stdin/stdout. It keeps the process open, avoiding repeated host shell launches. A native MCP client can use the same stdio interface; in the desktop executor, retain the process session ID and use its stdin tool. Send one request per line and await its matching reply. Do not send precommitted mutations after a wait before reviewing the returned event.
+This accepts ordinary newline-delimited MCP JSON-RPC on stdin/stdout. It keeps the process open, avoiding repeated host shell launches. A native MCP client can use the same stdio interface; a host without direct interactive stdin must use one-shot CLI calls. Send one request per line and await its matching reply. Do not send precommitted mutations after a wait before reviewing the returned event.
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rw_read","arguments":{"tool":"get_status","args":{}}}}
@@ -66,7 +71,7 @@ Use `rw_wait` with a finite horizon based on actual risk; it validates the under
 
 A wall timeout and a game-time limit can both produce the server's `cause: timeout`; inspect ticksWaited and pausedAfter. HTTP timeout covers the wait plus15seconds but is not cancellation. Only one wait may be active. Retain/poll its actual host handle; use short offline reasoning while it runs, with no concurrent game calls.
 
-The pending-operation file is written before dispatch. Timeout, lost response, process exit, malformed delivery or local persistence failure cannot authorize replay. New calls remain blocked until the original operation is proven terminal and reconciled. `controller handle` can record the real process handle; `controller reconcile` requires original evidence and an explicit server-terminal attestation. A dead PID alone is not proof.
+The pending-operation file is written before dispatch. Timeout, lost response, process exit, malformed delivery or local persistence failure cannot authorize replay. New calls remain blocked until the original operation is proven terminal and reconciled. `controller inspect` supplies a concrete reconciliation command template when it finds an unknown composition. `controller handle` can record the real process handle; `controller reconcile` requires original evidence and an explicit server-terminal attestation. A dead PID alone is not proof.
 
 `pause --emergency` is the sole uncertainty exception: ordinary idempotent pause, without clearing the original pending request. Failed/missing pause remains urgent. A session attempts pause on EOF; that is a fallback, not the primary handoff proof. Before closing the connection, request and inspect normal pause/status. A killed process may not run cleanup; the server wait remains finite and its outcome must still be reconciled.
 
