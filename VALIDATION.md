@@ -1,10 +1,12 @@
 # Validation —0.9.1
 
-**304 offline tests pass**, including the new live-friction batch covering recoverable coverage, receipt annotation, event-context scoping, complete capability coverage and command-line parity, alongside every earlier regression batch. No game/MCP/UI calls or save changes were used for0.9.1 implementation testing.
+**305 offline tests pass**, including the new live-friction batch covering recoverable coverage, receipt annotation, event-context scoping, complete capability coverage and command-line parity, alongside every earlier regression batch. No game/MCP/UI calls or save changes were used for0.9.1 implementation testing.
 
 Recoverable coverage is separated from blocking coverage by cause, not by severity guesswork. A fixture reproducing the recorded `list_world_objects` guard (58,785 chars,263 items) now degrades one section and still runs its siblings; regressions confirm that an upstream error, a malformed field list and an unconfirmed pause each still stop every later query with the original `Identity, pause, JSON or coverage requires review` reason. The same rule covers `rw_wait verify`, which reports `verification_degraded` separately from `verification_not_run`.
 
 Capability coverage is now enforced by test rather than by curation. All112 permitted catalog tools appear in a domain; `load_game` is the one denied tool and is excluded explicitly. The default overview is1,990 serialized bytes against12,008 for the previous map, which named only54 tools; `overview` with `full:true` returns29,294 bytes and one domain returns about2,100. A stale phantom entry (`manage_zone`, absent from the catalog and silently dropped) was removed by the coverage test.
+
+A regression proves `rw_guard` dispatches nothing when any requested section is degraded, so the recoverable class never widens a mutation gate.
 
 Recorded-session baseline for the next live comparison, taken from `campaigns/continuance/telemetry.jsonl`:304 facade calls and926,845 model-facing bytes, of which `rw_wait` accounted for416,195 and its automatic event context for387,143 across36 waits. Neither the32,768-byte payload backstop, the32-query composition cap nor the16-action batch cap fired once, so none was changed. `rw_observe` stopped on4 of76 calls, discarding9 sub-queries; independent action batches stopped on2 of3, discarding5 of9 actions. These are baseline measurements, not a claim that the changes improved live play; that requires the next measured run.
 

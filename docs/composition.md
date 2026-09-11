@@ -63,6 +63,8 @@ Example: the agent has already decided a particular bed should return to ordinar
  "verify":[{"key":"bed_after","tool":"inspect_thing","args":{"id":"Bed123"}}]}
 ```
 
+A guard abstains outright when any requested section is degraded. A bounded read is recoverable for an observation, never for a mutation gate.
+
 Predicates use RFC6901 JSON Pointers into section data. `match` optionally selects exactly one array row by exact fields; `field` then addresses that row. Supported comparisons: eq/ne/lt/lte/gt/gte. All predicates must be true for then. Known false chooses an explicitly supplied otherwise command, or does nothing. Missing values, type mismatches, duplicate matches, partial/bundled-incomplete data, unconfirmed pause and reported interruptions cause no action in either branch. False and numeric0 are distinct. No fuzzy action selection or name guessing.
 
 Branches are literal ordinary tool/args objects. They are preflight-validated before reads, use existing game permission/effect checks, and execute at most one mutation. No waits, speed changes, setup, loops, dynamic targets, nested compositions or automatic retries. New warnings/events, including threat warnings and extra unparsed content, require review. Current low health/mood is a fact, not automatically a veto; the agent must choose sufficient conditions for its intended action. Unknown fields are retained, not interpreted by a policy engine.

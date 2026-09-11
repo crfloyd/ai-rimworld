@@ -414,10 +414,15 @@ class Composer:
             s=result['sections'].get(p['source'],{})
             decisions.append(predicate(s['data'],p) if 'data' in s else None)
         ambiguous=any(s.get('content') or s.get('result_properties',{}).get('structuredContent') is not None for s in result['sections'].values())
+        # A bounded section is recoverable for an observation, never for a mutation gate.
+        degraded=[key for key,s in result['sections'].items() if s.get('degraded')]
         paused=all(isinstance(s.get('data'),dict) and (s['data'].get('_paused') is True or s['data'].get('paused') is True) for s in result['sections'].values())
-        if not paused or result['stopped'] or ambiguous or any(s.get('result_properties',{}).get('isError') is True for s in result['sections'].values()) or interruptions(result['sections']) or any(x is None for x in decisions):
+        if not paused or result['stopped'] or ambiguous or degraded or any(s.get('result_properties',{}).get('isError') is True for s in result['sections'].values()) or interruptions(result['sections']) or any(x is None for x in decisions):
             result['condition']='unknown';result['selected_branch']=None
-            result['verification_not_run']=[q['key'] for q in verify];result['action_status']='not_dispatched';result['no_action_reason']='Incomplete/ambiguous condition, unconfirmed pause, or reported interruption; no fallback executed.';return
+            result['verification_not_run']=[q['key'] for q in verify];result['action_status']='not_dispatched'
+            reason='Incomplete/ambiguous condition, unconfirmed pause, or reported interruption; no fallback executed.'
+            if degraded:reason='A requested section is degraded ('+', '.join(degraded)+'); no branch executed.'
+            result['no_action_reason']=reason;return
         truth=all(decisions);branch='then' if truth else 'otherwise'
         result['condition']=truth;result['selected_branch']=branch if branch in spec else None
         if branch not in spec:

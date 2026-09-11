@@ -288,3 +288,20 @@ class FrictionBatch(ControlFixture):
         text = (ROOT / 'docs/facade.md').read_text()
         for phrase in ('call TOOL --args', 'observe --json', 'retrieve --observation'):
             self.assertIn(phrase, text)
+
+    # --- Safety follow-up: a guard never acts beside a degraded section ----------------
+
+    def test_a_guard_abstains_when_any_requested_section_is_degraded(self):
+        self.add_tools('list_world_objects', 'get_conditions')
+        self.responses.extend([{'_paused': True, 'outdoorTemp': -12}, LARGE_WORLD])
+        before = len(self.calls)
+        value = self.body('rw_guard', {
+            'queries': [{'key': 'weather', 'tool': 'get_conditions', 'args': {}},
+                        {'key': 'world', 'tool': 'list_world_objects', 'args': {}}],
+            'when': [{'source': 'weather', 'path': '/outdoorTemp', 'op': 'lt', 'value': 0}],
+            'then': {'tool': 'order_pawn', 'args': {'id': 'a', 'command': 'Go here', 'x': 1, 'z': 2}}})
+        self.assertEqual(value['condition'], 'unknown')
+        self.assertIsNone(value['selected_branch'])
+        self.assertEqual(value['action_status'], 'not_dispatched')
+        self.assertIn('degraded', value['no_action_reason'])
+        self.assertEqual(len(self.calls) - before, 2)
