@@ -187,7 +187,7 @@ class Sequence:
 
 def presented(control,value,args,memo,tool):
     obs=control.campaign.observation(value['id'])
-    body=present(value if 'completeness' in value else compact(obs))
+    body=literal_rows(present(value if 'completeness' in value else compact(obs)))
     for key in ('identity_mismatch','pause_guard','wait_budget'):
         if key in value:body[key]=value[key]
     return budget(bound(body,obs,args,memo),obs,tool)
@@ -389,7 +389,7 @@ def dispatch(control, token, name, args, setup=False, memo=None, observed=None):
         return journal(control,name,shape(control.campaign,obs,view),started,tool=tool,view=view)
     # present() shapes the ingest delta view, which carries risks and changed fields;
     # the stored observation alone has neither.
-    body=present(value if 'completeness' in value else compact(obs))
+    body=literal_rows(present(value if 'completeness' in value else compact(obs)))
     for key in ('identity_mismatch','pause_guard','wait_budget'):
         if key in value: body[key]=value[key]
     if (control.path/'pending.json').exists() or (control.path/'composition.json').exists():
@@ -416,6 +416,21 @@ def retrieve(control, args, memo=None):
 
 
 BODIES=('data','health','needs','status','known_subset')
+
+
+def literal_rows(value):
+    """Use conventional JSON arrays at the model boundary.
+
+    Columnar packing remains an internal compact representation. Requiring the
+    caller to decode it costs a handover when normal list operations suffice.
+    """
+    if isinstance(value,dict):
+        if value.get('encoding')=='columns-v1':
+            from .observations import unpack_rows
+            return [literal_rows(row) for row in unpack_rows(value)]
+        return {key:literal_rows(item) for key,item in value.items()}
+    if isinstance(value,list):return [literal_rows(item) for item in value]
+    return value
 
 
 def rows(value):
@@ -638,7 +653,7 @@ def shape(campaign, obs, view, fields=None):
         return {'e':obs['id'],'view':'full','result':result,'metadata':metadata}
     if view=='summary':
         return {**evidence_index(obs),'e':obs['id'],'view':'summary'}
-    body=present(compact(obs))
+    body=literal_rows(present(compact(obs)))
     if fields:
         body,omitted=project(body,fields)
         if omitted: body['omitted_keys']=omitted

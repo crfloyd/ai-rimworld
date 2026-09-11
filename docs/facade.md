@@ -44,6 +44,8 @@ This overview replaces loading the complete one-line catalog at every session st
 
 Compact carries the evidence id, the game facts, risk cards and, on a repeated read of the same scope, only what changed. `rw_retrieve {"observation":"obs-…","view":"full"}` recovers everything.
 
+Model-facing row collections are ordinary JSON arrays of objects. Internal evidence may use lossless columnar packing, but callers never need a decoder merely to iterate, index or slice a result. Speed takes precedence over small byte savings when a conventional bounded response is likely to prevent another model handover.
+
 ## Selection and limits
 
 `fields` selects top-level keys and `row_fields` selects columns inside row lists. Keys carrying a warning or a risk, and keys that changed, are always kept regardless of selection; everything dropped is listed in `omitted_keys`. `limit` trims whole rows and reports the true `total`.

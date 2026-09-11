@@ -1,10 +1,12 @@
 # Validation —0.9.0
 
-**238 offline tests pass**, including the new decision-loop regressions. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No live endpoint, game UI or saves were used for0.9.0 implementation testing.
+**239 offline tests pass**, including the new decision-loop regressions. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No live endpoint, game UI or saves were used for0.9.0 implementation testing.
 
 Serialized `tools/list` declarations are **13,455bytes** versus142,785for the upstream catalog (**10.6× smaller**). The complete strategic overview response is11,158bytes; targeted setup-domain and new-game-workflow responses are2,013and2,601bytes respectively. These are serialized bytes, not tokens. Targeted domain/workflow discovery is preferred when the whole overview is unnecessary.
 
 New offline evidence: capability overview/domain responses retain tool names and one-line purposes without schemas, and the staged `new_game` workflow begins at the main menu and routes through `game_setup_status`. A decision preset materializes requested core/alert/resource/risk facets and selected pawn details while removing the expanded raw sections from the model response. Opt-in reuse returns a cached schedule without another upstream call, survives time advancement for that stable facet, and re-reads a volatile pawn summary after advancement.
+
+Model-boundary tests confirm compact `list_things` rows are ordinary sliceable arrays even when the internal compact observation chose `columns-v1`. Caller projection, limits, payload truncation and full evidence recovery remain intact.
 
 `rw_wait` tests prove that pause remains injected, event context adds a post-wait status read inside the same public exchange, and explicit verification queries are schema/effect checked before advancement. The returned packet retains the wait evidence and durable composition. `rw_act` action arrays require the explicit `independent=true` assertion, preflight every step, stop after a reported error/risk and report untouched indexes; receipts remain outcomes only. Existing pending/delivery protections cover the compound marker.
 

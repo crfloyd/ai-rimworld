@@ -260,6 +260,14 @@ class Facade(ControlFixture):
         self.assertEqual(len(packed['rows'] if isinstance(packed,dict) else packed),6)
         self.assertIn('data.things[].noise',value['omitted_keys'])
 
+    def test_model_facing_rows_are_ordinary_sliceable_arrays(self):
+        self.add_tools('list_things')
+        rows=[{'id':str(i),'defName':'Bed','x':i,'z':1} for i in range(10)]
+        self.responses.append({'matched':10,'things':rows})
+        value=self.body('rw_read',{'tool':'list_things','args':{'category':'building','defName':'Bed'}})
+        self.assertIsInstance(value['data']['things'],list)
+        self.assertEqual(value['data']['things'][:2],rows[:2])
+
     def test_caller_limit_reports_true_total(self):
         self.add_tools('list_things')
         self.responses.append({'things':[{'id':str(i),'x':i} for i in range(40)]})
