@@ -1,5 +1,7 @@
 # Decision-Loop Friction Batch Implementation Plan
 
+> **Status: implemented in 0.9.1.** All nine tasks landed; see CHANGELOG.md and VALIDATION.md.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Remove the tooling friction recorded in live play so an agent can discover every affordance, recover from a bounded read without losing a batch, and spend its context on facts that change decisions.
@@ -48,7 +50,7 @@
 - Consumes: nothing.
 - Produces: `NARROW: dict[str,str]`, `CONFIRM: tuple[str,...]`, `oversized(data) -> bool`, `narrowing(tool, data=None) -> dict|None`, `job_phrase(label) -> str|None`, `already_satisfied(tool, args, data) -> dict|None`, `withheld_rows(tool, data) -> dict|None`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import unittest
@@ -128,12 +130,12 @@ class Hints(unittest.TestCase):
             self.assertIn(tool, catalog)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_hints.py -q`
 Expected: FAIL with `ModuleNotFoundError: No module named 'tools.rimworld.hints'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 """Actionable recovery advice for bounded reads and receipts. No strategy, no I/O."""
@@ -225,12 +227,12 @@ def withheld_rows(tool, data):
                     'in the silver field. Use filter to locate a specific item by label.'}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python3 -m pytest tests/test_hints.py -q`
 Expected: PASS, 9 tests
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/rimworld/hints.py tests/test_hints.py
@@ -252,7 +254,7 @@ git commit -m "Add narrowing hints and receipt recognition helpers"
 
 Note for the implementer: `capture` previously returned a plain boolean as its second value and both call sites tested it with `if incomplete:`. Every call site must be updated in this task or a recoverable result will silently stop a batch.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import json
@@ -336,12 +338,12 @@ class FrictionBatch(ControlFixture):
         self.assertEqual(value['verification']['weather']['data']['outdoorTemp'], -12)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q`
 Expected: FAIL. The first test fails on `KeyError: 'degraded'` because the composition still stops.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `tools/rimworld/composition.py`, replace the body of `capture` after `controls` with an explicit classification and return the problem record:
 
@@ -474,7 +476,7 @@ Because a test asserts `verification_degraded` is present as a list, set it unco
             body['verification_degraded']=degraded
 ```
 
-- [ ] **Step 4: Run the new tests, then the whole suite**
+- [x] **Step 4: Run the new tests, then the whole suite**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q`
 Expected: PASS, 4 tests
@@ -482,7 +484,7 @@ Expected: PASS, 4 tests
 Run: `python3 -m pytest tests -q`
 Expected: PASS, no regressions. If `tests/test_composition.py` asserts the old two-value `capture` contract, update those call sites to the new record shape rather than reverting the behavior.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/rimworld/composition.py tools/rimworld/facade.py tests/test_friction_batch.py
@@ -502,7 +504,7 @@ git commit -m "Continue a composition past a recoverable size guard"
 - Consumes: Task 2's degraded handling.
 - Produces: decision query accepts optional `world_kind` (enum `all|settlements|caravans|sites|space`, default `caravans`) and topic `visitors`. Packet keys `world` and `visitors`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
     def test_decision_world_defaults_to_a_narrow_kind(self):
@@ -550,12 +552,12 @@ def fixture_status():
     return fixture('status')
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q -k decision`
 Expected: FAIL. The world read is dispatched with `{}` and `visitors` is rejected by the schema.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `tools/rimworld/composition.py`:
 
@@ -636,12 +638,12 @@ In `tools/rimworld/facade.py`, `event_details`, replace the unfiltered world rea
                              'completeness':visitor_obs['completeness'],'missing':visitor_obs['missing']}
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q && python3 -m pytest tests -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/rimworld/composition.py tools/rimworld/facade.py tests/test_friction_batch.py
@@ -660,7 +662,7 @@ git commit -m "Narrow decision world reads and add map-visitor discovery"
 - Consumes: `hints.already_satisfied`, `hints.narrowing`, `hints.oversized`, `hints.withheld_rows`, `hints.NARROW`.
 - Produces: `facade.annotate(body, obs) -> dict`. Compact bodies may carry `retry`, `already_satisfied`, `rows_withheld`, `deal`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
     def test_an_already_running_job_is_named_not_just_reported_as_an_error(self):
@@ -725,12 +727,12 @@ git commit -m "Narrow decision world reads and add map-visitor discovery"
         self.assertNotIn('reverse', value['deal']['next'].lower())
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q -k "already or oversized or withheld or deal"`
 Expected: FAIL with `KeyError: 'already_satisfied'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `tools/rimworld/facade.py`, delete the module-level `NATIVE` dict and import the shared table instead. Replace `if tool in NATIVE: trial['suggest']=NATIVE[tool]` and the twin line in the fallback with `hints.NARROW`:
 
@@ -786,12 +788,12 @@ Make an already-satisfied order a non-blocking outcome inside an independent bat
             if (explicit_failure(body) and not satisfied) or (body.get('requires_review') and not dialog_ok and not satisfied):
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q && python3 -m pytest tests -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/rimworld/facade.py tests/test_friction_batch.py
@@ -812,7 +814,7 @@ git commit -m "Annotate receipts for already-running jobs, withheld rows and acc
 
 Why this changes: `event_topics` matched substrings over the whole serialized body, including our own field names and the standing threat warning. During one berserk episode every wait therefore pulled the full mood, medical, threat and gear sweep. Twelve such waits cost 194 KB. Scoping the match to the actual event narrative keeps a real raid loud and stops a standing warning from re-triggering forever. The threat flag itself is on every response regardless, so nothing is hidden; only the extra reads stop.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
     STANDING = {'_paused': True, 'cause': 'timeout', 'ticksWaited': 2500, 'pausedAfter': True,
@@ -859,12 +861,12 @@ Why this changes: `event_topics` matched substrings over the whole serialized bo
         self.assertNotIn('event_context', value)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q -k "topics or context or raid or standing"`
 Expected: FAIL. `event_topics` returns `threat` and `mood` for the standing warning, and `context: "brief"` is rejected by the schema.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `tools/rimworld/facade.py`, replace `event_topics` and add `event_text` above it:
 
@@ -935,12 +937,12 @@ Update the `rw_wait` description to name the third value:
   'context defaults auto and adds a compact event decision packet; brief keeps only the status packet; none disables it. '
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q && python3 -m pytest tests -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/rimworld/facade.py tests/test_friction_batch.py
@@ -962,7 +964,7 @@ git commit -m "Scope event context to the actual event and add a brief level"
 
 Why the overview shape changes: the curated map named 54 of 113 tools and cost 12008 bytes, and it was fetched five times in one session for 35965 bytes. Covering all 112 permitted tools at that shape would cost about as much as the raw catalog. A domain index costs roughly a tenth and the agent drills into exactly one domain.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import json
@@ -1013,12 +1015,12 @@ class Coverage(unittest.TestCase):
         self.assertIn('list_unmanaged_items', names)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_discovery.py -q`
 Expected: FAIL. 59 tools are uncovered and `PURPOSE` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Replace `DOMAINS` in `tools/rimworld/capabilities.py` with complete coverage and add purposes. A tool may appear in more than one domain where it genuinely serves both.
 
@@ -1147,12 +1149,12 @@ Keep `CAPABILITY_DOMAINS` and `capabilities.DOMAINS` in agreement with a test:
         self.assertEqual(set(CAPABILITY_DOMAINS), set(DOMAINS))
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `python3 -m pytest tests/test_discovery.py -q && python3 -m pytest tests -q`
 Expected: PASS. `tests/test_facade.py::test_capability_overview_and_workflow_preserve_affordances_without_schemas` asserts the old nested overview shape; update it to assert the index shape plus a `full:true` drill-down rather than reverting the change.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/rimworld/capabilities.py tools/rimworld/facade.py tests/test_discovery.py tests/test_facade.py
@@ -1172,7 +1174,7 @@ git commit -m "Cover the whole catalog with a small domain index"
 - Produces: `WORKFLOWS: dict[str, tuple[tuple[str, str], ...]]`, gaining `build_structure`.
 - Also modify `tools/rimworld/facade.py`: add `build_structure` to `CAPABILITY_WORKFLOWS` and name it in the `rw_capabilities` description. A test must assert `set(CAPABILITY_WORKFLOWS) == set(WORKFLOWS)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
     def test_trade_workflow_starts_at_finding_the_trader_and_ends_at_confirming_goods(self):
@@ -1214,12 +1216,12 @@ git commit -m "Cover the whole catalog with a small domain index"
                 self.assertTrue(entry[1], name + ':' + entry[0])
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_discovery.py -q -k workflow`
 Expected: FAIL. Workflow entries are bare strings.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 WORKFLOWS = {
@@ -1302,12 +1304,12 @@ WORKFLOWS = {
 }
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `python3 -m pytest tests/test_discovery.py -q && python3 -m pytest tests -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/rimworld/capabilities.py tests/test_discovery.py
@@ -1326,7 +1328,7 @@ git commit -m "Give workflows the preconditions and confirmations play actually 
 - Consumes: Task 6's `overview` signature.
 - Produces: `./rw capabilities --overview [--full] | --domain NAME | --workflow NAME`. `cli.pointer_examples(value, limit=8) -> list[str]`. Argument errors print one JSON object instead of a usage dump.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 import io
@@ -1403,12 +1405,12 @@ Add one test to `tests/test_friction_batch.py` for the selector error body, sinc
 
 The implementer should set `self.bound_observation` in `setUp` from the status observation the fixture already binds, and add `--select` to the `retrieve` subparser in the same task so the test can run it.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q -k "cli or capabilities or flag or pointer or selector"`
 Expected: FAIL with `ImportError: cannot import name 'pointer_examples'` and `SystemExit` from argparse.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `tools/rimworld/cli.py`, add above `parser()`:
 
@@ -1505,7 +1507,7 @@ In `main()`, add the pointer suggestions to the selection-error body:
                          'replay':'Do not replay the completed game operation; correct only the local selector.'}
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q && python3 -m pytest tests -q`
 Expected: PASS. If any existing test asserts argparse's usage text on stderr, update it to the JSON body.
@@ -1516,7 +1518,7 @@ Also confirm by hand that nothing regressed at the shell:
 ./rw capabilities --overview && ./rw capabilities --workflow trade && ./rw --run continuance retrieve --token t
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/rimworld/cli.py tests/test_friction_batch.py
@@ -1535,7 +1537,7 @@ git commit -m "Reach discovery from the command line and fail with usable JSON"
 - Consumes: every earlier task.
 - Produces: no code interface. One documentation test guards the facts a player must not have to rediscover.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
     def test_the_operational_guide_names_the_facts_play_had_to_rediscover(self):
@@ -1552,12 +1554,12 @@ git commit -m "Reach discovery from the command line and fail with usable JSON"
             self.assertIn(phrase, text)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python3 -m pytest tests/test_friction_batch.py -q -k "guide or flag_sets"`
 Expected: FAIL on the first missing phrase.
 
-- [ ] **Step 3: Write the documentation**
+- [x] **Step 3: Write the documentation**
 
 In `docs/facade.md`, add these sections and edits.
 
@@ -1622,7 +1624,7 @@ Never run two `./rw` processes concurrently; the controller holds one exclusive 
 
 In `PLAN.md`, replace the Status paragraph with the new scope and point at this plan. In `VALIDATION.md`, record the measured before-and-after numbers from the recorded session and the new test count. In `TODO.md`, add a checked "Live friction batch two" list mirroring these tasks, and an unchecked line: "Confirm during the next live run whether a `set_trade` batch can safely continue on an unchanged trade dialog, and whether `trade_action cancel` after a committed deal can reverse it. Both are currently unverified." In `docs/friction.md`, add a short status block at the top naming this plan and listing the two items deliberately left for the playtest.
 
-- [ ] **Step 4: Run the full suite and a manual smoke check**
+- [x] **Step 4: Run the full suite and a manual smoke check**
 
 Run: `python3 -m pytest tests -q`
 Expected: PASS
@@ -1632,7 +1634,7 @@ Expected: PASS
 ./rw capabilities --workflow trade
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs AGENTS.md PLAN.md VALIDATION.md TODO.md tests/test_friction_batch.py
