@@ -1,6 +1,7 @@
 import json
+from pathlib import Path
 from test_system import Workspace
-from tools.rimworld.continuity import handoff
+from tools.rimworld.continuity import handoff, compact_handoffs
 from tools.rimworld.runs import resume_run
 from tools.rimworld.observations import evidence_index
 
@@ -23,7 +24,7 @@ class StartupNavigation(Workspace):
         self.assertEqual(self.camp.observation(result['id'])['data'],original['data'])
         self.assertLess(len(json.dumps(index)),len(json.dumps(original)))
 
-    def test_resume_defaults_to_index_but_full_snapshot_remains_available(self):
+    def test_resume_defaults_to_index_but_full_compact_checkpoint_remains_available(self):
         self.ingest('get_status',{}, {'loaded':True,'ticksGame':1,'warning':{'novel':['fact']*100}})
         self.camp.issue({'title':'Unresolved','rationale':'Unknown condition','next_action':'Inspect',
                          'revisit':'Before playing','resolution':'Concrete evidence','critical':True})
@@ -36,4 +37,18 @@ class StartupNavigation(Workspace):
         self.assertIn('Unknown until revalidated',lean['uncertainties'])
         self.assertTrue(full['packet']['issues'])
         self.assertEqual(lean['packet_index']['active_risk_records'],len(full['packet']['active_risks']))
+        snapshot=json.loads(Path(result['path']).read_text())
+        self.assertNotIn('facts',snapshot); self.assertNotIn('knowledge',snapshot)
+        self.assertNotIn('open_actions',snapshot)
+        self.assertLess(len(json.dumps(snapshot)),50000)
         self.assertEqual(before,{str(p):p.read_bytes() for p in self.camp.path.rglob('*') if p.is_file()})
+
+    def test_legacy_handoff_copies_are_removed_by_authorized_compaction(self):
+        handoff(self.camp,'Boundary','Inspect current state','Live state unknown')
+        legacy=self.camp.path/'handoffs/handoff-old.json'
+        legacy.write_text(json.dumps({'payload':'x'*100000}))
+        (self.camp.path/'handoffs/handoff-old.md').write_text('old')
+        result=compact_handoffs(self.camp,'User authorized redundant snapshot cleanup')
+        self.assertEqual(result['legacy_files_removed'],2)
+        self.assertFalse(legacy.exists())
+        self.assertLess((self.camp.path/'handoffs/current.json').stat().st_size,50000)

@@ -12,7 +12,7 @@ The same agent normally proceeds through these phases sequentially:
 2. Claim sole control, reuse or establish one session, inspect and bind the actual game.
 3. Play with the adaptive loop below.
 4. At a stop or checkpoint, verify pause and pending-operation state before continuity or report work.
-5. Save the handoff, close the session and release control when play is ending.
+5. Replace the compact current transfer checkpoint, close the session and release control when play is ending.
 
 Do not mix implementation work into measured or active play. Do not let reporting, screenshots or advisory work delay an urgent game decision.
 

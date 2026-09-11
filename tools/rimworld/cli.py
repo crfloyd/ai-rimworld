@@ -81,7 +81,7 @@ def parser():
     q.add_argument("name")
     q = sub.add_parser("packet", help="Read a focused local decision packet with all urgent work retained.")
     q.add_argument("--topic"); q.add_argument("--entity")
-    q = sub.add_parser("handoff", help="Save an immutable run snapshot; no live game call.")
+    q = sub.add_parser("handoff", help="Replace the current transfer checkpoint; no live game call.")
     q.add_argument("--reason", required=True); q.add_argument("--next", required=True); q.add_argument("--uncertainties", required=True)
     for name in ("decide", "outcome", "incident"):
         q = sub.add_parser(name)
@@ -90,6 +90,8 @@ def parser():
     q.add_argument("id"); q.add_argument("--status", required=True); q.add_argument("--review", required=True); q.add_argument("--lesson")
     sub.add_parser("rebuild", help="Rebuild derived observation views/indexes without rewriting original journals.")
     sub.add_parser("brief", help="Regenerate a local current-fact brief; no live read.")
+    q = sub.add_parser("compact-memory", help="Authorized cleanup of stale action tracking and legacy handoff copies; no game call.")
+    q.add_argument("--review", required=True); q.add_argument("--keep-action", action="append", default=[])
     q = sub.add_parser("ingest", help="Ingest a recorded response without executing it.")
     q.add_argument("tool"); q.add_argument("--args", default="{}")
     q.add_argument("--response", type=Path, required=True)
@@ -224,6 +226,11 @@ def run(args):
     if command == "rebuild": return campaign.rebuild()
     if command == "brief":
         return campaign.refresh()
+    if command == "compact-memory":
+        from .continuity import compact_handoffs
+        actions = campaign.compact_actions(args.review, args.keep_action)
+        handoffs = compact_handoffs(campaign, args.review)
+        return {"actions":actions,"handoffs":handoffs,"game_changed":False}
     if command == "ingest":
         return campaign.ingest(args.tool, obj(args.args), read_json(args.response), origin=args.origin,
                                tick=args.tick, seconds=args.seconds, source_captured_at=args.source_captured_at)

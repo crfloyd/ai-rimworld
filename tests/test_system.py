@@ -168,6 +168,16 @@ class MemoryTests(Workspace):
         self.assertNotIn("old detail", state)
         self.assertLess(len(state.encode()), 20000)
 
+    def test_action_compaction_retires_tracking_without_claiming_outcomes(self):
+        first = self.camp.action("order_pawn", {"id":"PawnA"}, "Old movement", "movement")
+        self.camp.action_update(first["id"], "accepted", internal=True)
+        second = self.camp.action("order_pawn", {"id":"PawnB"}, "Keep this", "movement")
+        result = self.camp.compact_actions("Current memory reviewed", [second["id"]])
+        self.assertEqual(result["open_actions_retired"], 1)
+        self.assertFalse(result["outcome_asserted"])
+        self.assertNotIn(first["id"], self.camp._actions())
+        self.assertEqual(set(self.camp._actions(open_only=True)), {second["id"]})
+
     def test_action_acceptance_not_completion_and_fresh_check(self):
         action = self.fixture_action("order_pawn", {}, "Reach refuge", "movement",
                                  {"tool": "get_pawn", "args": {"id": "PawnA"},

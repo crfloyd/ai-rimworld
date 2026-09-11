@@ -1,8 +1,8 @@
-"""Run-local decision/outcome links and immutable, evidence-bound handoffs. No game access."""
+"""Run-local decisions and one replaceable evidence-bound transfer checkpoint. No game access."""
 from pathlib import Path
 from . import __version__
 from .core import Error, atomic_json, atomic_text, canonical, digest, identifier, journal, lock, now, read_json, require_fields, slug
-from .observations import compact, freshness
+from .observations import freshness
 from .memory import OPEN
 
 
@@ -148,50 +148,119 @@ def packet(campaign, topic=None, entity=None):
     return result
 
 
+def _handoff_packet(campaign, state):
+    """Bounded transfer context; journals and the fact index already hold full history."""
+    from .facts import entries
+    from .safety import signals, deadlines
+    risks, seen, missing = [], set(), []
+    retired = campaign._retired()
+    for entry in entries(state, risks=True):
+        obs = entry['latest']
+        if obs['id'] in retired or (obs['origin'] != 'live' and campaign.meta.get('session_id')):
+            continue
+        for risk in signals(obs):
+            if risk['id'] in seen: continue
+            seen.add(risk['id'])
+            if len(risks) < 24:
+                risks.append({k:risk[k] for k in ('id','kind','severity','evidence','scope') if k in risk})
+        if obs['completeness'] != 'known' and len(missing) < 16:
+            missing.append({'id':obs['id'],'tool':obs['tool'],'missing':obs.get('missing'),
+                            'prior_evidence':(entry.get('last_known') or {}).get('id')})
+    actions = [a for a in campaign._actions(open_only=True).values() if a['status'] in OPEN]
+    issues = campaign.issue_reviews(state)
+    return {'campaign_id':campaign.meta['id'], 'name':campaign.meta['name'],
+            'objective':campaign.meta['objective'], 'tick':state['latest_tick'],
+            'time_basis':state.get('tick_basis'), 'clock_warning':state.get('clock_warning'),
+            'live_checked':False, 'active_risks':risks,
+            'active_risk_records_total':len(seen), 'missing_coverage':missing,
+            'pending_actions':[{k:a[k] for k in ('id','intent','family','status') if k in a} for a in actions],
+            'issues':[{k:i[k] for k in ('id','title','next_action','restore_when','critical') if i.get(k) is not None} for i in issues],
+            'deadlines':deadlines(campaign), 'checkpoint':campaign.checkpoints(state),
+            'strategy':{'path':str(campaign.path/'STRATEGY.md'),
+                        'digest':digest((campaign.path/'STRATEGY.md').read_text())},
+            'evidence_index':str(campaign.path/'STATE.md'), 'control':runtime_snapshot(campaign)}
+
+
+def _current_snapshot(campaign, reason, next_action, uncertainties, state=None):
+    state = state or campaign._load()
+    strategy = (campaign.path/'STRATEGY.md').read_text()
+    packet_ = _handoff_packet(campaign, state)
+    consequence_ids = [e['id'] for e in journal(campaign.path/'events.jsonl')[0]
+                       if e.get('kind') in ('decision','outcome','incident','milestone','checkpoint')][-20:]
+    return {'schema_version':2, 'id':identifier('handoff-'), 'campaign_id':campaign.meta['id'],
+            'at':now(), 'tooling_version':__version__, 'reason':reason, 'next_action':next_action,
+            'uncertainties':uncertainties,
+            'rules':campaign.meta,
+            'strategy':strategy, 'packet':packet_,
+            'open_action_ids':[a['id'] for a in campaign._actions(open_only=True).values() if a['status'] in OPEN],
+            'open_issue_ids':[i['id'] for i in campaign.issue_reviews(state)],
+            'journal_offsets':{name:(campaign.path/name).stat().st_size for name in
+                               ('observations.jsonl','actions.jsonl','issues.jsonl','events.jsonl')},
+            'local_learning_digest':digest({str(p.relative_to(campaign.path)):p.read_text()
+                                            for p in sorted((campaign.path/'knowledge').rglob('*.json'))}),
+            'recent_consequence_ids':consequence_ids,
+            'history':'Full observations, actions, issues, events and learning remain in their indexed campaign stores.'}
+
+
 def handoff(campaign, reason, next_action, uncertainties):
     if not reason or not next_action or not uncertainties:
         raise Error('Record handoff reason, concrete next action and remaining uncertainties (including live freshness).')
-    # Serialize all local writers while capturing the exact journal boundaries and strategy version.
+    # One current transfer checkpoint replaces its predecessor. Journals retain history.
     with lock(campaign.path / '.handoff.lock'), lock(campaign.path / '.memory.lock'):
         campaign.meta['presentation_reset_at'] = now()
         atomic_json(campaign.path / 'campaign.json', campaign.meta)
-        snapshot_id = identifier('handoff-')
-        current = packet(campaign)
-        with lock(campaign.path / '.memory.lock'):
-            state = campaign._load()
-            snapshot = {'id': snapshot_id, 'campaign_id': campaign.meta['id'], 'at': now(),
-                        'tooling_version': __version__, 'reason': reason, 'next_action': next_action,
-                        'uncertainties': uncertainties, 'rules': campaign.meta,
-                        'strategy': (campaign.path / 'STRATEGY.md').read_text(), 'packet': current,
-                        'open_actions': [a for a in campaign._actions(open_only=True).values() if a['status'] in OPEN],
-                        'open_issues': campaign.issue_reviews(state),
-                        'facts': [{ 'view': compact(e['latest']),
-                                    'freshness': freshness(e['latest'], state, campaign.meta),
-                                    'last_known': (e.get('last_known') or {}).get('id') } for e in state['facts'].values()],
-                        'journal_offsets': {name: (campaign.path / name).stat().st_size for name in
-                                            ('observations.jsonl', 'actions.jsonl', 'issues.jsonl', 'events.jsonl')}}
-            # Keep the selected lesson revisions available as of handoff, including unresolved cautions.
-            from .knowledge import TOPICS, run_knowledge
-            snapshot['knowledge'] = {topic: run_knowledge(campaign, topic, full=True) for topic in TOPICS}
-            snapshot['local_learning_digest'] = digest({str(p.relative_to(campaign.path)): p.read_text() for p in sorted((campaign.path / 'knowledge').rglob('*.json'))})
-            snapshot['recent_consequences'] = [e for e in journal(campaign.path / 'events.jsonl')[0]
-                                                if e.get('kind') in ('decision', 'outcome', 'incident', 'milestone', 'checkpoint')][-20:]
-            snapshot['historical_tail_note'] = 'Twenty recent consequences are orientation only. All unresolved decisions/issues/actions are included without a count cap; full history remains in events.jsonl.'
-            atomic_json(campaign.path / 'handoffs' / (snapshot_id + '.json'), snapshot)
-            atomic_text(campaign.path / 'handoffs' / (snapshot_id + '.md'),
-                        '# Run handoff\n\n' + reason + '\n\nNext: ' + next_action + '\n\nUncertainties: ' + uncertainties +
-                        '\n\nFull immutable snapshot: [' + snapshot_id + '.json](' + snapshot_id + '.json)\n')
-            atomic_json(campaign.path / 'handoffs/latest.json', {'id': snapshot_id, 'sha256': digest(snapshot)})
-        return {'id': snapshot_id, 'path': str(campaign.path / 'handoffs' / (snapshot_id + '.json')),
+        snapshot = _current_snapshot(campaign, reason, next_action, uncertainties, campaign._load())
+        path = campaign.path/'handoffs/current.json'
+        atomic_json(path, snapshot)
+        atomic_text(campaign.path/'handoffs/current.md',
+                    '# Current transfer checkpoint\n\n'+reason+'\n\nNext: '+next_action+
+                    '\n\nUncertainties: '+uncertainties+'\n\nStructured checkpoint: [current.json](current.json)\n')
+        atomic_json(campaign.path/'handoffs/latest.json', {'id':snapshot['id'],'path':'current.json','sha256':digest(snapshot)})
+        return {'id': snapshot['id'], 'path': str(path),
                 'next_action': next_action, 'live_checked': False}
+
+
+def compact_handoffs(campaign, review):
+    """Replace legacy snapshot copies with one current checkpoint, then remove the copies."""
+    if not review: raise Error('Explain the authorized handoff cleanup.')
+    base = campaign.path/'handoffs'
+    with lock(campaign.path/'.handoff.lock'), lock(campaign.path/'.memory.lock'):
+        legacy = sorted([*base.glob('handoff-*.json'), *base.glob('handoff-*.md')])
+        before = sum(p.stat().st_size for p in legacy if p.is_file())
+        latest = read_json(base/'latest.json') if (base/'latest.json').exists() else {}
+        old_path = _checkpoint_path(base, latest) if latest else None
+        old = read_json(old_path) if old_path and old_path.exists() else {}
+        snapshot = _current_snapshot(campaign, old.get('reason','Memory cleanup'),
+                                     old.get('next_action','Read current strategy and issues, then revalidate live state.'),
+                                     old.get('uncertainties','Stored state is not live proof.'), campaign._load())
+        snapshot['maintenance_review'] = review
+        atomic_json(base/'current.json', snapshot)
+        atomic_text(base/'current.md', '# Current transfer checkpoint\n\n'+snapshot['reason']+
+                    '\n\nNext: '+snapshot['next_action']+'\n\nUncertainties: '+snapshot['uncertainties']+
+                    '\n\nStructured checkpoint: [current.json](current.json)\n')
+        atomic_json(base/'latest.json', {'id':snapshot['id'],'path':'current.json','sha256':digest(snapshot)})
+        removed = 0
+        for path in legacy:
+            if path.parent != base or not path.name.startswith('handoff-'): raise Error('Unexpected handoff cleanup target.')
+            path.unlink(); removed += 1
+        after = sum(p.stat().st_size for p in (base/'current.json',base/'current.md',base/'latest.json'))
+        return {'legacy_files_removed':removed,'bytes_removed':max(0,before-after),
+                'current_checkpoint':str(base/'current.json'),'history_preserved_in':'campaign journals and indexed evidence'}
+
+
+def _checkpoint_path(base, pointer):
+    name = pointer.get('path') or (pointer.get('id','')+'.json')
+    if Path(name).name != name or not (name == 'current.json' or (name.startswith('handoff-') and name.endswith('.json'))):
+        raise Error('Invalid transfer-checkpoint path.')
+    return base/name
 
 
 def resume_snapshot(campaign, *, full=False):
     latest = campaign.path / 'handoffs/latest.json'
     if not latest.exists():
-        return {'snapshot': None, 'warning': 'No immutable handoff yet. Reconstruct from current packet and original rules/strategy; do not assume missing work was completed.'}
+        return {'snapshot': None, 'warning': 'No transfer checkpoint yet. Reconstruct from current strategy/issues and indexed evidence; do not assume missing work was completed.'}
     pointer = read_json(latest); slug(pointer['id'])
-    path = campaign.path / 'handoffs' / (pointer['id'] + '.json')
+    path = _checkpoint_path(campaign.path/'handoffs', pointer)
     snapshot = read_json(path)
     if snapshot.get('campaign_id') != campaign.meta['id'] or digest(snapshot) != pointer['sha256']:
         raise Error('Handoff identity or integrity mismatch.')
@@ -211,6 +280,6 @@ def resume_snapshot(campaign, *, full=False):
                              'active_risk_records':len(snapshot['packet'].get('active_risks',[])),
                              'missing_coverage_records':len(snapshot['packet'].get('missing_coverage',[])),
                              'pending_action_records':len(snapshot['packet'].get('pending_actions',[])),
-                             'detail_required':'Current files are authoritative. Retrieve this immutable packet only for a decision that needs older evidence; counts do not resolve risks or work.'}})},
+                             'detail_required':'Current files are authoritative. Load this compact checkpoint body only when its transfer pointers are needed; counts do not resolve risks or work.'}})},
             'changed_since_handoff': changes,
             'next': 'Use the returned handoff and changed-file flags; retrieve full historical detail only where the decision needs it. Live status, control and mutable facts require revalidation.'}

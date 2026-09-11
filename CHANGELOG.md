@@ -2,8 +2,9 @@
 
 ## 0.9.0
 
+- Handoffs are now one replaceable compact transfer checkpoint rather than an immutable snapshot chain. They retain bounded current pointers and journal offsets without copying fact/knowledge bodies. Authorized memory compaction removes legacy copies and retains only selected current action tracking without claiming retired gameplay outcomes completed.
 - Current memory is now explicitly present-tense rather than chain-of-custody: informal STRATEGY supports several planning horizons and event-driven coalesced updates, ISSUES renders short action cards with full ID retrieval, and optional STATE is a bounded evidence index instead of a nested historical dump.
-- Fresh resume now returns controller-aware command templates and pointer-based handoff metadata by default; archived rules, strategy and packets require `--full-output`. Strategy guidance forbids appending old handoff bodies because immutable snapshots already preserve them.
+- Fresh resume now returns controller-aware command templates and pointer-based checkpoint metadata by default; the compact checkpoint body requires `--full-output`. Strategy guidance forbids appending old handoff bodies because indexed journals already preserve evidence history.
 - Decision observations add a general threat facet and `resume_crisis` workflow; capability misses suggest close tool names, upstream pawn summary is documented as an omitted tab, and controller docs distinguish cached session metadata from a live process.
 - Every live player must read the audited operational `docs/facade.md` before its first facade call and after tooling changes; historical benchmark material was removed from that guide.
 - Onboarding, memory, control, history and knowledge guidance now agree on self-contained facade reads, local full retrieval, compatibility-only raw calls, conventional model-facing rows and model-handover-first efficiency. Offline spatial selections also return ordinary row arrays.

@@ -19,12 +19,12 @@ The active implementation scope is in PLAN.md; tested claims are in VALIDATION.m
 ## Fresh-agent onboarding cleanup
 
 - [x] Return controller-aware resume command templates with correct global option placement.
-- [x] Keep default resume pointer-based; load archived rules/strategy/packet only with `--full-output`.
+- [x] Keep default resume pointer-based; load the compact checkpoint body only with `--full-output`.
 - [x] Add a valid decision-preset example and clarify that upstream pawn summary omits `tab`.
 - [x] Suggest close capability names after an invalid exact lookup.
 - [x] Add a general threat decision facet and resume-crisis affordance workflow.
 - [x] Clarify cached session metadata versus a running stdio process and when reconnect is actually needed.
-- [x] Keep STRATEGY current-only; preserve prior strategy and history in immutable handoffs/journals instead of onboarding context.
+- [x] Keep STRATEGY current-only; preserve evidence/history in indexed journals instead of onboarding context.
 
 ## Current-memory cleanup
 
@@ -32,7 +32,8 @@ The active implementation scope is in PLAN.md; tested claims are in VALIDATION.m
 - [x] Render ISSUES.md as concise current action cards while preserving full issue journals and exact-ID retrieval.
 - [x] Bound STATE.md to evidence pointers, current risk/incomplete records, a small pawn sample and recent tracked outcomes.
 - [x] Keep historical provenance in journals/handoffs rather than current startup documents.
-- [ ] Replace multi-megabyte immutable handoff copies of every fact/knowledge body with integrity-checked indexes and selective retrieval; measure handoff wall time before changing the safety contract.
+- [x] Replace multi-megabyte immutable handoff copies with one integrity-checked compact current checkpoint and selective journal/evidence retrieval.
+- [x] Add authorized action-ledger compaction that retains only selected current tracking without asserting retired gameplay outcomes.
 
 - Independently measure whether event packets, decision observations, action batches and cache reuse reduce model handovers and wall time in live resumed play.
 - Test compact overview/workflow discovery with a fresh-context new-game planner before trusting it for a live setup.

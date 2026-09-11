@@ -408,6 +408,39 @@ class Campaign:
             self._write_views(self._load())
             return record
 
+    def compact_actions(self, review, keep_ids=()):
+        """Retain only selected current tracking without claiming retired gameplay outcomes."""
+        if not review: raise Error("Explain the authorized action-ledger cleanup.")
+        keep_ids = set(keep_ids)
+        with lock(self.path/".memory.lock"):
+            records, _ = journal(self.path/"actions.jsonl")
+            latest = {}
+            for record in records: latest[record["id"]] = record
+            open_ids = {action_id for action_id,record in latest.items() if record.get("status") in OPEN}
+            unknown = keep_ids-open_ids
+            if unknown: raise Error("Cannot keep unknown/non-open action IDs: " + ", ".join(sorted(unknown)))
+            stamp = now()
+            retained = {key:latest[key] for key in keep_ids}
+            text = "".join(canonical(record)+"\n" for record in retained.values())
+            atomic_text(self.path/"actions.jsonl", text)
+            index_dir = self.path/"reference/action-index"
+            for path in index_dir.glob("action-*.json"):
+                if path.stem not in retained: path.unlink()
+            for action_id,record in retained.items(): atomic_json(index_dir/(action_id+".json"), record)
+            atomic_json(self.path/"reference/.active-actions.json",
+                        {"offset":(self.path/"actions.jsonl").stat().st_size,
+                         "open":retained})
+            append_json(self.path/"events.jsonl", {"id":identifier("event-"),
+                        "kind":"memory_compaction", "summary":review, "captured_at":stamp,
+                        "campaign_id":self.meta["id"], "open_actions_retired":len(open_ids-keep_ids),
+                        "action_records_removed":len(latest)-len(retained),
+                        "outcome_asserted":False})
+            self._write_views(self._load())
+            return {"open_actions_retired":len(open_ids-keep_ids),
+                    "records_removed":len(latest)-len(retained), "actions_kept":sorted(keep_ids),
+                    "records_after":len(retained),"outcome_asserted":False,
+                    "journal_bytes":(self.path/"actions.jsonl").stat().st_size}
+
     def _check_evidence(self, evidence, action, outcome=False):
         state = self._load()
         if evidence.startswith("obs-"):
