@@ -2,6 +2,8 @@
 
 ## 0.9.0
 
+- Fresh resume now returns controller-aware command templates and pointer-based handoff metadata by default; archived rules, strategy and packets require `--full-output`. Strategy guidance forbids appending old handoff bodies because immutable snapshots already preserve them.
+- Decision observations add a general threat facet and `resume_crisis` workflow; capability misses suggest close tool names, upstream pawn summary is documented as an omitted tab, and controller docs distinguish cached session metadata from a live process.
 - Every live player must read the audited operational `docs/facade.md` before its first facade call and after tooling changes; historical benchmark material was removed from that guide.
 - Onboarding, memory, control, history and knowledge guidance now agree on self-contained facade reads, local full retrieval, compatibility-only raw calls, conventional model-facing rows and model-handover-first efficiency. Offline spatial selections also return ordinary row arrays.
 - Compact reads are self-contained by default with separate change metadata. Delta-only output now requires `delta:true` plus an explicit same-scope `since` observation, preventing empty automatic responses when callers need current state.

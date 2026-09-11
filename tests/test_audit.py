@@ -178,7 +178,10 @@ class HandoffLearningRegression(Workspace):
         original = Path(shot['path']).read_bytes()
         before = {str(p): p.read_bytes() for p in self.camp.path.rglob('*') if p.is_file()}
         resumed = resume_run(self.root, 'example')
-        self.assertIn('Protect food', resumed['handoff']['snapshot']['strategy'])
+        self.assertNotIn('strategy',resumed['handoff']['snapshot'])
+        self.assertNotIn('Protect food',json.dumps(resumed))
+        self.assertEqual(Path(resumed['handoff']['snapshot']['current_files']['strategy']).name,'STRATEGY.md')
+        self.assertIn('Protect food',resume_run(self.root,'example',full=True)['handoff']['snapshot']['strategy'])
         self.assertEqual(before, {str(p): p.read_bytes() for p in self.camp.path.rglob('*') if p.is_file()})
         (self.camp.path / 'STRATEGY.md').write_text('New strategic decision')
         self.assertTrue(resume_run(self.root, 'example')['handoff']['changed_since_handoff']['strategy'])

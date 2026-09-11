@@ -115,6 +115,11 @@ class Facade(ControlFixture):
         with self.assertRaises(Error) as caught: self.body('rw_read',{'tool':'no_such_tool','args':{}})
         self.assertIn('rw_capabilities',str(caught.exception))
 
+    def test_missing_exact_capability_suggests_close_tool(self):
+        self.add_tools('draft')
+        with self.assertRaises(Error) as caught:self.body('rw_capabilities',{'tool':'draft_pawn'})
+        self.assertIn('draft',str(caught.exception));self.assertIn('Did you mean',str(caught.exception))
+
     def test_invalid_arguments_refused_before_dispatch(self):
         before=len(self.calls)
         with self.assertRaises(Error): self.body('rw_read',{'tool':'get_pawn','args':{'id':7}})
@@ -263,7 +268,9 @@ class Facade(ControlFixture):
         self.assertEqual(workflow['steps'][0]['tool'],'main_menu')
         trade=self.body('rw_capabilities',{'workflow':'trade'},4)
         self.assertEqual([x['tool'] for x in trade['steps']][:2],['list_trade','set_trade'])
-        with self.assertRaises(Error):self.body('rw_capabilities',{'overview':True,'domain':'food'},5)
+        crisis=self.body('rw_capabilities',{'workflow':'resume_crisis'},5)
+        self.assertEqual(crisis['steps'][0]['tool'],'get_status')
+        with self.assertRaises(Error):self.body('rw_capabilities',{'overview':True,'domain':'food'},6)
 
     def test_public_telemetry_includes_offline_tools_and_exact_response_bytes(self):
         value=self.body('rw_capabilities',{'tool':'get_pawn'})

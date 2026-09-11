@@ -19,17 +19,17 @@ Use real current IDs. `key` is the caller's label, not name resolution, and ever
 |---|---|---|
 | pawn, with id | summary | summary, needs, health, gear, bio, schedule |
 | production, with id | station, bills | station, bills, recipes, resources, worker, work_options |
-| decision | core, alerts | core, alerts, food, medical, mood, work, research, conditions, world; optional selected pawn facets |
+| decision | core, alerts | core, alerts, food, medical, mood, threat, work, research, conditions, world; optional selected pawn facets |
 
 Decision example:
 
 ```json
 {"reuse":true,"queries":[{"key":"recovery","preset":"decision",
-  "include":["core","alerts","food","medical","mood"],
+  "include":["core","alerts","food","medical","mood","threat"],
   "pawns":[{"id":"Human123","include":["health","needs"]}],"mood_below":35}]}
 ```
 
-The result places the materialized packet under `decisions.recovery` and retains its evidence IDs. Expanded raw sections are not duplicated in the default response. `reuse:true` is conservative and connection-scoped: waits invalidate volatile facts and mutations invalidate all prior facts; reused sections are labeled. Use a normal explicit query when an exact full response is the decision input.
+The result places the materialized packet under `decisions.recovery` and retains its evidence IDs. With `threat`, the nearby pawn read is anchored on the first selected pawn when supplied; include that pawn's summary/health/needs/gear when a current crisis needs them. Expanded raw sections are not duplicated in the default response. `reuse:true` is conservative and connection-scoped: waits invalidate volatile facts and mutations invalidate all prior facts; reused sections are labeled. Use a normal explicit query when an exact full response is the decision input.
 
 `detail:true` adds the game's hover details only to requested pawn needs/health. Production worker/work_options require worker_id. Resources are the game's aggregate resource result, not proof of reachable/unreserved ingredients. There is no invented work-priority getter. Recipes use actual list_recipes; recipe presence does not guarantee the chosen worker can perform it. Schedule uses the documented read form of set_schedule without assignment.
 

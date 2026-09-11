@@ -2,6 +2,21 @@
 
 Only one cooperating agent owns the game endpoint. Read the selected run's rules/current handoff; establish that the previous operator handed off. `controller inspect` is local. Claim with `controller claim --owner NAME --control-available --basis REASON`; retain its token. Connect/discover once, read actual get_status and bind the reviewed identity. Reuse a valid existing session; unfamiliar tool names call for offline capability discovery, not reconnecting.
 
+## Resume quickstart
+
+Keep global `--run` before the subcommand. `./rw resume NAME` returns equivalent `next_commands` adjusted for current local controller state.
+
+```sh
+./rw resume NAME
+./rw --run NAME controller inspect
+./rw --run NAME controller claim --owner OWNER --control-available --basis 'HANDOFF BASIS'
+./rw --run NAME call rw_read --token TOKEN --args '{"tool":"get_status","args":{}}'
+./rw --run NAME bind --observation OBS --expected 'IDENTITY JSON' --basis 'REVIEW BASIS' --token TOKEN
+./rw --run NAME session --token TOKEN
+```
+
+Do not claim when inspect shows an owner or unresolved request. A retained `session` object in controller inspection is cached RimMolt protocol metadata, not a running stdio process. Reuse it through ordinary calls/session; run `connect` only when the catalog/session is absent, stale, or the documented control flow requires a reconnect.
+
 Ownership prevents cooperating clients from interleaving. It cannot stop unrelated software or a human changing the game. All game reads may pause/change UI. Other agents remain offline while a player owns control. Never infer the authorized save from a colony name alone, and never reinterpret resume as permission to start/load another game.
 
 ## Persistent connection
@@ -19,7 +34,7 @@ This accepts ordinary newline-delimited MCP JSON-RPC on stdin/stdout. It keeps t
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"rw_wait","arguments":{"maxSeconds":60,"maxGameHours":4}}}
 ```
 
-`tools/list` serves the small local surface described in [facade](facade.md) with the captured catalog's capture date; the upstream tools stay reachable by name through `rw_read`/`rw_act` and discoverable through `rw_capabilities`. Refresh via connect/rebind if the server announces a change. `--expose-upstream-tools` is compatibility/testing-only and requires explicit authorization; ordinary play does not use it.
+`tools/list` serves the small local surface described in [facade](facade.md) with the captured catalog's capture date; the upstream tools stay reachable by name through `rw_read`/`rw_act` and discoverable through `rw_capabilities`. Refresh via connect/rebind only if the server announces a change or cached session/catalog is unavailable. `--expose-upstream-tools` is compatibility/testing-only and requires explicit authorization; ordinary play does not use it.
 
 Facade responses are self-contained and compact by default: current game facts, evidence ID, risk cards, optional change metadata and any coverage/control limitation. `rw_read view:full` makes a new live capture; `rw_retrieve` replays an existing observation locally. Under compatibility-only `--expose-upstream-tools`, a raw upstream call keeps its previous shape with a short metadata block. The existing hidden-AI-targeting exclusion remains on both paths. No strategy or automatic continuation runs inside the connection.
 

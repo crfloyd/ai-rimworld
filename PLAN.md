@@ -8,4 +8,4 @@ Design boundaries: compact reads are self-contained; delta-only output requires 
 
 Validation: offline regressions cover overview/workflow discovery, event context plus same-call verification, decision materialization, stable-versus-volatile reuse, batch preflight/fail-stop behavior, delivery markers and the existing facade safety contracts. Numbers and limits are in VALIDATION.md.
 
-Status: implementation, documentation and245-test offline validation complete; the next step is an independent live adoption test. No live game endpoint or save was used while implementing this release.
+Status: implementation, onboarding cleanup, documentation and247-test offline validation complete; the next step is an independent live adoption test. No live game endpoint or save was used while implementing this release.

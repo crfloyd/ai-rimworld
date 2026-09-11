@@ -18,7 +18,7 @@ Upstream names are not served directly. Ordinary play must use the facade. `--ex
 
 ## Reads, actions and waits
 
-`rw_read {"tool":"list_things","args":{...}}` runs one ordinary read. Effects are classified from the actual arguments, not the name: `order_pawn` without a command is a read, `set_schedule` without an assignment is a read, and `get_status` with arguments saves configuration and is refused as a mutation. A misrouted call names the tool to use instead and dispatches nothing. Denied and unclassified tools are refused in both directions. Every call still passes through the ordinary controller: ownership, unresolved requests, stale catalog, argument validation, identity binding, evidence, safety assessment and telemetry are unchanged.
+`rw_read {"tool":"list_things","args":{...}}` runs one ordinary read. Effects are classified from the actual arguments, not the name: `order_pawn` without a command is a read, `set_schedule` without an assignment is a read, and `get_status` with arguments saves configuration and is refused as a mutation. For upstream `get_pawn`, summary means omitting `tab`; `summary` is a facade pawn-preset facet, not a valid upstream tab. A misrouted call names the tool to use instead and dispatches nothing. Denied and unclassified tools are refused in both directions. Every call still passes through the ordinary controller.
 
 `rw_act` carries ordinary orders. `set_speed` with `action` pause remains the ordinary pause and stays available while a request is unresolved, exactly as before. An accepted order is a receipt, not arrival, treatment, delivery or completed construction.
 
@@ -30,13 +30,19 @@ When a wait reports an event or risk, `context:auto` (the default) performs one 
 
 ## Strategic affordances
 
-`rw_capabilities {"overview":true}` returns the compact domain map. Use `domain` for one area or `workflow` for an ordered `new_game`, `medical_event`, `combat_event`, `caravan`, `food_crisis` or `trade` guide. These contain names and one-line purposes, not schemas, live availability or permission. Fetch only a selected exact contract with `{"tool":"NAME"}`. When `get_window_ui` detects a trade dialog, the facade also reads a bounded semantic `list_trade` view, leads with that state and the dedicated list/set/finalize tools, and reduces generic UI geometry to control counts; full window evidence remains locally retrievable.
+`rw_capabilities {"overview":true}` returns the compact domain map. Use `domain` for one area or `workflow` for an ordered `new_game`, `resume_crisis`, `medical_event`, `combat_event`, `caravan`, `food_crisis` or `trade` guide. An unknown exact tool returns close-name suggestions before requiring another search. These contain names and one-line purposes, not live availability or permission; fetch only a selected exact contract with `{"tool":"NAME"}`. When `get_window_ui` detects a trade dialog, the facade also reads a bounded semantic `list_trade` view and reduces generic geometry to control counts.
 
 This overview replaces loading the complete one-line catalog at every session start. Search remains useful for a concept outside the curated map.
 
 ## Decision observations and reuse
 
-`rw_observe` supports `preset:"decision"` with caller-selected `include` topics: `core`, `alerts`, `food`, `medical`, `mood`, `work`, `research`, `conditions`, and `world`. Add selected pawns and only the facets required. The implementation performs ordinary evidence-preserving reads but materializes one narrow packet rather than returning every bundled status field as separate sections.
+`rw_observe` supports `preset:"decision"` with caller-selected `include` topics: `core`, `alerts`, `food`, `medical`, `mood`, `threat`, `work`, `research`, `conditions`, and `world`. Add selected pawns and only the facets required. A threat topic anchors nearby pawn state around the first selected pawn. The implementation performs ordinary evidence-preserving reads but materializes one narrow packet rather than returning every bundled status field as separate sections.
+
+```json
+{"queries":[{"key":"resume","preset":"decision",
+  "include":["core","alerts","food","medical","mood","threat","conditions"],
+  "pawns":[{"id":"Human123","include":["summary","health","needs","gear"]}]}]}
+```
 
 `reuse:true` may skip an upstream read only when the same tool/arguments are still current in this connection. Time advancement invalidates volatile facts; mutations conservatively invalidate every prior fact. Only explicitly stable facets such as biography, schedule reads and building assignments survive a wait. Reused sections say `reused:true` and retain their original evidence. Omit reuse when a genuinely fresh capture is required.
 

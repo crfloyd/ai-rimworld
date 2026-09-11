@@ -16,6 +16,16 @@ The active implementation scope is in PLAN.md; tested claims are in VALIDATION.m
 - [x] Distinguish per-operation game success from later local parsing/presentation failure; never imply a completed mutation/wait should be replayed.
 - [x] Update replay measurement, contracts and validation claims for speed-first self-contained responses, then run the full offline suite once.
 
+## Fresh-agent onboarding cleanup
+
+- [x] Return controller-aware resume command templates with correct global option placement.
+- [x] Keep default resume pointer-based; load archived rules/strategy/packet only with `--full-output`.
+- [x] Add a valid decision-preset example and clarify that upstream pawn summary omits `tab`.
+- [x] Suggest close capability names after an invalid exact lookup.
+- [x] Add a general threat decision facet and resume-crisis affordance workflow.
+- [x] Clarify cached session metadata versus a running stdio process and when reconnect is actually needed.
+- [x] Keep STRATEGY current-only; preserve prior strategy and history in immutable handoffs/journals instead of onboarding context.
+
 - Independently measure whether event packets, decision observations, action batches and cache reuse reduce model handovers and wall time in live resumed play.
 - Test compact overview/workflow discovery with a fresh-context new-game planner before trusting it for a live setup.
 - Measure rw_capabilities lookup volume after overview/workflow adoption; exact schemas remain deferred and heavy lookup can still erode the surface saving.

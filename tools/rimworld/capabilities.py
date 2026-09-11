@@ -2,6 +2,7 @@
 from pathlib import Path
 from . import __version__
 from functools import lru_cache
+import difflib
 import re
 from .core import Error,read_json
 
@@ -32,6 +33,7 @@ WORKFLOWS = {
     'caravan': ('list_world_objects','form_caravan','caravan_action','get_world_tile','world_object_action'),
     'food_crisis': ('get_status','get_resources','list_things','list_bills','set_work_priority','order_pawn'),
     'trade': ('list_trade','set_trade','list_trade','trade_action'),
+    'resume_crisis': ('get_status','rw_observe','read_letter','get_pawn','list_things','draft','order_pawn','rw_wait'),
 }
 
 @lru_cache(maxsize=1)
@@ -49,7 +51,14 @@ def discover(root, query='', tool=None, campaign=None):
     catalog['tools'].update(TOOLS)
     def classification(name):return LOCAL_EFFECTS[name] if name in TOOLS else effect(name,{})
     if tool:
-        if tool not in catalog['tools']:raise Error('Tool not present in this catalog.')
+        if tool not in catalog['tools']:
+            names=list(catalog['tools'])
+            close=difflib.get_close_matches(tool,names,n=5,cutoff=.35)
+            stem=set(re.findall(r'[a-z0-9]+',tool.lower().replace('_',' ')))
+            related=[name for name in names if stem and stem & set(name.lower().split('_'))]
+            suggestions=list(dict.fromkeys(close+related))[:5]
+            suffix=(' Did you mean: '+', '.join(suggestions)+'?' if suggestions else ' Search with query or a capability domain/workflow.')
+            raise Error('Tool not present in this catalog.'+suffix)
         provenance=({'origin':'local','local_version':__version__,
                      'upstream_catalog_captured_at':catalog.get('captured_at')} if tool in TOOLS else
                     {'origin':'upstream','captured_at':catalog.get('captured_at')})

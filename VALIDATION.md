@@ -1,6 +1,8 @@
 # Validation —0.9.0
 
-**245 offline tests pass**, including the complete live-friction regression batch. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No live endpoint, game UI or saves were used for0.9.0 implementation testing.
+**247 offline tests pass**, including the complete live-friction and fresh-onboarding regression batches. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No live endpoint, game UI or saves were used for0.9.0 implementation testing.
+
+Fresh-resume coverage confirms the default result does not duplicate archived strategy/rules/packet text, exposes current-file pointers and returns controller-aware command templates with global `--run` placement. `--full-output` still recovers the immutable strategy and packet. Invalid exact capability names provide close suggestions, and a threat decision preset anchors a bounded pawn listing around the first selected pawn while retaining status threat/mental-state context.
 
 Serialized `tools/list` declarations are **13,545bytes** versus142,785for the upstream catalog (**10.5× smaller**). The complete strategic overview response is11,884bytes; targeted setup-domain/new-game-workflow responses are2,013/2,601bytes, while trade domain/workflow responses are887/685bytes. These are serialized bytes, not tokens. Targeted domain/workflow discovery is preferred when the whole overview is unnecessary.
 

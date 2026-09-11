@@ -20,7 +20,7 @@ KEY={'type':'string','pattern':'^[a-z][a-z0-9_-]{0,39}$'}
 def includes(names):
     return {'type':'array','items':{'enum':list(names)},'minItems':1,'uniqueItems':True}
 PAWN_FACETS=('summary','needs','health','gear','bio','schedule')
-DECISION_TOPICS=('core','alerts','food','medical','mood','work','research','conditions','world')
+DECISION_TOPICS=('core','alerts','food','medical','mood','threat','work','research','conditions','world')
 DECISION_PAWN=obj({'id':STRING,'include':includes(PAWN_FACETS)},['id'])
 QUERY={'oneOf':[
     obj({'key':KEY,'tool':STRING,'args':ARGS},['key','tool']),
@@ -85,6 +85,10 @@ def expand(queries):
             topics=q.get('include') or ['core','alerts']
             if any(t!='world' for t in topics):expanded.append({'key':prefix+'.status','tool':'get_status','args':{}})
             if 'world' in topics:expanded.append({'key':prefix+'.world','tool':'list_world_objects','args':{}})
+            if 'threat' in topics:
+                args={'category':'pawn','limit':20}
+                if q.get('pawns'):args.update(nearId=q['pawns'][0]['id'],radius=50)
+                expanded.append({'key':prefix+'.threat','tool':'list_things','args':args})
             for i,pawn in enumerate(q.get('pawns') or []):
                 for facet in pawn.get('include') or ['summary']:
                     tool,args=PAWN[facet]({'id':pawn['id']})
@@ -232,6 +236,10 @@ def decision_status(data, topics, mood_below=35):
         result['medicine']=_resources(resources,('medicine','medkit'))
     if 'mood' in topics:
         result['mood']=[p for p in colonists if isinstance(p.get('mood'),(int,float)) and p['mood']<=mood_below or p.get('mentalState')]
+    if 'threat' in topics:
+        result['threat']={'warning':data.get('_threatWarning'),
+                          'dangerByMap':alerts.get('dangerByMap'),
+                          'mentalStates':[p for p in colonists if p.get('mentalState')]}
     if 'work' in topics:
         result['work']=[{k:p.get(k) for k in ('id','name','job','downed','mentalState') if k in p} for p in colonists]
     if 'research' in topics:result['research']=bundled.get('get_research')
@@ -249,6 +257,10 @@ def materialize_decisions(result, specs, evidence):
             packet.update(decision_status(status['data'],topics,q.get('mood_below',35)))
         world=result['sections'].pop(key+'.world',None)
         if world and 'data' in world:packet['world']=world['data']
+        threat=result['sections'].pop(key+'.threat',None)
+        if threat and 'data' in threat:
+            existing=packet.get('threat') or {}
+            packet['threat']={**existing,'nearby':threat['data'],'evidence':evidence.get(key+'.threat')}
         selected=[]
         for i,pawn in enumerate(q.get('pawns') or []):
             facets={}

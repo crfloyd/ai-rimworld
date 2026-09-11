@@ -81,8 +81,24 @@ def resume_run(root, name, *, full=False):
     result['read_first'] = [str(directory / f) for f in READ_FIRST]
     result['missing_files'] = [f for f in result['read_first'] if not Path(f).is_file()]
     from .memory import Campaign
-    from .continuity import resume_snapshot
-    result['handoff'] = resume_snapshot(Campaign(root, name), full=full)
+    from .continuity import resume_snapshot, runtime_snapshot
+    campaign=Campaign(root,name)
+    result['handoff'] = resume_snapshot(campaign, full=full)
+    runtime=runtime_snapshot(campaign)
+    commands=[f'./rw --run {name} controller inspect']
+    if runtime.get('owner'):
+        commands.append('Existing owner must complete or release its handoff; do not reuse its token or claim over it.')
+    elif runtime.get('pending') or runtime.get('composition'):
+        commands.append('Resolve the recorded pending/composition state under docs/control.md before claiming; never replay it.')
+    else:
+        commands.extend([
+            f'./rw --run {name} controller claim --owner OWNER --control-available --basis BASIS',
+            f'./rw --run {name} call rw_read --token TOKEN --args \'{{"tool":"get_status","args":{{}}}}\'',
+            f'./rw --run {name} bind --observation OBS --expected EXPECTED_JSON --basis BASIS --token TOKEN',
+            f'./rw --run {name} session --token TOKEN'])
+    result['next_commands']=commands
+    result['cached_session_metadata']=bool(runtime.get('session'))
+    result['cached_session_note']='Cached protocol metadata is not a live stdio process and does not by itself require reconnecting.'
     result['live_game_checked'] = False
     result['next'] = (
         f'Read this run\'s rules, current strategy and issues; use --run {name} explicitly. '

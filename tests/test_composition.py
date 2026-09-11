@@ -310,6 +310,27 @@ class CompositionTests(ControlFixture):
         self.assertEqual(packet['pawns'][0]['facets']['summary']['mood'],20)
         self.assertNotIn('recovery.status',result['sections'])
 
+    def test_decision_threat_facet_anchors_near_selected_pawn(self):
+        self.add_tools('list_things')
+        self.responses.extend([
+            {'loaded':True,'colonyName':'Fixture Colony','ticksGame':300100,'paused':True,
+             'maps':[{'mapIndex':0,'name':'Fixture','isPlayerHome':True}],
+             '_threatWarning':{'count':1},'bundled':{
+                'list_colonists':{'loaded':True,'count':1,'colonists':[{'id':'p','name':'P','mentalState':'berserk'}]},
+                'get_alerts':{'loaded':True,'dangerByMap':[{'mapIndex':0,'dangerRating':'Low'}],
+                              'activeAlerts':[],'activeLetters':[],'recentMessages':[]}}},
+            {'things':[{'id':'p','hostile':True,'x':10,'z':10},{'id':'w','x':12,'z':10}]},
+            {'id':'p','name':'P','mentalState':'berserk','x':10,'z':10}
+        ])
+        spec={'queries':[{'key':'crisis','preset':'decision','include':['core','threat'],
+                          'pawns':[{'id':'p','include':['summary']}]}]}
+        result=Composer(self.control,self.token).execute('rw_observe',spec)
+        delivered(self.control,self.token,result['composition'])
+        packet=result['decisions']['crisis']
+        self.assertEqual(packet['threat']['warning']['count'],1)
+        self.assertEqual(packet['threat']['nearby']['things'][0]['id'],'p')
+        self.assertEqual(self.calls[-2]['arguments']['nearId'],'p')
+
     def test_reuse_respects_stable_and_volatile_invalidation(self):
         from tools.rimworld.facade import Memo
         self.add_tools('set_schedule')

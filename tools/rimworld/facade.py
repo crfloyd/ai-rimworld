@@ -19,7 +19,7 @@ VIEW={'enum':['compact','summary','full']}
 FIELDS={'type':'array','items':STRING,'minItems':1,'maxItems':32,'uniqueItems':True}
 
 CAPABILITY_DOMAINS=['setup','colony','pawns','medical','food','combat','building','world','quests','trade','production']
-CAPABILITY_WORKFLOWS=['new_game','medical_event','combat_event','caravan','food_crisis','trade']
+CAPABILITY_WORKFLOWS=['new_game','medical_event','combat_event','caravan','food_crisis','trade','resume_crisis']
 CAPABILITIES_SCHEMA=obj({'query':{'type':'string'},'tool':STRING,'overview':{'type':'boolean'},
                          'domain':{'enum':CAPABILITY_DOMAINS},'workflow':{'enum':CAPABILITY_WORKFLOWS}})
 READ_SCHEMA=obj({'tool':STRING,'args':ARGS,'view':VIEW,'fields':FIELDS,'row_fields':FIELDS,
@@ -40,7 +40,7 @@ RETRIEVE_SCHEMA=obj({'observation':STRING,'tool':STRING,'entity':STRING,'ref':ST
 TOOLS={
  'rw_capabilities':{'name':'rw_capabilities','description':
   'Discover available actions without loading the catalog. overview/domain gives a compact affordance map; workflow gives an ordered '
-  'new_game, medical_event, combat_event, caravan, food_crisis or trade guide. query finds names; tool returns one exact schema/effect. '
+  'new_game, medical_event, combat_event, caravan, food_crisis, trade or resume_crisis guide. query finds names; tool returns one exact schema/effect. '
   'Offline only; grants no permission.',
   'inputSchema':CAPABILITIES_SCHEMA,'annotations':{'readOnlyHint':True}},
  'rw_read':{'name':'rw_read','description':

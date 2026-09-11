@@ -14,7 +14,7 @@ The live player owns current STRATEGY/ISSUES and all immediate decisions. Report
 
 ## Enter a run — player
 
-For a new game, use [startup](docs/startup.md), honoring the user's supplied choices and delegation. For a resume, read that run's CAMPAIGN.md, current STRATEGY.md and open ISSUES.md, plus the small `rw resume NAME` handoff/change flags. STATE, full packets, all history and maintenance plans are on-demand references. Missing knowledge remains unknown; retrieve it before decisions that need it.
+For a new game, use [startup](docs/startup.md), honoring the user's supplied choices and delegation. For a resume, read that run's CAMPAIGN.md, current-only STRATEGY.md and open ISSUES.md, plus the small `rw resume NAME` handoff/change flags and `next_commands`. STATE, full packets, immutable handoffs, all history and maintenance plans are on-demand references. Missing knowledge remains unknown; retrieve it before decisions that need it.
 
 Establish sole control and no pending request through [control](docs/control.md). Revalidate the actual game and identity. Reuse a valid session; unfamiliar names call for the small [API index](docs/api/README.md) and exact contracts, not a reconnect or guesses. The complete API remains discoverable. Read only the relevant reference section; parse JSONL records selectively instead of dumping raw transcript lines.
 
@@ -46,7 +46,7 @@ For one-shot CLI output, use built-in `--select` JSON Pointers instead of `pytho
 
 ## Continuity and learning
 
-Keep a concise current strategy with urgent risks, unfinished jobs, restoration duties, rationale and exact evidence pointers. Preserve known participant roles, role-specific needs and critical-worker dependencies; a roster or HP summary is not complete coverage. Record unknowns rather than assuming them away. Replace superseded orders; retain their history on disk. Before compaction or handoff, preserve current context and any pending handle, then verify pause before releasing control. Carry the API index pointer and only relevant interface uncertainties, not the full manual.
+Keep STRATEGY.md as one concise current account with urgent risks, unfinished jobs, restoration duties, rationale and exact evidence pointers. Replace it when handing off; never append prior strategy/handoff bodies beneath the current state. Immutable handoff files and journals already preserve that history. Preserve known participant roles, role-specific needs and critical-worker dependencies; a roster or HP summary is not complete coverage. Record unknowns rather than assuming them away. Before compaction or handoff, preserve current context and any pending handle, then verify pause before releasing control. Carry the API index pointer and only relevant interface uncertainties, not the full manual.
 
 Use `mechanics`, `recall` and [knowledge](knowledge/INDEX.md) when the decision would benefit. Campaign surprises and tactical lessons stay local; shared mechanics explain general rules. Read [memory](docs/memory.md) for memory changes and [knowledge boundary](docs/knowledge-boundary.md) before shared edits. A retrieved lesson is evidence/advice, not a live fact or permission.
 

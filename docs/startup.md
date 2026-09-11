@@ -23,7 +23,7 @@ RimWorld manages actual game saves. Record the observed save label and identifyi
 ## Route the player's request before doing setup
 
 - **Start a new run:** extract the provided preferences, resolve meaningful gaps below, choose or obtain a unique name, then create new local records. No separate confirmation is needed for an already explicit new-run request.
-- **Resume a named run:** use its existing records. Read the rules, current strategy and open issues; full STATE/history are optional retrieval indexes, not mandatory preload; do not repeat its setup interview, initialize it again, or copy its facts into a new campaign. A recorded mode=fresh describes its original creation, not an instruction to start over on every session.
+- **Resume a named run:** use its existing records. Read the rules, current-only strategy, open issues and compact `rw resume NAME` result/next commands. Full packets, immutable handoffs, STATE and history are optional retrieval indexes, not mandatory preload; do not repeat its setup interview, initialize it again, or copy its facts into a new campaign. A recorded mode=fresh describes its original creation, not an instruction to start over on every session.
 - **Continue without a name:** use an unambiguous run already selected in this conversation. Otherwise list the local runs and ask which one; recency alone is not authority to control a game.
 - **Unclear new versus resume:** ask this one routing question first. Do not interview for a new game while the player may mean an existing colony.
 - **Read a history or discuss strategy:** use saved records. Do not acquire game control just to answer.

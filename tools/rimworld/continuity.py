@@ -199,15 +199,18 @@ def resume_snapshot(campaign, *, full=False):
     changes['strategy'] = (campaign.path / 'STRATEGY.md').read_text() != snapshot['strategy']
     changes['rules_or_session'] = campaign.meta != snapshot['rules']
     changes['local_learning'] = snapshot.get('local_learning_digest') != digest({str(p.relative_to(campaign.path)): p.read_text() for p in sorted((campaign.path / 'knowledge').rglob('*.json'))})
+    current_files={'rules':str(campaign.path/'CAMPAIGN.md'),'strategy':str(campaign.path/'STRATEGY.md'),
+                   'issues':str(campaign.path/'ISSUES.md'),
+                   'strategy_digest_at_handoff':digest(snapshot['strategy'])}
     return {'snapshot': {'id': snapshot['id'], 'path': str(path), 'at': snapshot['at'],
                          'next_action': snapshot['next_action'], 'uncertainties': snapshot['uncertainties'],
-                         'rules': snapshot['rules'], 'strategy': snapshot['strategy'],
-                         **({'packet':snapshot['packet']} if full else {'packet_index':{
+                         'current_files':current_files,
+                         **({'rules':snapshot['rules'],'strategy':snapshot['strategy'],'packet':snapshot['packet']} if full else {'packet_index':{
                              'path':str(path), 'field':'packet',
                              'fields':list(snapshot['packet']),
                              'active_risk_records':len(snapshot['packet'].get('active_risks',[])),
                              'missing_coverage_records':len(snapshot['packet'].get('missing_coverage',[])),
                              'pending_action_records':len(snapshot['packet'].get('pending_actions',[])),
-                             'detail_required':'Read current strategy/issues and retrieve relevant original evidence when needed; full STATE/packets are optional indexes, and counts do not resolve risks or work.'}})},
+                             'detail_required':'Current files are authoritative. Retrieve this immutable packet only for a decision that needs older evidence; counts do not resolve risks or work.'}})},
             'changed_since_handoff': changes,
             'next': 'Use the returned handoff and changed-file flags; retrieve full historical detail only where the decision needs it. Live status, control and mutable facts require revalidation.'}

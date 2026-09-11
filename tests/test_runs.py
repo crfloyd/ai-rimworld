@@ -83,6 +83,9 @@ class RunEntryTests(unittest.TestCase):
         self.assertEqual(result['missing_files'], [])
         self.assertEqual([Path(p).name for p in result['read_first']], ['CAMPAIGN.md','STRATEGY.md','ISSUES.md'])
         self.assertFalse(result['live_game_checked'])
+        self.assertEqual(result['next_commands'][0],'./rw --run ember controller inspect')
+        self.assertIn('./rw --run ember controller claim',result['next_commands'][1])
+        self.assertIn('not a live stdio process',result['cached_session_note'])
         self.assertEqual(self.snapshot(), before)
         self.assertFalse((self.root / '.runtime').exists())
 
