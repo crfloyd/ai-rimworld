@@ -1,6 +1,8 @@
 # API reference
 
-For related reads, local `rw_observe` groups selected pawn/production sections or explicit reads in one exchange. `rw_guard` adds an agent-authored condition and at most one literal action, with unknown-data abstention. Both are exposed by persistent session discovery and `capabilities`; [composition](../composition.md) gives examples. The113-tool captured upstream catalog below remains separate from these two local tools.
+Persistent session discovery serves a small stable surface: `rw_capabilities`, `rw_read`, `rw_act`, `rw_wait`, `rw_retrieve`, plus `rw_observe` and `rw_guard`. The113-tool upstream catalog stays reachable by name through `rw_read`/`rw_act`, with `rw_capabilities` supplying exact schemas on request; it is no longer advertised in `tools/list`. See [facade](../facade.md) for the surface and views, and [composition](../composition.md) for the grouped-read and guarded-action examples.
+
+For related reads, local `rw_observe` groups selected pawn/production sections or explicit reads in one exchange. `rw_guard` adds an agent-authored condition and at most one literal action, with unknown-data abstention.
 
 [Full readable 113-tool reference](API-REFERENCE.md) — use its index for one tool at a time.
 
@@ -11,6 +13,8 @@ The complete captured input catalog lives in [catalog.json](../../api/catalog.js
 ./rw capabilities --tool form_caravan
 ./rw --run NAME capabilities --tool get_pawn
 ```
+
+In a session the same lookup is `rw_capabilities {"query":"caravan"}` for ranked names and `rw_capabilities {"tool":"form_caravan"}` for one exact schema. Search returns names and one-line descriptions only; schemas are fetched per selected tool, so browsing the whole API is never necessary.
 
 Without a run, discovery uses the shipped snapshot. With a run, it reads that run's last captured catalog. Both are offline and explicitly dated. Reconnect under owned control to discover actual current tools. Unknown tools remain visible but require effect review before execution.
 

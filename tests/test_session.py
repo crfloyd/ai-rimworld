@@ -3,11 +3,13 @@ from unittest.mock import patch
 from test_system import ControlFixture,CATALOG
 from tools.rimworld.core import Error,read_json,atomic_json
 from tools.rimworld.mcp import Uncertain
+from tools.rimworld.facade import local
 from tools.rimworld.session import Session,serve
 
 class PersistentMCP(ControlFixture):
+    """Legacy direct-upstream surface, retained behind the explicit exposure flag."""
     def setUp(self):
-        super().setUp();self.session=Session(self.control,self.token)
+        super().setUp();self.session=Session(self.control,self.token,expose_upstream=True)
     def req(self,name,args=None,rid=1):
         return {'jsonrpc':'2.0','id':rid,'method':'tools/call','params':{'name':name,'arguments':args or {}}}
     def test_initialize_catalog_and_notifications_do_not_contact_game(self):
@@ -15,7 +17,8 @@ class PersistentMCP(ControlFixture):
         r=self.session.handle({'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-03-26'}})
         self.assertEqual(r['result']['protocolVersion'],'2025-03-26')
         r=self.session.handle({'jsonrpc':'2.0','id':2,'method':'tools/list'})
-        self.assertEqual({t['name'] for t in r['result']['tools']},set(CATALOG)|{"rw_observe","rw_guard"})
+        self.assertEqual({t['name'] for t in r['result']['tools']},set(CATALOG)|set(local()))
+        self.assertTrue(r['result']['_meta']['upstream_exposed'])
         self.assertIsNone(self.session.handle({'jsonrpc':'2.0','method':'tools/call','params':{'name':'order_pawn'}}))
         self.assertEqual(before,len(self.calls))
     def test_each_read_is_full_and_novel_fields_survive(self):
@@ -74,14 +77,14 @@ class PersistentMCP(ControlFixture):
         class Broken(io.StringIO):
             def write(self,text):raise BrokenPipeError('Disconnected consumer')
         with patch.object(self.control,'ensure_paused',return_value={'confirmed':True}),self.assertRaises(BrokenPipeError):
-            serve(self.control,self.token,io.StringIO(json.dumps(self.req('get_pawn',{'id':'p'}))+'\n'),Broken())
+            serve(self.control,self.token,io.StringIO(json.dumps(self.req('get_pawn',{'id':'p'}))+'\n'),Broken(),expose_upstream=True)
         self.assertEqual(read_json(self.control.path/'pending.json')['status'],'unknown')
     def test_interrupted_delivery_records_uncertainty(self):
         self.responses.append({'ok':True,'executed':True})
         class Interrupted(io.StringIO):
             def write(self,text):raise KeyboardInterrupt('Interrupted output')
         with patch.object(self.control,'ensure_paused',return_value={'confirmed':True}),self.assertRaises(KeyboardInterrupt):
-            serve(self.control,self.token,io.StringIO(json.dumps(self.req('order_pawn',{'id':'p','command':'Go here'}))+'\n'),Interrupted())
+            serve(self.control,self.token,io.StringIO(json.dumps(self.req('order_pawn',{'id':'p','command':'Go here'}))+'\n'),Interrupted(),expose_upstream=True)
         self.assertEqual(read_json(self.control.path/'pending.json')['status'],'unknown')
         before=len(self.calls);self.session.handle(self.req('order_pawn',{'id':'p','command':'Go here'},2));self.assertEqual(before,len(self.calls))
 
@@ -98,7 +101,7 @@ class PersistentMCP(ControlFixture):
         self.assertTrue((self.control.path/'pause-uncertain.json').exists())
     def test_malformed_json_followed_by_valid_request(self):
         output=io.StringIO();self.responses.append({'id':'p'})
-        with patch.object(self.control,'ensure_paused',return_value={'confirmed':True}):serve(self.control,self.token,io.StringIO('bad\n'+json.dumps(self.req('get_pawn',{'id':'p'}))+'\n'),output)
+        with patch.object(self.control,'ensure_paused',return_value={'confirmed':True}):serve(self.control,self.token,io.StringIO('bad\n'+json.dumps(self.req('get_pawn',{'id':'p'}))+'\n'),output,expose_upstream=True)
         rows=[json.loads(line) for line in output.getvalue().splitlines()]
         self.assertEqual(rows[0]['error']['code'],-32700);self.assertIn('result',rows[1])
 

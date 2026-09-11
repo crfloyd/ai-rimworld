@@ -15,11 +15,13 @@ After ownership and binding, run:
 This accepts ordinary newline-delimited MCP JSON-RPC on stdin/stdout. It keeps the process open, avoiding repeated host shell launches. A native MCP client can use the same stdio interface; in the desktop executor, retain the process session ID and use its stdin tool. Send one request per line and await its matching reply. Do not send precommitted mutations after a wait before reviewing the returned event.
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_status","arguments":{}}}
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"wait_for_event","arguments":{"maxSeconds":60,"maxGameHours":4,"pause":"always"}}}
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rw_read","arguments":{"tool":"get_status","args":{}}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"rw_wait","arguments":{"maxSeconds":60,"maxGameHours":4}}}
 ```
 
-The response forwards ordinary MCP content, media and unfamiliar fields. The existing explicit hidden-AI-targeting exclusion remains. A short additional text block provides an evidence ID and any coverage/control limitation. No positional deltas or risk-policy cards are inserted into this path. `tools/list` exposes the selected run's captured catalog with capture date; refresh via connect/rebind if the server announces a change. No strategy or automatic continuation runs inside the connection.
+`tools/list` serves the small local surface described in [facade](facade.md) with the captured catalog's capture date; the113upstream tools stay reachable by name through `rw_read`/`rw_act` and discoverable through `rw_capabilities`. Refresh via connect/rebind if the server announces a change. Start `session --expose-upstream-tools` to also advertise and accept raw upstream names.
+
+Facade responses are compact by default: game facts, the evidence ID, risk cards, changed fields and any coverage/control limitation, with `view` full replaying the complete stored original from local evidence. Under `--expose-upstream-tools` a raw upstream call keeps its previous shape, forwarding ordinary MCP content, media and unfamiliar fields with a short additional metadata text block and no inserted deltas or risk cards. The existing explicit hidden-AI-targeting exclusion remains on both paths. No strategy or automatic continuation runs inside the connection.
 
 `call TOOL --args JSON --token TOKEN` remains available for single calls. Raw requests/results and normalized evidence are automatic. Routine calls need no intention/goal bookkeeping. `act`, explicit `--track` or checks remain for deliberate strategic outcome tracking. These require a meaningful intention and actual outcome proof; a receipt cannot prove arrival, treatment, delivery or construction.
 

@@ -1,6 +1,6 @@
 # Illustrated history
 
-The historian owns the complete reporting workflow under [agent-flow](agent-flow.md); only the player captures live scenes. Keep two outputs: an operational report and the colony's narrative book. Both derive from real evidence. Neither raw tool logs nor plans are completed game events. Reporting proceeds from saved evidence while the player continues; no game calls from the historian.
+The current agent normally owns the complete reporting workflow under [agent-flow](agent-flow.md) after reaching a safe pause; only the live player captures scenes. A separately delegated historian is optional for work from already-saved evidence and makes no game calls. Keep two outputs: an operational report and the colony's narrative book. Both derive from real evidence. Neither raw tool logs nor plans are completed game events.
 
 ## Capture
 

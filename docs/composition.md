@@ -1,6 +1,6 @@
 # Composed observations and guarded actions
 
-These are local tools advertised alongside the captured RimMolt catalog by `session` and `capabilities`. They use the same owned ordinary calls, evidence journal and uncertainty guards as individual tools. They do not install a game mod or infer strategy.
+These are local tools served by `session` and `capabilities` as part of the small public surface described in [facade](facade.md). They use the same owned ordinary calls, evidence journal and uncertainty guards as individual tools. They do not install a game mod or infer strategy.
 
 ## Ask for related facts once
 

@@ -20,7 +20,7 @@ Risk labels are advisory, not an exhaustive hazard model. Do not substitute HP f
 
 ## Current state and handoff
 
-STRATEGY is one current account. Replace superseded orders while preserving their historical evidence; do not accumulate contradictory CURRENT/emergency overrides. Keep known participant roles, dependencies, pending request/actual process handle, exact temporary settings and restoration conditions. A player owns current-state edits; the historian owns reports. Capture current state before compaction or transfer without an arbitrary summary limit that forces important facts out.
+STRATEGY is one current account. Replace superseded orders while preserving their historical evidence; do not accumulate contradictory CURRENT/emergency overrides. Keep known participant roles, dependencies, pending request/actual process handle, exact temporary settings and restoration conditions. The live player owns current-state edits; reporting normally follows at a safe pause, with an optional historian owning only a separately delegated report. Capture current state before compaction or transfer without an arbitrary summary limit that forces important facts out.
 
 handoff captures rules, strategy, evidence pointers, issues, optional tracked outcomes, local lessons, journal boundaries and controller/request state, including an unfinished composition and handle. Snapshots are immutable. resume shows the saved handoff and changed-since-snapshot flags without loading a save or starting time. The default is a small strategy/change/index view; --full-output exposes the full packet.
 
@@ -46,4 +46,4 @@ lesson writes stay in the selected campaign. Promotion requires a reviewed gener
 
 metrics reads recorded request timings and explicit phase markers; it is an analysis operation, not a routine play step. Transport/persistence time excludes model thinking and host orchestration. Account for actual sleep/idle periods before comparing wall-clock throughput. Use the pinned Python runtime; pre3.10macOS monotonic epochs are process-local. Clock IDs must identify the same boot; incompatible/negative/nonfinite intervals are rejected.
 
-Preserve campaign files through the user's backup workflow; they are excluded from source Git by default. Do not keep active authority only in /tmp. Rebuildable indexes may be reconstructed from intact journals; corrupt authority requires reconciliation. Root HANDOFF.md is tooling status/routing only, never campaign instructions. Carry the small docs/api/README.md pointer across compaction, not the full manual.
+Preserve campaign files through the user's backup workflow; they are excluded from source Git by default. Do not keep active authority only in /tmp. Rebuildable indexes may be reconstructed from intact journals; corrupt authority requires reconciliation. Carry the small docs/api/README.md pointer across compaction, not the full manual.

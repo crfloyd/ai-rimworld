@@ -2,6 +2,7 @@ import json,tempfile,unittest
 from pathlib import Path
 from tools.rimworld.capabilities import discover,spatial
 from tools.rimworld.control import effect
+from tools.rimworld.facade import LOCAL_EFFECTS,local
 from tools.rimworld.mechanics import search,save
 from tools.rimworld.observations import normalize,unpack_rows
 from tools.rimworld.core import Error
@@ -10,7 +11,9 @@ ROOT=Path(__file__).resolve().parents[1]
 class Discovery(unittest.TestCase):
     def test_every_catalog_tool_discoverable_and_classified(self):
         cat=json.loads((ROOT/'api/catalog.json').read_text())
-        self.assertEqual(discover(ROOT)['total'],115)
+        self.assertEqual(discover(ROOT)['total'],len(cat['tools'])+len(local()))
+        for n,t in local().items():
+            self.assertEqual(discover(ROOT,tool=n)['default_effect'],LOCAL_EFFECTS[n])
         for n,t in cat['tools'].items():
             self.assertEqual(discover(ROOT,tool=n)['tool'],t)
             self.assertNotEqual(effect(n,{}),'unclassified')

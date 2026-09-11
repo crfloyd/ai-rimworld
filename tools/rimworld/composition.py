@@ -189,8 +189,9 @@ def compact_result(result):
 
 
 class Composer:
-    def __init__(self, control, token, on_observation=None):
+    def __init__(self, control, token, on_observation=None, driver="agent_composition"):
         self.control=control;self.token=token;self.on_observation=on_observation or (lambda _:None)
+        self.driver=driver
         self.path=control.path/'composition.json';self.record=None
 
     def save(self):
@@ -200,7 +201,7 @@ class Composer:
     def read(self, queries, output):
         for i,q in enumerate(queries):
             self.record['phase']='reading';self.record['next_query']=q;self.save()
-            value=self.control.call(self.token,q['tool'],q['args'])
+            value=self.control.call(self.token,q['tool'],q['args'],driver=self.driver)
             self.on_observation(value['id'])
             output[q['key']],incomplete=capture(self.control,value)
             self.record['observations'].append({'key':q['key'],'id':value['id'],'source':output[q['key']]['source'],'coverage':output[q['key']]['coverage']});self.save()
@@ -209,8 +210,8 @@ class Composer:
         return None
 
     def execute(self, name, spec):
-        if set(TOOLS) & set(read_json(self.control.campaign.path/'raw/catalog.json')['tools']):
-            raise Error('Local composition name collides with upstream catalog.')
+        from .facade import reserved
+        reserved(read_json(self.control.campaign.path/'raw/catalog.json'))
         validate(TOOLS[name]['inputSchema'],spec)
         queries=expand(spec['queries']);verify=expand(spec['verify']) if spec.get('verify') else []
         if len(queries)+len(verify)>32:raise Error('Use at most32 total reads including verification.')
@@ -264,7 +265,7 @@ class Composer:
         if branch not in spec:
             result['verification_not_run']=[q['key'] for q in verify];result['action_status']='not_requested';return
         command=spec[branch];self.record.update(phase='action',selected_branch=branch,action=command);self.save()
-        value=self.control.call(self.token,command['tool'],command.get('args',{}))
+        value=self.control.call(self.token,command['tool'],command.get('args',{}),driver=self.driver)
         self.on_observation(value['id'])
         result['action'],incomplete=capture(self.control,value);result['action_status']='receipt_only'
         self.record['action_evidence']=value['id'];self.save()

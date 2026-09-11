@@ -126,6 +126,7 @@ def parser():
     q.add_argument("--file", type=Path, required=True); q.add_argument("--token", required=True)
     q = sub.add_parser("session", help="Persistent standard MCP JSON-RPC over stdin/stdout; reuse owned control.")
     q.add_argument("--token", required=True); q.add_argument("--setup", action="store_true")
+    q.add_argument("--expose-upstream-tools", action="store_true", help="Also advertise the captured upstream catalog; the facade is the default surface.")
     q = sub.add_parser("shot")
     q.add_argument("op", choices=("windows", "add", "capture", "review"))
     q.add_argument("--file", type=Path); q.add_argument("--window", type=int)
@@ -267,7 +268,7 @@ def run(args):
                 "tools": [{"name": name, "effect": effect(name, {})} for name in catalog["tools"]]}
     if command == "session":
         from .session import serve
-        return serve(control, args.token, setup=args.setup)
+        return serve(control, args.token, setup=args.setup, expose_upstream=args.expose_upstream_tools)
     if command == "act":
         spec = obj(args.json); require_fields(spec, ("tool", "intent"))
         from .outcomes import contract
@@ -286,6 +287,11 @@ def run(args):
         return Composer(control,args.token).execute('rw_'+command,spec)
     if command == "call":
         from .composition import TOOLS, Composer
+        from . import facade
+        if args.tool in facade.TOOLS:
+            if args.intent or args.track or args.check:
+                raise Error('The facade uses its own explicit schema; tracking flags are not supported.')
+            return facade.dispatch(control,args.token,args.tool,obj(args.args),setup=args.setup)
         if args.tool in TOOLS:
             if args.intent or args.track or args.check or args.setup:
                 raise Error('Local composition uses its own explicit schema; tracking/setup flags are not supported.')
@@ -345,9 +351,11 @@ def main(argv=None):
         if args.command == "session": return 0
         from .presentation import present
         from .composition import TOOLS, delivered
-        local = args.command in ('observe','guard') or (args.command=='call' and args.tool in TOOLS)
+        from . import facade
+        composed = args.command in ('observe','guard') or (args.command=='call' and args.tool in TOOLS)
+        local = composed or (args.command=='call' and args.tool in facade.TOOLS)
         print(result if isinstance(result, str) else json.dumps(result if args.full_output or args.command == "retrieve" or local else present(result), ensure_ascii=False, separators=(",", ":"), allow_nan=False), flush=True)
-        if local:
+        if composed:
             delivered(Control(Campaign(args.root,args.campaign)),args.token,result['composition'])
         return 0
     except (Error, OSError, ValueError, KeyError) as exc:

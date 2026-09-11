@@ -15,6 +15,11 @@ from .safety import assess, deadlines
 DENY = {"load_game", "delete_save", "debug", "dev_mode", "set_difficulty",
         "spawn_item", "spawn_pawn", "trigger_incident", "edit_pawn"}
 
+# Argument, value pair that makes an otherwise-mutating tool a documented read.
+READ_MODES = {"form_caravan": ("mode", "status"), "assign_building": ("action", "list"),
+              "edit_ideoligion": ("action", "status"), "reform_ideoligion": ("action", "status"),
+              "edit_starting_pawn": ("action", "list")}
+
 
 def effect(tool, args):
     if tool in DENY or tool.lower().startswith(("debug_", "dev_", "spawn_")):
@@ -30,6 +35,11 @@ def effect(tool, args):
     if tool == "set_schedule" and "assignment" not in args:
         return "inspection-ui"
     if tool == "manage_area" and args.get("op") == "list": return "inspection-ui"
+    # Tools whose catalog effect is a mutation but which expose one documented
+    # read-only mode. Enumerated explicitly from the captured schemas: a name
+    # heuristic could classify a real mutation as a read, which fails open.
+    if READ_MODES.get(tool, ()) and args.get(READ_MODES[tool][0]) == READ_MODES[tool][1]:
+        return "inspection-ui"
     from .capabilities import default_effects
     return default_effects().get(tool, "unclassified")
 
@@ -237,7 +247,7 @@ class Control:
                 kind = rule['effect']
         return kind
 
-    def call(self, token, tool, args, intent=None, family="general", check=None, setup=False, track=False):
+    def call(self, token, tool, args, intent=None, family="general", check=None, setup=False, track=False, driver="agent_operation"):
         with lock(self.path / "operation.lock"):
             self._owner(token)
             self._no_pending()
@@ -335,7 +345,7 @@ class Control:
                     "internal_view_bytes": len(canonical(result).encode()),
                     "context_bytes_basis": "Candidate presentation, not proof of host delivery or model consumption",
                     "since_previous_call_seconds": gap if gap is not None and gap >= 0 else None,
-                    "driver": "agent_operation"})
+                    "driver": driver})
                 atomic_json(last_timing_path, {"ended_at": time.time(), "request_id": request_id})
                 (self.path / "pending.json").unlink()
                 if tool == "wait_for_event" and data.get("pausedAfter") is not True:

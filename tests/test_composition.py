@@ -213,7 +213,7 @@ class CompositionTests(ControlFixture):
         req=lambda i,n,a:{'jsonrpc':'2.0','id':i,'method':'tools/call','params':{'name':n,'arguments':a}}
         self.responses.extend([{'id':'p','novel':9},{'id':'p'}]);out=io.StringIO()
         with patch.object(self.control,'ensure_paused',return_value={'confirmed':True}):
-            serve(self.control,self.token,io.StringIO(json.dumps(req(1,'rw_observe',self.spec()))+'\n'+json.dumps(req(2,'get_pawn',{'id':'p'}))+'\n'),out)
+            serve(self.control,self.token,io.StringIO(json.dumps(req(1,'rw_observe',self.spec()))+'\n'+json.dumps(req(2,'get_pawn',{'id':'p'}))+'\n'),out,expose_upstream=True)
         replies=[json.loads(l) for l in out.getvalue().splitlines()];self.assertIn('result',replies[1])
         self.assertEqual(json.loads(replies[0]['result']['content'][0]['text'])['sections']['pawn']['data']['novel'],9)
 
@@ -267,3 +267,17 @@ class CompositionTests(ControlFixture):
         spec['queries'] += [{'key':'q'+str(i),'tool':'get_pawn','args':{'id':'p'}} for i in range(15)]
         with self.assertRaises(Error):self.execute(spec,'rw_guard')
         self.assertEqual(len(self.calls),self.base)
+
+    def test_session_composition_tags_subcalls_and_records_public_payload(self):
+        session=Session(self.control,self.token)
+        self.responses.append({'id':'p','mood':50})
+        request={'jsonrpc':'2.0','id':7,'method':'tools/call','params':{
+            'name':'rw_observe','arguments':self.spec()}}
+        response=session.handle(request)
+        self.assertIn('result',response)
+        upstream=[json.loads(l) for l in (self.camp.path/'telemetry.jsonl').read_text().splitlines()]
+        self.assertEqual(upstream[-1]['driver'],'facade_observe')
+        public=json.loads((self.camp.path/'facade-telemetry.jsonl').read_text().splitlines()[-1])
+        text=response['result']['content'][0]['text']
+        self.assertEqual((public['public_tool'],public['view'],public['composed_queries']),('rw_observe','composed',1))
+        self.assertEqual(public['response_bytes'],len(text.encode()))

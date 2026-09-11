@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+- Live play now defaults to the current agent directly rather than a coordinator-delegated player. Guidance biases toward focused observations and the longest prudent event-driven wait while explicitly requiring closer attention whenever threats, medical deadlines, mood/food crises, caravan transitions, ambiguity or unfamiliar mechanics warrant it; delegation remains optional for bounded offline work.
+- Sparse-play guidance and the public action description now surface `order_pawn queue=true` for safe Shift-click-style job chains, with explicit exclusions for unstable tactical, medical and outcome-dependent sequences.
+- Session discovery serves seven local tools instead of the whole captured catalog: rw_capabilities, rw_read, rw_act, rw_wait, rw_retrieve, rw_observe and rw_guard. Advertised tool declarations fall from142,785to9,613bytes.
+- The113upstream tools remain reachable by name through rw_read/rw_act, with rw_capabilities returning ranked names for a query and one exact schema per selected tool.
+- Read and mutation are separated by the actual arguments, not the tool name; a misrouted call names the tool to use and dispatches nothing. Ordinary controller guards, evidence, safety assessment and telemetry are unchanged.
+- rw_wait injects pause always over wait_for_event; existing budget clamping and pause-guard repair are untouched.
+- Compact responses by default, with summary and full views replayed from stored evidence without another game call. fields/row_fields selection and limit report every omission; keys carrying warnings, risks or changes are never dropped.
+- A32,768-byte model payload budget bounds an unfiltered read, reporting evidence id, total, returned, truncated, reason and the native filters for that tool. Nothing is silently discarded.
+- One global value repeated across subjects is delivered once and then referenced; references are connection-scoped, cleared on reconnect or presentation reset, and always resolvable from evidence.
+- Upstream names are no longer served directly; session --expose-upstream-tools restores the previous surface and dispatch for saved orchestration.
+- Telemetry records a driver per call, so facade and legacy paths separate in metrics. Composed subcalls are tagged as `facade_observe`/`facade_guard`, and a public-call journal measures all seven local tools—including offline capability/retrieval calls—with exact model-facing text-response bytes. compare_views gains --facade and per-tool totals.
+
 ## 0.7.0
 
 - Shared composed reads exposed as rw_observe and CLI observe, with selected pawn/production presets and explicit queries.

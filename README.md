@@ -4,7 +4,7 @@ An information and control layer for agents playing RimWorld through ordinary Ri
 
 Uses the repository pyenv pin in `.python-version` (Python 3.11.13), with standard-library SQLite FTS5 and an accessible RimMolt endpoint for live play. Run commands from this repository with `pyenv exec python` or `./rw`; shell commands must not silently use macOS system Python. Python 3.10+ is required for comparable monotonic clocks across processes. No external knowledge service or Python packages are required. Read [AGENTS.md](AGENTS.md), then [startup](docs/startup.md) for fresh play or an existing run.
 
-Autonomous play uses the [coordinated flow](docs/agent-flow.md): one focused player owns the game, the coordinator handles user interaction, and a historian completes requested reports from saved evidence. Advisers are optional; they never compete for game control.
+Autonomous play uses the [live-play flow](docs/agent-flow.md): the current agent normally owns user interaction and sole game control directly, uses sparse event-driven observations while conditions are stable, and adapts to closer attention when events or uncertainty require it. Offline reporting or advice may be delegated when independently useful, but delegation is not the default play path and never competes for game control.
 
 ## Start, resume and inspect
 
@@ -24,7 +24,7 @@ These commands do not query or start the game. A new campaign requires its own a
 
 ## Live work
 
-Follow the [control contract](docs/control.md) to claim handed-off ownership, connect, inspect and bind the actual game. Then use ordinary `call TOOL --args JSON` requests, or the shared `rw_observe`/CLI `observe` interface for named related facts. `rw_guard`/CLI `guard` supports an explicit read/condition/one-action rule; see [composition](docs/composition.md). Use `act` when a tracked strategic outcome helps. Use `spatial --observation ID --rect MINX MAXX MINZ MAXZ` to inspect full recorded properties in a chosen area. Placement validity and line of sight still require current game information; the layer does not invent them.
+Follow the [control contract](docs/control.md) to claim handed-off ownership, connect, inspect and bind the actual game. A session serves the small [public surface](docs/facade.md) — `rw_read`, `rw_act`, `rw_wait`, `rw_capabilities`, `rw_retrieve` and the two composed tools — over the113-tool captured catalog, which stays reachable by name. Then use ordinary `call TOOL --args JSON` requests, or the shared `rw_observe`/CLI `observe` interface for named related facts. `rw_guard`/CLI `guard` supports an explicit read/condition/one-action rule; see [composition](docs/composition.md). Use `act` when a tracked strategic outcome helps. Use `spatial --observation ID --rect MINX MAXX MINZ MAXZ` to inspect full recorded properties in a chosen area. Placement validity and line of sight still require current game information; the layer does not invent them.
 
 Ordinary calls journal requests/evidence without creating unfinished goals or requiring intent text. Opt into tracking with `call --track --intent ...`, a check, or `act`. Any family label can be used; `outcome.checks` or `check` supplies arbitrary scoped predicates. Accepted never means completed. Keep actual unfinished work and temporary changes in current notes; all uncertain requests still block replay. Read `./rw COMMAND --help` for exact arguments.
 
@@ -39,7 +39,7 @@ Campaigns, controller files, caches, credentials and generated archives are excl
 
 ## Development and validation
 
-[PLAN.md](PLAN.md) is the implementation plan, [HANDOFF.md](HANDOFF.md) the current continuation state, [TODO.md](TODO.md) the open work and [VALIDATION.md](VALIDATION.md) the tested claims and limits.
+[PLAN.md](PLAN.md) is the implementation plan, [TODO.md](TODO.md) the open work and [VALIDATION.md](VALIDATION.md) the tested claims and limits.
 
 ```sh
 pyenv exec python -B tools/check.py

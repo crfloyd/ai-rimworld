@@ -13,11 +13,12 @@ def discover(root, query='', tool=None, campaign=None):
     path=(campaign.path/'raw/catalog.json') if campaign else Path(root)/'api/catalog.json'
     catalog=read_json(path)
     from .control import effect
-    from .composition import TOOLS
+    from .facade import LOCAL_EFFECTS, local, reserved
+    TOOLS=local()
     catalog=dict(catalog,tools=dict(catalog['tools']))
-    if set(TOOLS) & set(catalog['tools']):raise Error('Local composition name collides with upstream catalog.')
+    reserved(catalog)
     catalog['tools'].update(TOOLS)
-    def classification(name):return ('composition-read' if name=='rw_observe' else 'guarded-mutation') if name in TOOLS else effect(name,{})
+    def classification(name):return LOCAL_EFFECTS[name] if name in TOOLS else effect(name,{})
     if tool:
         if tool not in catalog['tools']:raise Error('Tool not present in this catalog.')
         provenance=({'origin':'local','local_version':__version__,
