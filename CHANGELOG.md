@@ -2,7 +2,7 @@
 
 ## 0.9.0
 
-- A preset with one requested section now keeps the caller's exact key; facet suffixes remain only for multi-section presets.
+- Presets always preserve the caller's exact key: one facet returns its section there, while multiple facets nest by name instead of inventing dotted top-level keys.
 - `rw_capabilities` adds compact domain overviews and staged workflow maps so the model can see strategic affordances without loading113 schemas.
 - `rw_observe` adds a materialized decision preset for selected core, alerts, food, medical, mood, work, research, conditions, world and pawn facets; opt-in reuse skips only connection-cached reads still valid under conservative wait/mutation invalidation.
 - `rw_wait` defaults to a compact post-event decision packet and accepts preflighted verification queries in the same exchange, reducing wait→read handovers. `context:none` preserves the prior response path.

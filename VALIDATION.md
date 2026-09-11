@@ -1,6 +1,6 @@
 # Validation —0.9.0
 
-**237 offline tests pass**, including the new decision-loop regressions. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No live endpoint, game UI or saves were used for0.9.0 implementation testing.
+**238 offline tests pass**, including the new decision-loop regressions. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No live endpoint, game UI or saves were used for0.9.0 implementation testing.
 
 Serialized `tools/list` declarations are **13,455bytes** versus142,785for the upstream catalog (**10.6× smaller**). The complete strategic overview response is11,158bytes; targeted setup-domain and new-game-workflow responses are2,013and2,601bytes respectively. These are serialized bytes, not tokens. Targeted domain/workflow discovery is preferred when the whole overview is unnecessary.
 

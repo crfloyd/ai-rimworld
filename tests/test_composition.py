@@ -42,12 +42,12 @@ class CompositionTests(ControlFixture):
         facts=[{'id':'p','mood':80,'newField':{'false':False,'zero':0}}, {'needs':[{'label':'Novel need','percent':24}]}]
         self.responses.extend(facts)
         r=self.execute({'queries':[{'key':'reed','preset':'pawn','id':'p','include':['summary','needs']}]})
-        self.assertEqual(list(r['sections']),['reed.summary','reed.needs'])
-        self.assertEqual([x['data'] for x in r['sections'].values()],facts)
+        self.assertEqual(list(r['sections']),['reed'])
+        self.assertEqual([r['sections']['reed'][name]['data'] for name in ('summary','needs')],facts)
         self.assertEqual([c['arguments'] for c in self.calls[self.base:]],[{'id':'p'},{'id':'p','tab':'needs'}])
         self.assertFalse(self.camp._actions())
         self.assertFalse((self.control.path/'composition.json').exists())
-        for sec in r['sections'].values():self.assertTrue(self.camp.has_observation(sec['source']['observation']))
+        for sec in r['sections']['reed'].values():self.assertTrue(self.camp.has_observation(sec['source']['observation']))
 
     def test_single_preset_facet_keeps_caller_key(self):
         self.responses.append({'id':'p','mood':80})
@@ -61,7 +61,7 @@ class CompositionTests(ControlFixture):
         r=self.execute({'queries':[{'key':'stove','preset':'production','id':'s','worker_id':'p',
             'include':['station','bills','recipes','resources','work_options']}]})
         self.assertEqual([c['name'] for c in self.calls[self.base:]],['inspect_thing','list_bills','list_recipes','get_resources','order_pawn'])
-        self.assertEqual(r['sections']['stove.work_options']['data'],facts[-1])
+        self.assertEqual(r['sections']['stove']['work_options']['data'],facts[-1])
         self.assertNotIn('ready',r)
 
     def test_preflight_all_reads_no_partial_dispatch_on_invalid_spec(self):

@@ -263,6 +263,23 @@ def materialize_decisions(result, specs, evidence):
     return result
 
 
+def group_presets(result, specs):
+    """Preserve each caller key; nest facets instead of inventing top-level keys."""
+    sections=result.get('sections',{})
+    for q in specs:
+        preset=q.get('preset')
+        if preset not in ('pawn','production'):continue
+        choices=PAWN if preset=='pawn' else PRODUCTION
+        includes=q.get('include', ['summary'] if preset=='pawn' else ['station','bills'])
+        if len(includes)==1:continue
+        grouped={}
+        for facet in includes:
+            section=sections.pop(q['key']+'.'+facet,None)
+            if section is not None:grouped[facet]=section
+        if grouped:sections[q['key']]=grouped
+    return result
+
+
 class Composer:
     def __init__(self, control, token, on_observation=None, driver="agent_composition", memo=None):
         self.control=control;self.token=token;self.on_observation=on_observation or (lambda _:None)
@@ -325,9 +342,11 @@ class Composer:
                 if name=='rw_guard':
                     self.record.update({k:result[k] for k in ('condition','selected_branch','action_status','verification_not_run') if k in result})
                 self.record.update(status='ready_to_deliver',phase='complete',stopped=result['stopped']);self.save()
-                if spec.get('provenance'):return result
+                if spec.get('provenance'):
+                    return group_presets(result,spec['queries']) if name=='rw_observe' else result
                 evidence={key:s['source']['observation'] for key,s in result['sections'].items()}
-                return materialize_decisions(compact_result(result),spec['queries'],evidence)
+                shaped=materialize_decisions(compact_result(result),spec['queries'],evidence)
+                return group_presets(shaped,spec['queries']) if name=='rw_observe' else shaped
             except BaseException as exc:
                 self.record.update(status='unknown',error=str(exc));self.save();raise
             finally:
