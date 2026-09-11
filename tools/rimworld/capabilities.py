@@ -10,18 +10,56 @@ DOMAINS = {
     'setup': ('main_menu','game_setup_status','select_scenario','select_storyteller','create_world',
               'choose_ideoligion','edit_ideoligion','edit_starting_pawn','find_world_tiles',
               'select_starting_site','start_game'),
-    'colony': ('get_status','list_colonists','get_alerts','get_resources','get_conditions','get_research'),
+    'colony': ('get_status','list_colonists','get_alerts','get_resources','get_conditions','get_research',
+               'get_map','get_room','get_resource_readout','list_power_grids','list_unmanaged_items'),
     'pawns': ('get_pawn','order_pawn','draft','set_work_priority','set_schedule','set_allowed_area',
-              'manage_gear','assign_building'),
+              'manage_gear','assign_building','rename_pawn','set_hostility_response','manage_prisoner'),
     'medical': ('get_pawn','list_surgeries','add_surgery','set_medical_care','order_pawn'),
-    'food': ('get_resources','list_things','list_bills','add_bill','set_work_priority','order_pawn'),
-    'combat': ('get_status','list_things','list_fires','get_area','draft','order_pawn','manage_gear'),
-    'building': ('get_map','get_area','list_architect','build','inspect_thing','do_thing_action','manage_zone'),
+    'food': ('get_resources','list_things','list_bills','add_bill','set_work_priority','order_pawn',
+             'list_unmanaged_items','set_growing_zone','manage_food_policy','set_food_policy'),
+    'combat': ('get_status','list_things','list_fires','get_area','draft','order_pawn','manage_gear',
+               'set_hostility_response','list_mechs','set_mech_control'),
+    'building': ('get_map','get_area','list_architect','build','inspect_thing','do_thing_action',
+                 'list_zones','designate','get_room','room_graph','list_power_grids'),
+    'zones': ('list_zones','select_zone','delete_zone','rename_zone','set_growing_zone',
+              'set_stockpile_filter','set_stockpile_priority','manage_area','set_allowed_area','designate'),
     'world': ('get_world','list_world_objects','get_world_tile','find_world_tiles','form_caravan',
-              'caravan_action','world_object_action'),
+              'caravan_action','world_object_action','world_target'),
     'quests': ('get_world','read_letter','get_quest','quest_action'),
-    'trade': ('list_trade','set_trade','trade_action','get_window_ui','window_action'),
-    'production': ('inspect_thing','list_bills','list_recipes','add_bill','delete_bill','get_resources'),
+    'trade': ('get_alerts','list_things','get_pawn','order_pawn','list_trade','set_trade','trade_action',
+              'get_window_ui','window_action','list_unmanaged_items'),
+    'production': ('inspect_thing','list_bills','list_recipes','add_bill','set_bill','delete_bill',
+                   'get_resources','set_research','list_study_targets','set_study'),
+    'animals': ('list_animals','list_wildlife','manage_animal','manage_area'),
+    'policies': ('list_policies','manage_food_policy','manage_apparel_policy','manage_drug_policy',
+                 'set_food_policy','set_drug_policy','set_outfit','manage_area'),
+    'inspection': ('inspect_thing','get_inspect_pane','get_info_card','list_windows','get_window_ui',
+                   'get_room','room_graph','entity_codex','help','learning_helper','get_live_chat'),
+    'culture': ('choose_ideoligion','edit_ideoligion','reform_ideoligion','set_ideo_role','get_royalty',
+                'list_titles','manage_permits','use_permit','list_genes','create_xenogerm',
+                'implant_xenogerm','get_anomaly'),
+    'system': ('get_status','set_speed','wait_for_event','save_game','return_to_title','screenshot','say',
+               'list_main_buttons'),
+}
+
+PURPOSE = {
+    'setup': 'Create a world and colony from the main menu through the first landing.',
+    'colony': 'Whole-colony state: status, colonists, alerts, stock, weather, research, rooms and power.',
+    'pawns': 'One colonist: read them, order them, set work, schedule, area, gear and assignments.',
+    'medical': 'Injury, illness, treatment priority and surgery.',
+    'food': 'Ingredients, cooking bills, growing and the haulers who move it.',
+    'combat': 'Threats, fires, drafting, positioning and gear for a fight.',
+    'building': 'Place, inspect and operate structures; read the map and rooms around them.',
+    'zones': 'Stockpiles, growing zones, allowed areas and designations.',
+    'world': 'The planet map, other settlements and your caravans.',
+    'quests': 'Letters, quests and their accept or decline actions.',
+    'trade': 'Find a trader, open a deal, settle it and confirm the goods arrived.',
+    'production': 'Work tables, bills, recipes and research.',
+    'animals': 'Tame animals, wildlife and animal handling.',
+    'policies': 'Food, drug, apparel and area policies applied to colonists.',
+    'inspection': 'Read exactly what the player sees: inspect pane, info cards, open windows and help.',
+    'culture': 'Ideoligion, royalty, genes, xenotypes and anomaly content.',
+    'system': 'Game speed, supervised time, saving, screenshots and top-level UI.',
 }
 
 WORKFLOWS = {
@@ -77,24 +115,37 @@ def discover(root, query='', tool=None, campaign=None):
             'detail':'capabilities --tool NAME; complete declarations on demand, no automatic execution'}
 
 
-def overview(root, campaign=None, domain=None, workflow=None):
-    """Compact affordance map: names and one-line purposes, never full schemas."""
+def overview(root, campaign=None, domain=None, workflow=None, full=False):
+    """Compact affordance map: a domain index by default, never full schemas."""
     path=(campaign.path/'raw/catalog.json') if campaign else Path(root)/'api/catalog.json'
     catalog=read_json(path)
     from .facade import local, reserved
     merged=dict(catalog['tools']);reserved(catalog);merged.update(local())
     if domain is not None and domain not in DOMAINS: raise Error('Unknown capability domain: '+domain)
     if workflow is not None and workflow not in WORKFLOWS: raise Error('Unknown capability workflow: '+workflow)
-    def one(name):
+    def one(name,note=None):
         if name not in merged:return None
-        return {'tool':name,'purpose':merged[name].get('description','').split('. ')[0]}
+        row={'tool':name,'purpose':merged[name].get('description','').split('. ')[0]}
+        if note:row['note']=note
+        return row
     if workflow is not None:
-        steps=[one(name) for name in WORKFLOWS[workflow]]
+        entries=[(e,None) if isinstance(e,str) else e for e in WORKFLOWS[workflow]]
+        steps=[one(name,note) for name,note in entries]
         return {'workflow':workflow,'steps':[v for v in steps if v],
                 'note':'Ordered affordance guide, not permission or proof that the current UI stage supports each step.'}
-    names={domain:DOMAINS[domain]} if domain else DOMAINS
-    return {'domains':{key:[v for v in (one(name) for name in values) if v] for key,values in names.items()},
-            'workflows':sorted(WORKFLOWS),'detail':'Fetch one exact schema with rw_capabilities {tool:NAME}.'}
+    if domain is not None:
+        return {'domains':{domain:[v for v in (one(name) for name in DOMAINS[domain]) if v]},
+                'purpose':PURPOSE[domain],
+                'detail':'Fetch one exact schema with rw_capabilities {tool:NAME}.'}
+    if full:
+        return {'domains':{key:[v for v in (one(name) for name in values) if v] for key,values in DOMAINS.items()},
+                'purposes':PURPOSE,'workflows':sorted(WORKFLOWS),
+                'detail':'Fetch one exact schema with rw_capabilities {tool:NAME}.'}
+    return {'domains':{key:{'tools':len(values),'purpose':PURPOSE[key]} for key,values in DOMAINS.items()},
+            'workflows':sorted(WORKFLOWS),
+            'detail':'rw_capabilities {domain:"NAME"} lists one area, {workflow:"NAME"} gives an ordered guide, '
+                     '{overview:true,full:true} lists every tool in every domain, {tool:"NAME"} returns one exact schema.'}
+
 
 def spatial(observation, rect=None, ids=None):
     """Explicit local selection, with provenance and omitted counts; no live refresh."""

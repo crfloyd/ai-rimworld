@@ -276,6 +276,10 @@ class Facade(ControlFixture):
         overview=self.body('rw_capabilities',{'overview':True})
         self.assertIn('setup',overview['domains']);self.assertIn('combat',overview['domains'])
         self.assertNotIn('inputSchema',canonical(overview))
+        # The default overview is an index: domain names, counts and purposes only.
+        self.assertEqual(set(overview['domains']['combat']),{'tools','purpose'})
+        detailed=self.body('rw_capabilities',{'overview':True,'full':True},7)
+        self.assertIn('get_status',[row['tool'] for row in detailed['domains']['combat']])
         setup=self.body('rw_capabilities',{'domain':'setup'},2)
         self.assertIn('game_setup_status',[x['tool'] for x in setup['domains']['setup']])
         workflow=self.body('rw_capabilities',{'workflow':'new_game'},3)

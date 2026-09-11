@@ -19,9 +19,11 @@ ARGS={'type':'object','additionalProperties':True}
 VIEW={'enum':['compact','summary','full']}
 FIELDS={'type':'array','items':STRING,'minItems':1,'maxItems':32,'uniqueItems':True}
 
-CAPABILITY_DOMAINS=['setup','colony','pawns','medical','food','combat','building','world','quests','trade','production']
+CAPABILITY_DOMAINS=['setup','colony','pawns','medical','food','combat','building','zones','world','quests',
+                    'trade','production','animals','policies','inspection','culture','system']
 CAPABILITY_WORKFLOWS=['new_game','medical_event','combat_event','caravan','food_crisis','trade','resume_crisis']
 CAPABILITIES_SCHEMA=obj({'query':{'type':'string'},'tool':STRING,'overview':{'type':'boolean'},
+                         'full':{'type':'boolean'},
                          'domain':{'enum':CAPABILITY_DOMAINS},'workflow':{'enum':CAPABILITY_WORKFLOWS}})
 READ_SCHEMA=obj({'tool':STRING,'args':ARGS,'view':VIEW,'fields':FIELDS,'row_fields':FIELDS,
                  'limit':{'type':'integer','minimum':1},'delta':{'type':'boolean'},'since':STRING},['tool'])
@@ -40,7 +42,8 @@ RETRIEVE_SCHEMA=obj({'observation':STRING,'tool':STRING,'entity':STRING,'ref':ST
 
 TOOLS={
  'rw_capabilities':{'name':'rw_capabilities','description':
-  'Discover available actions without loading the catalog. overview/domain gives a compact affordance map; workflow gives an ordered '
+  'Discover available actions without loading the catalog. overview gives a domain index, domain lists one area, '
+  'overview with full:true lists every tool in every domain; workflow gives an ordered '
   'new_game, medical_event, combat_event, caravan, food_crisis, trade or resume_crisis guide. query finds names; tool returns one exact schema/effect. '
   'Offline only; grants no permission.',
   'inputSchema':CAPABILITIES_SCHEMA,'annotations':{'readOnlyHint':True}},
@@ -118,7 +121,8 @@ def capabilities(control, args):
     if args.get('query'):selected.append('query')
     if len(selected)>1:raise Error('Choose one capability selector: overview, domain, workflow, query or tool.')
     if args.get('overview') or args.get('domain') or args.get('workflow'):
-        return overview(control.campaign.root,control.campaign,args.get('domain'),args.get('workflow'))
+        return overview(control.campaign.root,control.campaign,args.get('domain'),args.get('workflow'),
+                        full=bool(args.get('full')))
     return discover(control.campaign.root,args.get('query',''),args.get('tool'),control.campaign)
 
 
