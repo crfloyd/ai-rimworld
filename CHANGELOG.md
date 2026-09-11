@@ -3,6 +3,7 @@
 ## 0.9.0
 
 - Every live player must read the audited operational `docs/facade.md` before its first facade call and after tooling changes; historical benchmark material was removed from that guide.
+- Onboarding, memory, control, history and knowledge guidance now agree on self-contained facade reads, local full retrieval, compatibility-only raw calls, conventional model-facing rows and model-handover-first efficiency. Offline spatial selections also return ordinary row arrays.
 - Compact reads are self-contained by default with separate change metadata. Delta-only output now requires `delta:true` plus an explicit same-scope `since` observation, preventing empty automatic responses when callers need current state.
 - Capability discovery adds a semantic trade domain/workflow, and trade-window reads lead with `list_trade`/`set_trade`/`trade_action` guidance instead of encouraging generic button scraping.
 - One-shot `call`/`observe`/`guard` commands add repeatable JSON-Pointer `--select`; local selection failures report completed-operation evidence and no-replay guidance. Shell guidance forbids `echo` round-trips that corrupt escaped JSON and requires one-pass parsing.

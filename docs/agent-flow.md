@@ -41,7 +41,3 @@ Never delegate a separate player merely because play is long-running or because 
 ## Reporting
 
 The current agent normally captures important scenes when safe and assembles requested reports after a verified pause. A historian may be delegated from saved evidence when the user requests independent reporting or the report can proceed without blocking play. The historian makes no game/UI calls, does not rewrite current strategy/issues, checks every claim and image date, and follows [history](history.md). Missing captures remain explicitly missing; never invent documentary images.
-
-## Measurement boundaries
-
-Measure public and underlying calls, wait ticks, RPC/persistence time, response bytes, read bursts and mixed inter-call gaps. Inter-call gaps include model work, parsing, orchestration, user interaction and idle time unless the host supplies stronger boundaries; do not label them isolated reasoning. Compare runs only with their differing game conditions stated. Fewer calls or faster completion is not proof of better strategy, and a crisis-driven close-attention loop is not inefficiency merely because a calm loop was faster.

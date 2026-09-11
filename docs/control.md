@@ -19,11 +19,11 @@ This accepts ordinary newline-delimited MCP JSON-RPC on stdin/stdout. It keeps t
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"rw_wait","arguments":{"maxSeconds":60,"maxGameHours":4}}}
 ```
 
-`tools/list` serves the small local surface described in [facade](facade.md) with the captured catalog's capture date; the113upstream tools stay reachable by name through `rw_read`/`rw_act` and discoverable through `rw_capabilities`. Refresh via connect/rebind if the server announces a change. Start `session --expose-upstream-tools` to also advertise and accept raw upstream names.
+`tools/list` serves the small local surface described in [facade](facade.md) with the captured catalog's capture date; the upstream tools stay reachable by name through `rw_read`/`rw_act` and discoverable through `rw_capabilities`. Refresh via connect/rebind if the server announces a change. `--expose-upstream-tools` is compatibility/testing-only and requires explicit authorization; ordinary play does not use it.
 
 Facade responses are self-contained and compact by default: current game facts, evidence ID, risk cards, optional change metadata and any coverage/control limitation. `rw_read view:full` makes a new live capture; `rw_retrieve` replays an existing observation locally. Under compatibility-only `--expose-upstream-tools`, a raw upstream call keeps its previous shape with a short metadata block. The existing hidden-AI-targeting exclusion remains on both paths. No strategy or automatic continuation runs inside the connection.
 
-`call TOOL --args JSON --token TOKEN` remains available for single calls. Raw requests/results and normalized evidence are automatic. Routine calls need no intention/goal bookkeeping. `act`, explicit `--track` or checks remain for deliberate strategic outcome tracking. These require a meaningful intention and actual outcome proof; a receipt cannot prove arrival, treatment, delivery or construction.
+For one-shot facade use, call `rw_read`, `rw_act`, `rw_wait`, `rw_capabilities`, or `rw_retrieve` and place the upstream name inside that tool's arguments. Direct raw upstream CLI calls are compatibility-only, not the ordinary player path. Raw requests/results and normalized evidence are automatic. Routine calls need no intention/goal bookkeeping. `act`, explicit `--track` or checks remain for deliberate strategic outcome tracking. These require a meaningful intention and actual outcome proof; a receipt cannot prove arrival, treatment, delivery or construction.
 
 For initial-game UI only, `session --setup` or `call --setup` permits authorized setup actions under a reviewed main-menu binding. After the world loads, inspect and bind the new game identity before ordinary play. This never authorizes debug actions or tactical reloads.
 
@@ -43,11 +43,11 @@ When presenting executor output, avoid stringifying the entire result around an 
 
 ## Composed requests
 
-`rw_observe` and `rw_guard` are advertised by the persistent session alongside upstream tools; see [composition](composition.md). CLI observe/guard use the same engine. Compound requests retain a durable composition marker between subcalls and until output flush. Inspect/reconcile both that marker and any underlying pending request before release or further actions. No manual acknowledgement or automatic continuation is introduced.
+`rw_observe` and `rw_guard` are advertised alongside the other facade tools; see [composition](composition.md). CLI observe/guard use the same engine. Compound requests retain a durable composition marker between subcalls and until output flush. Inspect/reconcile both that marker and any underlying pending request before release or further actions. No manual acknowledgement is introduced.
 
 ## Time and uncertainty
 
-Use the normal wait_for_event arguments. There are no client combat/medical category caps. The agent chooses a finite horizon based on actual risk. maxSeconds must be an integer5–600; pause must be always. Game-time bounds must be finite/nonnegative. Existing typed hard issue deadlines still shorten the tick budget and are reported; a due deadline blocks advancement. The server's crisis cap/force option remains visible and must be used according to actual risk, never automatically.
+Use `rw_wait` with a finite horizon based on actual risk; it validates the underlying wait arguments and injects `pause:always`. There are no client combat/medical category caps. `maxSeconds` must be an integer5–600 and game-time bounds finite/nonnegative. Existing typed hard issue deadlines shorten the tick budget and are reported; a due deadline blocks advancement. The server's crisis cap/force option remains visible and must be used according to actual risk, never automatically.
 
 A wall timeout and a game-time limit can both produce the server's `cause: timeout`; inspect ticksWaited and pausedAfter. HTTP timeout covers the wait plus15seconds but is not cancellation. Only one wait may be active. Retain/poll its actual host handle; use short offline reasoning while it runs, with no concurrent game calls.
 

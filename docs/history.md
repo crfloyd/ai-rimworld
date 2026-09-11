@@ -4,12 +4,12 @@ The current agent normally owns the complete reporting workflow under [agent-flo
 
 ## Capture
 
-The player captures important transient scenes when safe, even between checkpoints, and hands the original paths, evidence IDs and actual ticks to the historian. Prefer the ordinary MCP screenshot tool when enabled: explicit map bounds frame the subject, include_ui=false leaves the real camera alone, and include_ui=true moves it. Preserve the original returned PNG. Enablement must follow the user's authorization; a disabled tool is not a captured image. Before taking a shot, use normal game controls to frame the relevant people, structures, landscape or battlefield. Never expose a pawn or prolong a crisis for a photograph.
+The player captures important transient scenes when safe, even between checkpoints, and preserves the original paths, evidence IDs and actual ticks for later reporting or an optional historian. Prefer the ordinary MCP screenshot tool when enabled: explicit map bounds frame the subject, include_ui=false leaves the real camera alone, and include_ui=true moves it. Preserve the original returned PNG. Enablement must follow the user's authorization; a disabled tool is not a captured image. Before taking a shot, use normal game controls to frame the relevant people, structures, landscape or battlefield. Never expose a pawn or prolong a crisis for a photograph.
 
 On macOS, shot windows dynamically lists current RimWorld windows using the system window inventory. With a current window ID:
 
 ```sh
-python3 rw --campaign NAME shot capture --window CURRENT_ID --tick GAME_TICK --subject 'Subject' --caption 'What is actually visible' --framing 'Explain the framing' --evidence OBS_OR_EVENT_ID --map-index ACTUAL_MAP_INDEX
+./rw --campaign NAME shot capture --window CURRENT_ID --tick GAME_TICK --subject 'Subject' --caption 'What is actually visible' --framing 'Explain the framing' --evidence OBS_OR_EVENT_ID --map-index ACTUAL_MAP_INDEX
 ```
 
 Alternatively import an original PNG with shot add --file PATH and the same metadata. The bytes are copied unchanged and hashed. The PNG header is checked; visual truth and readability still require inspection with the host's image tool.

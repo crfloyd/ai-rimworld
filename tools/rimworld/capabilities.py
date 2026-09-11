@@ -89,7 +89,6 @@ def overview(root, campaign=None, domain=None, workflow=None):
 
 def spatial(observation, rect=None, ids=None):
     """Explicit local selection, with provenance and omitted counts; no live refresh."""
-    from .observations import pack_rows
     rows=observation['data'].get('things')
     if not isinstance(rows,list):raise Error('Spatial retrieval requires entity rows, not an aggregate.')
     if rect is not None:
@@ -107,7 +106,7 @@ def spatial(observation, rect=None, ids=None):
             'completeness':observation['completeness'],'coverage':observation.get('coverage'),
             'selection':{'rect':rect,'ids':ids},'selected':len(selected),'source_rows':len(rows),
             'excluded_by_selection':len(rows)-len(selected)-len(unknown),
-            'unlocated_or_malformed':unknown,'things':pack_rows(selected),
+            'unlocated_or_malformed':unknown,'things':selected,
             'terrain':observation['data'].get('terrainSummary'),
             'terrain_scope':'Original query scope; not recomputed for the selection',
             'live_checked':False,'limitations':'Recorded positions only; no inferred line of sight, reachability or placement validity.'}
