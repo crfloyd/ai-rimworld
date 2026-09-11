@@ -313,7 +313,7 @@ def run_reads(control,token,queries,memo,observed,driver,sequence=None):
     expanded=expand(queries)
     for query in expanded:preflight(control,query)
     sections={};evidence=[]
-    not_run=[]
+    not_run=[];degraded=[]
     for index,query in enumerate(expanded):
         cached=memo.reusable(query['tool'],query['args']) if memo is not None else None
         if cached:value={'id':cached}
@@ -321,14 +321,16 @@ def run_reads(control,token,queries,memo,observed,driver,sequence=None):
             value=control.call(token,query['tool'],query['args'],driver=driver)
             if observed:observed(value['id'])
         if sequence is not None:sequence.observed('verify_'+query['key'],value,requested=query,reused=bool(cached))
-        section,incomplete=capture(control,value)
+        section,problem=capture(control,value)
         compacted=compact_result({'sections':{query['key']:section},'verification':{},'capture':'sequential',
                                   'advancement_requested':False,'unrequested':'unknown','stopped':None})['sections'][query['key']]
         if cached:compacted['reused']=True
+        if problem and not problem['blocking']:
+            compacted['degraded']=problem;degraded.append(query['key'])
         sections[query['key']]=compacted;evidence.append(value['id'])
-        if incomplete:
+        if problem and problem['blocking']:
             not_run=[q['key'] for q in expanded[index+1:]];break
-    return sections,evidence,not_run
+    return sections,evidence,not_run,degraded
 
 
 def event_topics(body):
@@ -502,9 +504,10 @@ def wait_sequence(control,token,args,setup,memo,observed):
                 sequence.record['enrichment_error']=body['event_context_error'];sequence.save()
         if verify:
             sequence.record['phase']='verification';sequence.save()
-            sections,evidence,not_run=run_reads(control,token,verify,memo,observed,'facade_wait_verify',sequence)
+            sections,evidence,not_run,degraded=run_reads(control,token,verify,memo,observed,'facade_wait_verify',sequence)
             body['verification']=sections;body['verification_evidence']=evidence
             body['verification_complete']=not not_run;body['verification_not_run']=not_run
+            body['verification_degraded']=degraded
         body['composition']=sequence.record['request_id']
         sequence.ready(stopped=None);return body
     except BaseException as exc:

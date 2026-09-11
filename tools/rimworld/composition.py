@@ -173,6 +173,36 @@ def interruptions(value):
     return False
 
 
+REVIEW='Identity, pause, JSON or coverage requires review'
+
+
+def coverage_problem(value, obs, result, children):
+    """Separate a recoverable bounded answer from a state that genuinely needs review.
+
+    Only the upstream size guard and an upstream truncation flag are recoverable:
+    they are complete, self-describing refusals that name their own retry, and
+    they say nothing about the rest of the request. Every other incompleteness
+    keeps its original hard stop.
+    """
+    from .hints import narrowing, oversized
+    data=obs.get('data') if isinstance(obs.get('data'),dict) else {}
+    review=(bool(value.get('identity_mismatch') or value.get('pause_guard'))
+            or bool(result.get('metadata',{}).get('unusable_json_blocks'))
+            or result.get('result_properties',{}).get('isError') is True
+            or obs['completeness']=='unavailable'
+            or bool(obs.get('missing')) or bool(obs.get('malformed'))
+            or any(c['completeness']!='known' for c in children))
+    if review:
+        return {'blocking':True,'reason':REVIEW}
+    if obs['completeness']=='known':
+        return None
+    if oversized(data) or data.get('truncated'):
+        reason=('The upstream large-output guard answered instead of the query'
+                if oversized(data) else 'Upstream bounded this result')
+        return {'blocking':False,'reason':reason,'retry':narrowing(obs['tool'],data)}
+    return {'blocking':True,'reason':REVIEW}
+
+
 def capture(control, value):
     obs=control.campaign.observation(value['id'])
     result=section(control.campaign,obs)
@@ -182,11 +212,7 @@ def capture(control, value):
             'completeness':c['completeness'],'missing':c['missing']} for c in children]
     controls={k:value[k] for k in ('identity_mismatch','pause_guard','wait_budget') if k in value}
     if controls:result['control']=controls
-    incomplete=(bool(value.get('identity_mismatch') or value.get('pause_guard')) or obs['completeness']!='known'
-                or any(c['completeness']!='known' for c in children)
-                or bool(result.get('metadata',{}).get('unusable_json_blocks'))
-                or result.get('result_properties',{}).get('isError') is True)
-    return result,incomplete
+    return result,coverage_problem(value,obs,result,children)
 
 
 def compact_result(result):
@@ -204,6 +230,7 @@ def compact_result(result):
     result['sections']={k:trim(s) for k,s in result['sections'].items()}
     if 'verification' in result:result['verification']={k:trim(s) for k,s in result['verification'].items()}
     if 'action' in result:result['action']=trim(result['action'])
+    if not result.get('degraded'):result.pop('degraded',None)
     result['queried_complete']=result['stopped'] is None
     if result['stopped'] is None:result.pop('stopped')
     result.pop('advancement_requested',None);result.pop('unrequested',None)
@@ -302,7 +329,7 @@ class Composer:
         atomic_json(self.path,self.record)
         atomic_json(self.control.campaign.path/'reference/compositions'/ (self.record['request_id']+'.json'),self.record)
 
-    def read(self, queries, output):
+    def read(self, queries, output, degraded=None):
         for i,q in enumerate(queries):
             self.record['phase']='reading';self.record['next_query']=q;self.save()
             cached=self.memo.reusable(q['tool'],q['args']) if self.memo is not None and self.reuse else None
@@ -311,11 +338,16 @@ class Composer:
             else:
                 value=self.control.call(self.token,q['tool'],q['args'],driver=self.driver)
                 self.on_observation(value['id'])
-            output[q['key']],incomplete=capture(self.control,value)
+            output[q['key']],problem=capture(self.control,value)
             if cached:output[q['key']]['reused']=True
             self.record['observations'].append({'key':q['key'],'id':value['id'],'source':output[q['key']]['source'],'coverage':output[q['key']]['coverage']});self.save()
-            if incomplete:
-                return {'reason':'Identity, pause, JSON or coverage requires review','after':q['key'],'not_run':[x['key'] for x in queries[i+1:]]}
+            if problem and not problem['blocking']:
+                output[q['key']]['degraded']=problem
+                if degraded is not None:degraded.append(q['key'])
+                self.record.setdefault('degraded',[]).append(q['key']);self.save()
+                continue
+            if problem:
+                return {'reason':problem['reason'],'after':q['key'],'not_run':[x['key'] for x in queries[i+1:]]}
         return None
 
     def execute(self, name, spec):
@@ -347,9 +379,9 @@ class Composer:
                          'pid':os.getpid(),'started_at':now(),'status':'inflight','phase':'starting','observations':[]}
             self.save();self.control._composition_id=self.record['request_id']
             result={'composition':self.record['request_id'],'sections':{},'advancement_requested':False,
-                    'capture':'sequential','unrequested':'unknown'}
+                    'capture':'sequential','unrequested':'unknown','degraded':[]}
             try:
-                result['stopped']=self.read(queries,result['sections'])
+                result['stopped']=self.read(queries,result['sections'],result['degraded'])
                 if name=='rw_guard':self.choose(spec,result,verify)
                 if name=='rw_guard':
                     self.record.update({k:result[k] for k in ('condition','selected_branch','action_status','verification_not_run') if k in result})
@@ -387,7 +419,7 @@ class Composer:
         if incomplete or interruptions(result['action']):
             result['stopped']={'reason':'Action response requires review','not_run':[q['key'] for q in verify]};return
         result['verification']={}
-        result['stopped']=self.read(verify,result['verification'])
+        result['stopped']=self.read(verify,result['verification'],result.setdefault('degraded',[]))
 
 
 def delivered(control,token,composition_id):
