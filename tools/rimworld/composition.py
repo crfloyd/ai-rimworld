@@ -99,7 +99,11 @@ def expand(queries):
             if name not in choices: raise Error('Unsupported section '+name+'; available: '+', '.join(choices))
             if name in ('worker','work_options') and 'worker_id' not in q: raise Error(name+' requires worker_id.')
             tool,args = choices[name](q)
-            expanded.append({'key':q['key']+'.'+name,'tool':tool,'args':args})
+            # A single requested facet already has an unambiguous caller key.
+            # Qualify only multi-facet presets, avoiding predictable `key.facet`
+            # lookup mistakes without duplicating the returned data.
+            key=q['key'] if len(includes)==1 else q['key']+'.'+name
+            expanded.append({'key':key,'tool':tool,'args':args})
     if not 1 <= len(expanded) <= 32: raise Error('Use at most32 expanded read queries.')
     return expanded
 

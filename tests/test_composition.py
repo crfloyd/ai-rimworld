@@ -49,6 +49,11 @@ class CompositionTests(ControlFixture):
         self.assertFalse((self.control.path/'composition.json').exists())
         for sec in r['sections'].values():self.assertTrue(self.camp.has_observation(sec['source']['observation']))
 
+    def test_single_preset_facet_keeps_caller_key(self):
+        self.responses.append({'id':'p','mood':80})
+        r=self.execute({'queries':[{'key':'pawn','preset':'pawn','id':'p','include':['summary']}]})
+        self.assertEqual(list(r['sections']),['pawn'])
+
     def test_production_maps_only_real_tools_without_invented_availability(self):
         self.add_tools('inspect_thing','list_bills','list_recipes','get_resources')
         facts=[{'id':'s','fuel':0},{'bills':[]},{'recipes':[]},{'resources':[]},{'options':[{'label':'Cannot cook: Missing food','disabled':True}]}]
