@@ -352,7 +352,8 @@ def main(argv=None):
         from .presentation import present
         from .composition import TOOLS, delivered
         from . import facade
-        composed = args.command in ('observe','guard') or (args.command=='call' and args.tool in TOOLS)
+        composed = (args.command in ('observe','guard') or (args.command=='call' and args.tool in TOOLS) or
+                    (isinstance(result,dict) and isinstance(result.get('composition'),str)))
         local = composed or (args.command=='call' and args.tool in facade.TOOLS)
         print(result if isinstance(result, str) else json.dumps(result if args.full_output or args.command == "retrieve" or local else present(result), ensure_ascii=False, separators=(",", ":"), allow_nan=False), flush=True)
         if composed:

@@ -281,3 +281,50 @@ class CompositionTests(ControlFixture):
         text=response['result']['content'][0]['text']
         self.assertEqual((public['public_tool'],public['view'],public['composed_queries']),('rw_observe','composed',1))
         self.assertEqual(public['response_bytes'],len(text.encode()))
+
+    def test_decision_preset_materializes_selected_facts(self):
+        self.responses.extend([
+            {'loaded':True,'colonyName':'Fixture Colony','ticksGame':300100,'paused':True,
+             'maps':[{'mapIndex':0,'name':'Fixture','isPlayerHome':True}],'bundled':{
+                'list_colonists':{'loaded':True,'colonists':[{'id':'p','name':'P','health':75,'mood':20,'job':'resting'}]},
+                'get_alerts':{'loaded':True,'dangerByMap':[{'mapIndex':0,'dangerRating':'None'}],
+                              'activeAlerts':[{'label':'Low food'}]},
+                'get_resources':{'loaded':True,'resources':[{'defName':'MealSimple','count':4},{'defName':'Steel','count':50}]},
+                'get_research':{'loaded':True,'current':'X'}}},
+            {'id':'p','name':'P','health':75,'mood':20}
+        ])
+        spec={'queries':[{'key':'recovery','preset':'decision',
+              'include':['core','alerts','food','medical','mood','research'],
+              'pawns':[{'id':'p','include':['summary']}]}]}
+        result=Composer(self.control,self.token).execute('rw_observe',spec)
+        delivered(self.control,self.token,result['composition'])
+        packet=result['decisions']['recovery']
+        self.assertEqual(packet['core']['ticksGame'],300100)
+        self.assertEqual(packet['food']['resources'],[{'defName':'MealSimple','count':4}])
+        self.assertEqual(packet['medical'][0]['id'],'p');self.assertEqual(packet['mood'][0]['id'],'p')
+        self.assertEqual(packet['pawns'][0]['facets']['summary']['mood'],20)
+        self.assertNotIn('recovery.status',result['sections'])
+
+    def test_reuse_respects_stable_and_volatile_invalidation(self):
+        from tools.rimworld.facade import Memo
+        self.add_tools('set_schedule')
+        memo=Memo();memo.sync(self.camp)
+        self.responses.extend([{'ok':True,'mode':'read','id':'p','pawn':'P','schedule':[]},{'id':'p','mood':50}])
+        spec={'reuse':True,'queries':[{'key':'schedule','tool':'set_schedule','args':{'id':'p'}},
+                                      {'key':'summary','tool':'get_pawn','args':{'id':'p'}}]}
+        remember=lambda e:memo.remember(self.camp,e)
+        first=Composer(self.control,self.token,memo=memo,on_observation=remember).execute('rw_observe',spec)
+        delivered(self.control,self.token,first['composition']);before=len(self.calls)
+        second=Composer(self.control,self.token,memo=memo).execute('rw_observe',spec)
+        delivered(self.control,self.token,second['composition'])
+        self.assertEqual(before,len(self.calls));self.assertTrue(second['sections']['schedule']['reused'])
+        memo.invalidate('advance');self.responses.append({'id':'p','mood':49})
+        third=Composer(self.control,self.token,memo=memo,on_observation=remember).execute('rw_observe',spec)
+        delivered(self.control,self.token,third['composition'])
+        self.assertEqual(len(self.calls)-before,1)  # schedule survives time; summary does not
+        memo.invalidate('mutation');self.responses.extend([
+            {'ok':True,'mode':'read','id':'p','pawn':'P','schedule':[]},{'id':'p','mood':48}])
+        before=len(self.calls)
+        fourth=Composer(self.control,self.token,memo=memo,on_observation=remember).execute('rw_observe',spec)
+        delivered(self.control,self.token,fourth['composition'])
+        self.assertEqual(len(self.calls)-before,2)  # mutation conservatively invalidates both

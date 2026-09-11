@@ -37,14 +37,18 @@ class Session:
              'response_bytes_basis':'Exact UTF-8 bytes of the single model-facing text content; excludes JSON-RPC framing.'}
         if name in ('rw_read','rw_act'):
             row['upstream_tool']=args.get('tool')
+            if name=='rw_act' and args.get('actions') is not None:row['batch_actions']=len(args['actions'])
         elif name=='rw_capabilities':
             row['capability_query']=args.get('query');row['capability_tool']=args.get('tool')
+            row['capability_domain']=args.get('domain');row['capability_workflow']=args.get('workflow')
         elif name=='rw_retrieve':
             row['retrieve_selector']=next((k for k in ('observation','tool','entity','ref') if args.get(k) is not None),None)
             row['retrieve_value']=args.get(row['retrieve_selector']) if row['retrieve_selector'] else None
         elif name in TOOLS:
             row['composed_queries']=len(args.get('queries') or [])
             row['composed_verify']=len(args.get('verify') or [])
+            row['decision_queries']=sum(q.get('preset')=='decision' for q in args.get('queries') or [])
+            row['reuse_requested']=args.get('reuse') is True
         if error is not None: row['error']=str(error)
         try:
             append_json(self.control.campaign.path/'facade-telemetry.jsonl',row)
@@ -55,8 +59,6 @@ class Session:
 
     def delivery_failed(self, request, error):
         """A known response lost locally must not become a retryable mutation."""
-        if self.last_observation is None:
-            return
         with lock(self.control.path/'operation.lock'):
             self.control._owner(self.token)
             compound = self.control.path/'composition.json'
@@ -66,7 +68,7 @@ class Session:
                 atomic_json(compound,record)
                 atomic_json(self.control.campaign.path/'reference/compositions'/(record['request_id']+'.json'),record)
             path = self.control.path/'pending.json'
-            if not path.exists():
+            if self.last_observation is not None and not path.exists():
                 atomic_json(path, {'request_id':'delivery-'+str(request.get('id')),
                     'pid':os.getpid(),'status':'unknown','evidence':self.last_observation,
                     'tool':request.get('params',{}).get('name'),'started_at':now(),
@@ -107,8 +109,10 @@ class Session:
                 if name in TOOLS:
                     public_call=(name,args)
                     reserved(read_json(self.control.campaign.path/'raw/catalog.json'))
-                    def observed(obs_id): self.last_observation=obs_id
-                    value=Composer(self.control,self.token,observed,driver='facade_'+name.removeprefix('rw_')).execute(name,args)
+                    self.memo.sync(self.control.campaign)
+                    def observed(obs_id):
+                        self.last_observation=obs_id;self.memo.remember(self.control.campaign,obs_id)
+                    value=Composer(self.control,self.token,observed,driver='facade_'+name.removeprefix('rw_'),memo=self.memo).execute(name,args)
                     self.last_composition=value['composition']
                     text=json.dumps(value,ensure_ascii=False,allow_nan=False)
                     self.record_public_call(rid,name,args,'ok',text=text);public_recorded=True
@@ -116,8 +120,11 @@ class Session:
                 if name in facade.TOOLS:
                     public_call=(name,args)
                     reserved(read_json(self.control.campaign.path/'raw/catalog.json'))
-                    def observed(obs_id): self.last_observation=obs_id
+                    def observed(obs_id):
+                        self.last_observation=obs_id;self.memo.remember(self.control.campaign,obs_id)
                     value=facade.dispatch(self.control,self.token,name,args,setup=self.setup,memo=self.memo,observed=observed)
+                    if isinstance(value,dict) and value.get('composition'):
+                        self.last_composition=value['composition']
                     text=json.dumps(value,ensure_ascii=False,allow_nan=False)
                     self.record_public_call(rid,name,args,'ok',text=text);public_recorded=True
                     return {'jsonrpc':'2.0','id':rid,'result':{'content':[{'type':'text','text':text}]}}

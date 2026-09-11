@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0
+
+- `rw_capabilities` adds compact domain overviews and staged workflow maps so the model can see strategic affordances without loading113 schemas.
+- `rw_observe` adds a materialized decision preset for selected core, alerts, food, medical, mood, work, research, conditions, world and pawn facets; opt-in reuse skips only connection-cached reads still valid under conservative wait/mutation invalidation.
+- `rw_wait` defaults to a compact post-event decision packet and accepts preflighted verification queries in the same exchange, reducing wait→read handovers. `context:none` preserves the prior response path.
+- `rw_act` accepts pre-reviewed action arrays only with `independent:true`, preflights the complete batch, executes sequentially, stops on a reported problem and retains durable delivery evidence. Pawn `queue:true` remains the preferred dependent job-chain mechanism.
+- Reference substitution now skips small values when the reference plus metadata would be larger.
+
 ## 0.8.0
 
 - Live play now defaults to the current agent directly rather than a coordinator-delegated player. Guidance biases toward focused observations and the longest prudent event-driven wait while explicitly requiring closer attention whenever threats, medical deadlines, mood/food crises, caravan transitions, ambiguity or unfamiliar mechanics warrant it; delegation remains optional for bounded offline work.

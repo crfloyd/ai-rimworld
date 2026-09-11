@@ -1,12 +1,14 @@
-"""Small stable public MCP surface over the captured RimMolt catalog.
+"""Small public MCP surface over the captured RimMolt catalog.
 
-Shaping and dispatch only. Every game operation still goes through Control.call;
-this module never persists evidence, classifies effects or decides strategy.
+Every game operation still goes through Control.call. The facade shapes results
+and persists only durable compound-delivery manifests; it never decides strategy.
 """
+import os
 import time
 
-from .composition import TOOLS as COMPOSED, obj
-from .core import Error, canonical, read_json
+from .composition import (TOOLS as COMPOSED, QUERY, capture, compact_result,
+                          expand, interruptions, obj, preflight)
+from .core import Error, atomic_json, canonical, identifier, lock, now, read_json
 from .mcp import validate
 from .observations import compact
 from .presentation import present
@@ -16,22 +18,30 @@ ARGS={'type':'object','additionalProperties':True}
 VIEW={'enum':['compact','summary','full']}
 FIELDS={'type':'array','items':STRING,'minItems':1,'maxItems':32,'uniqueItems':True}
 
-CAPABILITIES_SCHEMA=obj({'query':{'type':'string'},'tool':STRING})
+CAPABILITY_DOMAINS=['setup','colony','pawns','medical','food','combat','building','world','quests','production']
+CAPABILITY_WORKFLOWS=['new_game','medical_event','combat_event','caravan','food_crisis']
+CAPABILITIES_SCHEMA=obj({'query':{'type':'string'},'tool':STRING,'overview':{'type':'boolean'},
+                         'domain':{'enum':CAPABILITY_DOMAINS},'workflow':{'enum':CAPABILITY_WORKFLOWS}})
 READ_SCHEMA=obj({'tool':STRING,'args':ARGS,'view':VIEW,'fields':FIELDS,'row_fields':FIELDS,
                  'limit':{'type':'integer','minimum':1}},['tool'])
-ACT_SCHEMA=obj({'tool':STRING,'args':ARGS,'view':VIEW},['tool'])
+ACTION=obj({'tool':STRING,'args':ARGS},['tool'])
+ACT_SCHEMA={'type':'object','properties':{'tool':STRING,'args':ARGS,'view':VIEW,
+            'actions':{'type':'array','items':ACTION,'minItems':1,'maxItems':16},
+            'independent':{'type':'boolean'}},'additionalProperties':False,
+            'oneOf':[{'required':['tool']},{'required':['actions','independent']}]}
 WAIT_SCHEMA=obj({'maxSeconds':{'type':'integer','minimum':5,'maximum':600},
                  'maxGameTicks':{'type':'integer','minimum':1},'maxGameSeconds':{'type':'number','minimum':0},
                  'maxGameHours':{'type':'number','minimum':0},'maxGameDays':{'type':'number','minimum':0},
-                 'force':{'type':'boolean'},'view':VIEW})
+                 'force':{'type':'boolean'},'view':VIEW,'context':{'enum':['auto','none']},
+                 'verify':{'type':'array','items':QUERY,'minItems':1,'maxItems':8}})
 RETRIEVE_SCHEMA=obj({'observation':STRING,'tool':STRING,'entity':STRING,'ref':STRING,
                      'view':VIEW,'fields':FIELDS})
 
 TOOLS={
  'rw_capabilities':{'name':'rw_capabilities','description':
-  'Find upstream RimMolt tools without loading the whole catalog. query returns ranked name+one-line matches; '
-  'tool returns that one exact schema and its default effect. Names found here are used as the tool argument to '
-  'rw_read/rw_act. Offline catalog lookup; contacts no game and grants no permission.',
+  'Discover available actions without loading the catalog. overview/domain gives a compact affordance map; workflow gives an ordered '
+  'new_game, medical_event, combat_event, caravan or food_crisis guide. query finds names; tool returns one exact schema/effect. '
+  'Offline only; grants no permission.',
   'inputSchema':CAPABILITIES_SCHEMA,'annotations':{'readOnlyHint':True}},
  'rw_read':{'name':'rw_read','description':
   'Run one read-only RimMolt tool by name and get a compact result. Filter at the source: '
@@ -41,15 +51,14 @@ TOOLS={
   'Mutating arguments are refused here. Evidence is stored whole; rw_retrieve recovers it.',
   'inputSchema':READ_SCHEMA,'annotations':{'readOnlyHint':True}},
  'rw_act':{'name':'rw_act','description':
-  'Run one effectful RimMolt tool by name. Ordinary game orders only; time advancement belongs to rw_wait and '
-  'reads to rw_read. set_speed with action pause is the ordinary pause and stays available while a request is unresolved. '
-  'For reviewed multi-job pawn sequences, order_pawn queue=true appends a Shift-click-style job after the current queue. '
-  'An accepted order is a receipt, not arrival, treatment, delivery or completed construction; verify the actual result.',
+  'Run one mutation, or a pre-reviewed fail-stop actions[] batch with independent=true. Reads use rw_read; time uses rw_wait. '
+  'set_speed pause remains available during uncertainty. order_pawn queue=true appends a Shift-click job. '
+  'A receipt is not arrival, treatment, delivery or completed construction.',
   'inputSchema':ACT_SCHEMA,'annotations':{'readOnlyHint':False}},
  'rw_wait':{'name':'rw_wait','description':
-  'Advance supervised time until a notable event, then return its cause paused. Prefer this over repeated polling. '
-  'Choose a horizon: maxSeconds is the wall budget (5-600), maxGameTicks/maxGameSeconds/maxGameHours/maxGameDays the game-time limit, '
-  'clamped to the earliest recorded deadline. Inspect the real event and pausedAfter; a wait ending early may have hit its game-time limit.',
+  'Advance supervised time until an event and return paused. Choose wall/game horizons; hard deadlines clamp them. '
+  'context defaults auto and adds a compact event decision packet; none disables it. verify runs preflighted reads after the wait '
+  'in the same exchange. Inspect pausedAfter and ticksWaited.',
   'inputSchema':WAIT_SCHEMA,'annotations':{'readOnlyHint':False}},
  'rw_retrieve':{'name':'rw_retrieve','description':
   'Recover already-captured evidence. observation replays one stored response (view full is the complete original), '
@@ -108,7 +117,13 @@ def gate(kind, tool, want):
 
 
 def capabilities(control, args):
-    from .capabilities import discover
+    from .capabilities import discover, overview
+    selected=[key for key in ('tool','domain','workflow') if args.get(key) is not None]
+    if args.get('overview'):selected.append('overview')
+    if args.get('query'):selected.append('query')
+    if len(selected)>1:raise Error('Choose one capability selector: overview, domain, workflow, query or tool.')
+    if args.get('overview') or args.get('domain') or args.get('workflow'):
+        return overview(control.campaign.root,control.campaign,args.get('domain'),args.get('workflow'))
     return discover(control.campaign.root,args.get('query',''),args.get('tool'),control.campaign)
 
 
@@ -129,10 +144,210 @@ def journal(control, name, body, started, *, tool=None, view=None, game_contact=
         entry.update(truncated=bool(body.get('truncated')),refs_minted=len(body.get('refs') or {}),
                      projected=bool(body.get('projected')),omitted=len(body.get('omitted_keys') or []),
                      unchanged=bool(body.get('unchanged')),
-                     changed_fields=len(body.get('changed_fields') or []))
+                     changed_fields=len(body.get('changed_fields') or []),
+                     event_context=bool(body.get('event_context')),
+                     verification_sections=len(body.get('verification') or {}),
+                     batch_actions=len(body.get('results') or []) if name=='rw_act' else 0,
+                     decision_packets=len(body.get('decisions') or {}),
+                     reused_sections=canonical(body).count('"reused":true'))
         if body.get('truncated'): entry['reason']=body.get('reason')
     append_json(control.campaign.path/'telemetry.jsonl',entry)
     return body
+
+
+class Sequence:
+    """Durable public compound call; delivery is acknowledged by Session/CLI."""
+    def __init__(self,control,token,name,args):
+        self.control=control;self.token=token
+        self.path=control.path/'composition.json'
+        self.record={'request_id':identifier('compose-'),'kind':'composition','tool':name,'args':args,
+                     'pid':os.getpid(),'started_at':now(),'status':'inflight','phase':'starting','observations':[]}
+
+    def save(self):
+        atomic_json(self.path,self.record)
+        atomic_json(self.control.campaign.path/'reference/compositions'/(self.record['request_id']+'.json'),self.record)
+
+    def start(self):
+        with lock(self.control.path/'operation.lock'):
+            self.control._owner(self.token);self.control._no_pending();self.save()
+            self.control._composition_id=self.record['request_id']
+        return self
+
+    def observed(self,key,value):
+        self.record['observations'].append({'key':key,'id':value['id']});self.save()
+
+    def ready(self,**fields):
+        self.record.update(status='ready_to_deliver',phase='complete',**fields);self.save()
+
+    def failed(self,exc):
+        self.record.update(status='unknown',error=str(exc));self.save()
+
+    def close(self):self.control._composition_id=None
+
+
+def presented(control,value,args,memo,tool):
+    obs=control.campaign.observation(value['id'])
+    body=present(value if 'completeness' in value else compact(obs))
+    for key in ('identity_mismatch','pause_guard','wait_budget'):
+        if key in value:body[key]=value[key]
+    return budget(bound(body,obs,args,memo),obs,tool)
+
+
+def explicit_failure(body):
+    if not isinstance(body,dict):return True
+    for container in ('data','status','health','needs','known_subset'):
+        value=body.get(container)
+        if isinstance(value,dict) and (value.get('ok') is False or value.get('error')):return True
+    return body.get('completeness') not in (None,'known')
+
+
+def action_batch(control,token,args,setup,memo,observed):
+    if args.get('independent') is not True:raise Error('Action batches require independent=true after reviewing that no step depends on an earlier outcome.')
+    actions=args['actions']
+    for action in actions:
+        kind=classify(control,action['tool'],action.get('args',{}));gate(kind,action['tool'],'act')
+        if action['tool']=='set_speed':raise Error('Pause/speed changes cannot be precommitted in an action batch.')
+    sequence=Sequence(control,token,'rw_act',args).start();results=[]
+    try:
+        for index,action in enumerate(actions):
+            sequence.record.update(phase='action',next_action=index);sequence.save()
+            value=control.call(token,action['tool'],action.get('args',{}),setup=setup,driver='facade_act_batch')
+            if memo is not None:memo.invalidate('mutation')
+            if observed:observed(value['id'])
+            sequence.observed(str(index),value)
+            body=presented(control,value,{},memo,action['tool'])
+            results.append({'index':index,'tool':action['tool'],'receipt':body})
+            if explicit_failure(body) or body.get('requires_review'):
+                remaining=list(range(index+1,len(actions)))
+                result={'composition':sequence.record['request_id'],'completed':index+1,'not_run':remaining,
+                        'stopped':True,'reason':'Action response requires review','results':results}
+                sequence.ready(stopped=result['reason'],not_run=remaining);return result
+        result={'composition':sequence.record['request_id'],'completed':len(results),'not_run':[],
+                'stopped':False,'results':results,
+                'outcome':'Receipts only; queued jobs and gameplay results still require event/outcome evidence.'}
+        sequence.ready(stopped=None,not_run=[]);return result
+    except BaseException as exc:
+        sequence.failed(exc);raise
+    finally:sequence.close()
+
+
+def run_reads(control,token,queries,memo,observed,driver):
+    expanded=expand(queries)
+    for query in expanded:preflight(control,query)
+    sections={};evidence=[]
+    not_run=[]
+    for index,query in enumerate(expanded):
+        cached=memo.reusable(query['tool'],query['args']) if memo is not None else None
+        if cached:value={'id':cached}
+        else:
+            value=control.call(token,query['tool'],query['args'],driver=driver)
+            if observed:observed(value['id'])
+        section,incomplete=capture(control,value)
+        compacted=compact_result({'sections':{query['key']:section},'verification':{},'capture':'sequential',
+                                  'advancement_requested':False,'unrequested':'unknown','stopped':None})['sections'][query['key']]
+        if cached:compacted['reused']=True
+        sections[query['key']]=compacted;evidence.append(value['id'])
+        if incomplete:
+            not_run=[q['key'] for q in expanded[index+1:]];break
+    return sections,evidence,not_run
+
+
+def event_topics(body):
+    text=canonical(body).lower();topics=['core','alerts']
+    if any(word in text for word in ('food','meal','starv','malnutrition')):topics.append('food')
+    if any(word in text for word in ('injur','infection','disease','bleed','poison','healed','damage')):topics.append('medical')
+    if any(word in text for word in ('break risk','mental','wander','berserk','tantrum','mood')):topics.append('mood')
+    if any(word in text for word in ('caravan','formation','arriv')):topics.append('world')
+    if any(word in text for word in ('raid','threat','hostile','attack','fire')):topics.append('threat')
+    return list(dict.fromkeys(topics))
+
+
+def event_details(control,token,wait_data,status_data,topics,memo,observed,sequence):
+    """Bounded directly relevant reads; context selection only, never an action."""
+    details={};bundled=status_data.get('bundled') or {}
+    text=canonical({'wait':wait_data,'alerts':(bundled.get('get_alerts') or {}).get('activeAlerts',[])}).lower()
+    colonists=(bundled.get('list_colonists') or {}).get('colonists') or []
+    matched=[p for p in colonists if p.get('id') and p.get('name') and str(p['name']).lower() in text][:3]
+    facets=[]
+    if 'medical' in topics:facets.append('health')
+    if 'mood' in topics:facets.append('needs')
+    attention=[]
+    for pawn in matched:
+        for facet in facets:
+            value=control.call(token,'get_pawn',{'id':pawn['id'],'tab':facet},driver='facade_wait_context')
+            if observed:observed(value['id'])
+            sequence.observed('event_'+facet+'_'+pawn['id'],value)
+            obs=control.campaign.observation(value['id'])
+            attention.append({'id':pawn['id'],'name':pawn['name'],'facet':facet,'data':obs['data'],'evidence':obs['id'],
+                              'coverage':{'completeness':obs['completeness'],'missing':obs['missing']}})
+    if attention:details['affected_pawns']=attention
+    if 'threat' in topics:
+        value=control.call(token,'list_things',{'category':'pawn','limit':40},driver='facade_wait_context')
+        if observed:observed(value['id'])
+        sequence.observed('event_threats',value);obs=control.campaign.observation(value['id'])
+        rows=obs['data'].get('things') or []
+        details['threats']={'hostiles':[r for r in rows if isinstance(r,dict) and r.get('hostile')],
+                            'evidence':obs['id'],'completeness':obs['completeness'],'missing':obs['missing']}
+        if 'fire' in text:
+            value=control.call(token,'list_fires',{},driver='facade_wait_context')
+            if observed:observed(value['id'])
+            sequence.observed('event_fires',value);obs=control.campaign.observation(value['id'])
+            details['fires']={'data':obs['data'],'evidence':obs['id'],
+                              'completeness':obs['completeness'],'missing':obs['missing']}
+    if 'world' in topics:
+        value=control.call(token,'list_world_objects',{},driver='facade_wait_context')
+        if observed:observed(value['id'])
+        sequence.observed('event_world',value);obs=control.campaign.observation(value['id'])
+        details['world']={'data':obs['data'],'evidence':obs['id'],
+                          'completeness':obs['completeness'],'missing':obs['missing']}
+    return details
+
+
+def wait_sequence(control,token,args,setup,memo,observed):
+    view=args.get('view','compact');verify=args.get('verify') or []
+    if verify:
+        for query in expand(verify):preflight(control,query)
+    call_args=dict({k:v for k,v in args.items() if k not in ('view','context','verify')},pause='always')
+    gate(classify(control,'wait_for_event',call_args),'wait_for_event','wait')
+    sequence=Sequence(control,token,'rw_wait',args).start()
+    try:
+        sequence.record['phase']='wait';sequence.save()
+        value=control.call(token,'wait_for_event',call_args,setup=setup,driver='facade_wait')
+        if memo is not None:memo.invalidate('advance')
+        if observed:observed(value['id'])
+        sequence.observed('wait',value)
+        obs=control.campaign.observation(value['id'])
+        body=shape(control.campaign,obs,view) if view!='compact' else presented(control,value,args,memo,'wait_for_event')
+        data=obs.get('data') if isinstance(obs,dict) else None
+        event=bool(isinstance(data,dict) and (data.get('event') or data.get('_notifications'))) or bool(body.get('requires_review'))
+        context_safe=not body.get('pause_guard') and not (control.path/'pause-uncertain.json').exists()
+        if args.get('context','auto')=='auto' and event and context_safe:
+            sequence.record['phase']='event_context';sequence.save()
+            status=control.call(token,'get_status',{},driver='facade_wait_context')
+            if observed:observed(status['id'])
+            sequence.observed('event_context',status)
+            status_data=control.campaign.observation(status['id'])['data']
+            from .composition import decision_status
+            topics=event_topics(body)
+            packet=decision_status(status_data,topics)
+            status_obs=control.campaign.observation(status['id'])
+            packet.update(evidence=status['id'],topics=topics,captured_after_wait=True,
+                          coverage={'completeness':status_obs['completeness'],'missing':status_obs['missing']})
+            controls={k:status[k] for k in ('identity_mismatch','pause_guard') if k in status}
+            if controls:packet['control']=controls
+            packet.update(event_details(control,token,data or {},status_data,topics,memo,observed,sequence))
+            body['event_context']=packet
+            if status_obs['completeness']!='known' or controls:body['requires_review']=True
+        if verify:
+            sequence.record['phase']='verification';sequence.save()
+            sections,evidence,not_run=run_reads(control,token,verify,memo,observed,'facade_wait_verify')
+            body['verification']=sections;body['verification_evidence']=evidence
+            body['verification_complete']=not not_run;body['verification_not_run']=not_run
+        body['composition']=sequence.record['request_id']
+        sequence.ready(stopped=None);return body
+    except BaseException as exc:
+        sequence.failed(exc);raise
+    finally:sequence.close()
 
 
 def dispatch(control, token, name, args, setup=False, memo=None, observed=None):
@@ -152,11 +367,11 @@ def dispatch(control, token, name, args, setup=False, memo=None, observed=None):
                        game_contact=False)
     view=args.get('view','compact')
     if name=='rw_wait':
-        # pause is injected, never offered: wait_arguments hard-requires 'always'.
-        tool='wait_for_event'
-        call_args=dict({k:v for k,v in args.items() if k!='view'},pause='always')
-        gate(classify(control,tool,call_args),tool,'wait')
-        value=control.call(token,tool,call_args,setup=setup,driver='facade_wait')
+        body=wait_sequence(control,token,args,setup,memo,observed)
+        return journal(control,name,body,started,tool='wait_for_event',view=view)
+    if name=='rw_act' and args.get('actions') is not None:
+        body=action_batch(control,token,args,setup,memo,observed)
+        return journal(control,name,body,started,tool='batch',view=view)
     else:
         tool,call_args=args['tool'],args.get('args',{})
         want='read' if name=='rw_read' else 'act'
@@ -167,6 +382,7 @@ def dispatch(control, token, name, args, setup=False, memo=None, observed=None):
         else:
             gate(classify(control,tool,call_args),tool,want)
             value=control.call(token,tool,call_args,setup=setup,driver='facade_'+want)
+            if memo is not None and want=='act':memo.invalidate('mutation')
     if observed: observed(value['id'])
     obs=control.campaign.observation(value['id'])
     if view!='compact':
@@ -266,15 +482,52 @@ PAYLOAD_BUDGET=32768
 
 
 class Memo:
-    """Connection-scoped substitution table. Never survives a reconnect or reset."""
+    """Connection-scoped references plus explicitly invalidated observation reuse."""
     def __init__(self):
         self.by_value={};self.values_by_id={};self.reset_at=None
+        self.observations={};self.time_generation=0;self.mutation_generation=0
 
     def sync(self, campaign):
         """Any presentation reset invalidates every outstanding reference."""
         current=campaign.meta.get('presentation_reset_at')
         if current!=self.reset_at:
-            self.by_value.clear();self.values_by_id.clear();self.reset_at=current
+            self.by_value.clear();self.values_by_id.clear();self.observations.clear()
+            self.time_generation=0;self.mutation_generation=0;self.reset_at=current
+
+    @staticmethod
+    def stability(tool,args):
+        if tool=='get_pawn' and args.get('tab')=='bio':return 'stable'
+        if tool=='set_schedule' and 'assignment' not in args:return 'stable'
+        if tool=='assign_building' and args.get('action','list')=='list':return 'stable'
+        return 'volatile'
+
+    def remember(self,campaign,observation_id):
+        obs=campaign.observation(observation_id)
+        if obs.get('completeness')!='known':return
+        key=canonical({'tool':obs['tool'],'args':obs.get('args',{})})
+        self.observations[key]={'id':observation_id,'tool':obs['tool'],'args':obs.get('args',{}),
+            'stability':self.stability(obs['tool'],obs.get('args',{})),
+            'time_generation':self.time_generation,'mutation_generation':self.mutation_generation}
+
+    def invalidate(self,kind):
+        if kind=='advance':self.time_generation+=1
+        elif kind=='mutation':self.mutation_generation+=1
+
+    def reusable(self,tool,args):
+        entry=self.observations.get(canonical({'tool':tool,'args':args}))
+        if not entry:return None
+        if entry['mutation_generation']!=self.mutation_generation:return None
+        if entry['stability']=='volatile' and entry['time_generation']!=self.time_generation:return None
+        return entry['id']
+
+    def state_summary(self):
+        current=[];stale=[]
+        for entry in self.observations.values():
+            valid=(entry['mutation_generation']==self.mutation_generation and
+                   (entry['stability']=='stable' or entry['time_generation']==self.time_generation))
+            target=current if valid else stale
+            target.append({'tool':entry['tool'],'args':entry['args'],'e':entry['id'],'stability':entry['stability']})
+        return {'current':current,'stale_count':len(stale),'basis':'Connection-scoped; waits invalidate volatile facts and mutations conservatively invalidate prior facts.'}
 
     def substitute(self, body, obs):
         """Reference a repeated global value; never elide a changed or critical one.
@@ -294,6 +547,11 @@ class Memo:
                 known=self.by_value.get(token)
                 if known is None:
                     short=field.strip('_')[:2].lower()+str(len(self.values_by_id)+1)
+                    replacement={'same_as':short}
+                    # A reference that is not materially shorter cannot repay its
+                    # mint metadata; keep small values such as booleans literal.
+                    if len(canonical(value[field]).encode()) <= len(canonical(replacement).encode())+8:
+                        continue
                     self.by_value[token]=short
                     self.values_by_id[short]={'field':field,'value':value[field],'evidence':obs['id']}
                     minted[short]=obs['id'];continue

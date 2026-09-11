@@ -1,11 +1,11 @@
-# Current implementation plan — token-efficient facade
+# Current implementation plan — decision-loop latency
 
-User-approved scope: a small stable public MCP surface over the captured RimMolt catalog, compact model-facing responses with explicit selection and limits, a configurable payload budget, connection-scoped references for repeated global values, and unchanged full-fidelity evidence. No snapshot or query-engine concept in this change set.
+User-approved scope: reduce wall-clock latency by removing avoidable think→query→think handovers without weakening strategic reasoning or exposing the full upstream schema surface. Preserve ordinary safety, evidence, uncertainty and pause behavior.
 
-The model sees seven tools; the proxy still knows all113. Upstream names are reachable by name through rw_read/rw_act and discoverable through rw_capabilities, but are not advertised and not served directly unless `session --expose-upstream-tools` is set. Control.call remains the sole game path and the authority on permission, ownership, pause, evidence and telemetry; the facade only narrows and shapes.
+The model still sees seven tools. Existing tools gain five complementary paths: compact domain/workflow affordance discovery, materialized decision observations, automatic event context and requested post-wait verification, explicitly independent fail-stop action batches, and connection-scoped observation reuse with conservative invalidation.
 
-Delivered: facade module and dispatch, argument-dependent read/act/wait gates with the emergency pause route preserved, compact/summary/full views replayed from evidence, fields/row_fields projection with forced retention of warning/risk/changed keys, caller limit and a32,768-byte payload budget with explicit truncation reporting, value-keyed references with reset invalidation, the exposure flag, CLI routing, per-call driver telemetry, and a --facade mode in compare_views.
+Design boundaries: event context is materialized from a post-wait status read only when the wait reports an event/risk and can be disabled; caller-selected verify reads are preflighted before time advances. Action arrays require `independent=true`, preflight every step before dispatch, stop after a reported problem and retain a durable composition until delivery. Reuse is opt-in and only returns facts current under explicit time/mutation generations; waits invalidate volatile facts and mutations conservatively invalidate all prior facts. Small values are never replaced by larger references.
 
-Validation: 227 offline tests, byte-budget assertion on the served surface, and a2,513-call offline replay from stored evidence. Public-call telemetry now covers all seven facade tools and attributes composed subcalls separately. Numbers and their limits are in VALIDATION.md.
+Validation: offline regressions cover overview/workflow discovery, event context plus same-call verification, decision materialization, stable-versus-volatile reuse, batch preflight/fail-stop behavior, delivery markers and the existing facade safety contracts. Numbers and limits are in VALIDATION.md.
 
-Status: implementation, tests, benchmarks and documentation complete. A first live adoption test stopped safely after7,608ticks on a corrected argument-dependent classification defect; the next validation is a fresh one-day continuation from the paused state.
+Status: implementation and documentation complete pending final repository validation and an independent live adoption test. No live game endpoint or save is used while implementing this release.

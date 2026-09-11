@@ -19,14 +19,21 @@ ARGS = {'type':'object','additionalProperties':True}
 KEY={'type':'string','pattern':'^[a-z][a-z0-9_-]{0,39}$'}
 def includes(names):
     return {'type':'array','items':{'enum':list(names)},'minItems':1,'uniqueItems':True}
+PAWN_FACETS=('summary','needs','health','gear','bio','schedule')
+DECISION_TOPICS=('core','alerts','food','medical','mood','work','research','conditions','world')
+DECISION_PAWN=obj({'id':STRING,'include':includes(PAWN_FACETS)},['id'])
 QUERY={'oneOf':[
     obj({'key':KEY,'tool':STRING,'args':ARGS},['key','tool']),
     obj({'key':KEY,'preset':{'const':'pawn'},'id':STRING,
-         'include':includes(('summary','needs','health','gear','bio','schedule')),
+         'include':includes(PAWN_FACETS),
          'detail':{'type':'boolean'}},['key','preset','id']),
     obj({'key':KEY,'preset':{'const':'production'},'id':STRING,'worker_id':STRING,
-         'include':includes(('station','bills','recipes','resources','worker','work_options'))},['key','preset','id'])]}
-READ_SCHEMA = obj({'provenance':{'type':'boolean'},'queries':{'type':'array','items':QUERY,'minItems':1,'maxItems':32}}, ['queries'])
+         'include':includes(('station','bills','recipes','resources','worker','work_options'))},['key','preset','id']),
+    obj({'key':KEY,'preset':{'const':'decision'},'include':includes(DECISION_TOPICS),
+         'pawns':{'type':'array','items':DECISION_PAWN,'maxItems':8},
+         'mood_below':{'type':'number','minimum':0,'maximum':100}},['key','preset'])]}
+READ_SCHEMA = obj({'provenance':{'type':'boolean'},'reuse':{'type':'boolean'},
+                   'queries':{'type':'array','items':QUERY,'minItems':1,'maxItems':32}}, ['queries'])
 COMMAND = obj({'tool':STRING,'args':ARGS}, ['tool'])
 PREDICATE = obj({'source':STRING,'path':{'type':'string'},
                  'match':{'type':'object','additionalProperties':True},
@@ -38,18 +45,15 @@ GUARD_SCHEMA = obj({'provenance':{'type':'boolean'},'queries':READ_SCHEMA['prope
                     'verify':READ_SCHEMA['properties']['queries']}, ['queries','when','then'])
 TOOLS = {
  'rw_observe': {'name':'rw_observe','description':
-  'Gather named related facts in one response. Explicit reads or pawn/production presets with caller-selected sections. '
-  'Pawn include: summary,needs,health,gear,bio,schedule. Production: station,bills,recipes,resources,worker,work_options '
-  '(worker/work_options require worker_id). Keys group sections (e.g. reed.needs). Preserves unknown fields/media and evidence. '
-  'Read-only game operations, sequential captures, not an atomic snapshot or a readiness verdict. Unrequested sections remain unknown. '
-  'Individual RimMolt tools remain available.', 'inputSchema':READ_SCHEMA},
+  'Gather selected reads in one exchange. Use explicit queries, pawn/production presets, or preset=decision for a materialized '
+  'core/alerts/food/medical/mood/work/research/conditions/world packet plus selected pawn facets. reuse=true uses only '
+  'connection-cached facts current under conservative wait/mutation invalidation. Captures are sequential, not atomic; '
+  'unrequested facts remain unknown and evidence is retained.', 'inputSchema':READ_SCHEMA},
  'rw_guard': {'name':'rw_guard','description':
-  'Agent-authored bounded read→condition→one action→optional verification reads, in one exchange. '
-  'Uses rw_observe queries. All when predicates must be true for then; known false selects otherwise if supplied. '
-  'source is an expanded section key; path and optional field are JSON Pointers into its data. Optional match selects exactly one array row by exact fields. '
-  'Unconfirmed pause, missing, ambiguous, partial, mistyped facts or newly reported warnings/events cause NO action, including otherwise. '
-  'Branches use literal ordinary tool/args selected by the agent. No loops, waits, setup, dynamic targets or automatic retries. '
-  'A receipt does not certify gameplay completion. Use ordinary reads when a decision still needs reasoning.', 'inputSchema':GUARD_SCHEMA}
+  'Run selected reads→exact JSON-Pointer conditions→at most one literal action→optional verification. All predicates must '
+  'be true for then; known false may select otherwise. Missing, ambiguous, partial, unpaused or newly warned input abstains. '
+  'No loops, waits, setup, dynamic targets or retries. A receipt is not gameplay completion; use rw_observe when judgment remains.',
+  'inputSchema':GUARD_SCHEMA}
 }
 TOOLS['rw_observe']['annotations']={'readOnlyHint':True}
 TOOLS['rw_guard']['annotations']={'readOnlyHint':False}
@@ -76,7 +80,17 @@ def expand(queries):
             if set(q)-{'key','tool','args'} or 'tool' not in q: raise Error('Explicit query requires key/tool/args only.')
             expanded.append({'key':q['key'],'tool':q['tool'],'args':q.get('args',{})})
             continue
-        if 'tool' in q or 'args' in q or 'id' not in q: raise Error('Preset requires an id and cannot also supply tool/args.')
+        if q.get('preset')=='decision':
+            prefix=q['key']
+            topics=q.get('include') or ['core','alerts']
+            if any(t!='world' for t in topics):expanded.append({'key':prefix+'.status','tool':'get_status','args':{}})
+            if 'world' in topics:expanded.append({'key':prefix+'.world','tool':'list_world_objects','args':{}})
+            for i,pawn in enumerate(q.get('pawns') or []):
+                for facet in pawn.get('include') or ['summary']:
+                    tool,args=PAWN[facet]({'id':pawn['id']})
+                    expanded.append({'key':prefix+'.pawn'+str(i)+'.'+facet,'tool':tool,'args':args})
+            continue
+        if 'tool' in q or 'args' in q or 'id' not in q: raise Error('Pawn/production preset requires an id and cannot also supply tool/args.')
         choices = PAWN if q['preset']=='pawn' else PRODUCTION
         includes = q.get('include', ['summary'] if q['preset']=='pawn' else ['station','bills'])
         if q['preset']=='pawn' and 'worker_id' in q: raise Error('worker_id is a production option.')
@@ -188,10 +202,67 @@ def compact_result(result):
     return result
 
 
+def _resources(data, words):
+    rows=(data or {}).get('resources') or []
+    return [r for r in rows if isinstance(r,dict) and any(w in (str(r.get('defName',''))+' '+str(r.get('label',''))).lower() for w in words)]
+
+
+def decision_status(data, topics, mood_below=35):
+    """Materialize only requested decision facets from one bundled status read."""
+    bundled=data.get('bundled') or {}
+    colonists=(bundled.get('list_colonists') or {}).get('colonists') or []
+    alerts=bundled.get('get_alerts') or {}
+    resources=bundled.get('get_resources') or {}
+    result={}
+    if 'core' in topics:
+        result['core']={k:data[k] for k in ('ticksGame','paused','timeSpeed','maps','colonistCount') if k in data}
+        result['core']['dangerByMap']=alerts.get('dangerByMap')
+    if 'alerts' in topics:
+        result['alerts']={'activeLetters':alerts.get('activeLetters',[]),'activeAlerts':alerts.get('activeAlerts',[]),
+                          'recentMessages':alerts.get('recentMessages',[]),'dangerByMap':alerts.get('dangerByMap')}
+    if 'food' in topics:
+        result['food']={'resources':_resources(resources,('meal','meat','rice','pemmican','berr','egg','milk','corn','potato')),
+                        'alerts':[a for a in alerts.get('activeAlerts',[]) if 'food' in str(a.get('label','')).lower()]}
+    if 'medical' in topics:
+        result['medical']=[p for p in colonists if p.get('health',100)<100 or 'health' in str(p.get('hint','')).lower() or p.get('downed')]
+        result['medicine']=_resources(resources,('medicine','medkit'))
+    if 'mood' in topics:
+        result['mood']=[p for p in colonists if isinstance(p.get('mood'),(int,float)) and p['mood']<=mood_below or p.get('mentalState')]
+    if 'work' in topics:
+        result['work']=[{k:p.get(k) for k in ('id','name','job','downed','mentalState') if k in p} for p in colonists]
+    if 'research' in topics:result['research']=bundled.get('get_research')
+    if 'conditions' in topics:result['conditions']=bundled.get('get_conditions')
+    return result
+
+
+def materialize_decisions(result, specs, evidence):
+    decisions={}
+    for q in specs:
+        if q.get('preset')!='decision':continue
+        key=q['key'];topics=q.get('include') or ['core','alerts'];packet={}
+        status=result['sections'].pop(key+'.status',None)
+        if status and 'data' in status:
+            packet.update(decision_status(status['data'],topics,q.get('mood_below',35)))
+        world=result['sections'].pop(key+'.world',None)
+        if world and 'data' in world:packet['world']=world['data']
+        selected=[]
+        for i,pawn in enumerate(q.get('pawns') or []):
+            facets={}
+            for facet in pawn.get('include') or ['summary']:
+                section=result['sections'].pop(key+'.pawn'+str(i)+'.'+facet,None)
+                if section and 'data' in section:facets[facet]=section['data']
+            selected.append({'id':pawn['id'],'facets':facets})
+        if selected:packet['pawns']=selected
+        packet['evidence']=[evidence[k] for k in evidence if k.startswith(key+'.')]
+        decisions[key]=packet
+    if decisions:result['decisions']=decisions
+    return result
+
+
 class Composer:
-    def __init__(self, control, token, on_observation=None, driver="agent_composition"):
+    def __init__(self, control, token, on_observation=None, driver="agent_composition", memo=None):
         self.control=control;self.token=token;self.on_observation=on_observation or (lambda _:None)
-        self.driver=driver
+        self.driver=driver;self.memo=memo;self.reuse=False
         self.path=control.path/'composition.json';self.record=None
 
     def save(self):
@@ -201,9 +272,14 @@ class Composer:
     def read(self, queries, output):
         for i,q in enumerate(queries):
             self.record['phase']='reading';self.record['next_query']=q;self.save()
-            value=self.control.call(self.token,q['tool'],q['args'],driver=self.driver)
-            self.on_observation(value['id'])
+            cached=self.memo.reusable(q['tool'],q['args']) if self.memo is not None and self.reuse else None
+            if cached:
+                value={'id':cached};self.record.setdefault('reused',[]).append({'key':q['key'],'id':cached})
+            else:
+                value=self.control.call(self.token,q['tool'],q['args'],driver=self.driver)
+                self.on_observation(value['id'])
             output[q['key']],incomplete=capture(self.control,value)
+            if cached:output[q['key']]['reused']=True
             self.record['observations'].append({'key':q['key'],'id':value['id'],'source':output[q['key']]['source'],'coverage':output[q['key']]['coverage']});self.save()
             if incomplete:
                 return {'reason':'Identity, pause, JSON or coverage requires review','after':q['key'],'not_run':[x['key'] for x in queries[i+1:]]}
@@ -213,6 +289,7 @@ class Composer:
         from .facade import reserved
         reserved(read_json(self.control.campaign.path/'raw/catalog.json'))
         validate(TOOLS[name]['inputSchema'],spec)
+        self.reuse=spec.get('reuse',False)
         queries=expand(spec['queries']);verify=expand(spec['verify']) if spec.get('verify') else []
         if len(queries)+len(verify)>32:raise Error('Use at most32 total reads including verification.')
         for q in queries+verify:preflight(self.control,q)
@@ -244,7 +321,9 @@ class Composer:
                 if name=='rw_guard':
                     self.record.update({k:result[k] for k in ('condition','selected_branch','action_status','verification_not_run') if k in result})
                 self.record.update(status='ready_to_deliver',phase='complete',stopped=result['stopped']);self.save()
-                return result if spec.get('provenance') else compact_result(result)
+                if spec.get('provenance'):return result
+                evidence={key:s['source']['observation'] for key,s in result['sections'].items()}
+                return materialize_decisions(compact_result(result),spec['queries'],evidence)
             except BaseException as exc:
                 self.record.update(status='unknown',error=str(exc));self.save();raise
             finally:
@@ -266,6 +345,7 @@ class Composer:
             result['verification_not_run']=[q['key'] for q in verify];result['action_status']='not_requested';return
         command=spec[branch];self.record.update(phase='action',selected_branch=branch,action=command);self.save()
         value=self.control.call(self.token,command['tool'],command.get('args',{}),driver=self.driver)
+        if self.memo is not None:self.memo.invalidate('mutation')
         self.on_observation(value['id'])
         result['action'],incomplete=capture(self.control,value);result['action_status']='receipt_only'
         self.record['action_evidence']=value['id'];self.save()

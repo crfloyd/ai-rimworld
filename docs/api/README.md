@@ -1,6 +1,6 @@
 # API reference
 
-Persistent session discovery serves a small stable surface: `rw_capabilities`, `rw_read`, `rw_act`, `rw_wait`, `rw_retrieve`, plus `rw_observe` and `rw_guard`. The113-tool upstream catalog stays reachable by name through `rw_read`/`rw_act`, with `rw_capabilities` supplying exact schemas on request; it is no longer advertised in `tools/list`. See [facade](../facade.md) for the surface and views, and [composition](../composition.md) for the grouped-read and guarded-action examples.
+Persistent session discovery serves a small stable surface: `rw_capabilities`, `rw_read`, `rw_act`, `rw_wait`, `rw_retrieve`, plus `rw_observe` and `rw_guard`. The113-tool upstream catalog stays reachable by name through `rw_read`/`rw_act`, with `rw_capabilities` supplying a compact overview/domain/workflow map and exact schemas on request; it is no longer advertised in `tools/list`. `rw_wait` can return post-event context and verification in the same exchange, while `rw_observe` can materialize one selected decision packet. See [facade](../facade.md) for the surface and views, and [composition](../composition.md) for the grouped-read and guarded-action examples.
 
 For related reads, local `rw_observe` groups selected pawn/production sections or explicit reads in one exchange. `rw_guard` adds an agent-authored condition and at most one literal action, with unknown-data abstention.
 

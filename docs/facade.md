@@ -1,14 +1,14 @@
 # Public tool surface
 
-Persistent session discovery serves seven tools instead of the whole captured catalog. The proxy still knows every upstream tool; the model is not required to carry all of them. The upstream declarations cost142,785bytes in `tools/list`; the served surface costs9,613, and that difference stays out of context for the whole session.
+Persistent session discovery serves seven tools instead of the whole captured catalog. The proxy still knows every upstream tool; the model is not required to carry all of them. The upstream declarations cost142,785bytes in `tools/list`; the0.9.0served surface costs13,455bytes (**10.6× smaller**), including the new decision-loop schemas.
 
 | Tool | Use |
 |---|---|
-| `rw_capabilities` | `query` for ranked names, `tool` for one exact schema |
+| `rw_capabilities` | compact overview/domain/workflow map, name search, or one exact schema |
 | `rw_read` | one read-only upstream tool by name |
-| `rw_act` | one effectful upstream tool by name |
-| `rw_wait` | supervised time until a notable event |
-| `rw_observe` | named related facts in one exchange |
+| `rw_act` | one mutation or an explicitly independent fail-stop batch |
+| `rw_wait` | supervised time plus event context/verification in one exchange |
+| `rw_observe` | named facts or a materialized decision packet |
 | `rw_guard` | read→condition→one action→verification |
 | `rw_retrieve` | recover stored evidence, or resolve a reference |
 
@@ -20,7 +20,23 @@ Upstream names are not served directly. Start `session --expose-upstream-tools`,
 
 `rw_act` carries ordinary orders. `set_speed` with `action` pause remains the ordinary pause and stays available while a request is unresolved, exactly as before. An accepted order is a receipt, not arrival, treatment, delivery or completed construction.
 
+For several unrelated, already-reviewed mutations, pass `actions` and `independent:true`. Every schema/effect is checked before the first dispatch. Execution is sequential and stops after a response that reports failure, incomplete evidence or risk; `not_run` identifies untouched steps. The durable composition remains until the response is delivered. Do not put dependent actions in this form: use pawn `queue:true` for compatible job chains, or inspect an outcome before choosing the next action.
+
 `rw_wait` wraps `wait_for_event` and injects `pause:always`, so a supervised pause is never optional. Choose a horizon; `maxGameTicks` is still clamped to the earliest recorded deadline and reported as `wait_budget`. A wait ending before its wall budget may have reached its game-time limit. An unconfirmed pause still writes the pause guard and requires review.
+
+When a wait reports an event or risk, `context:auto` (the default) performs one post-wait status read and returns a materialized packet with core/alerts plus event-relevant food, medical, mood, threat/fire or world facets. Named medical/mood events include bounded affected-pawn health/needs; threats include current hostiles and fires include the fire list. Use `context:none` when the wait result alone is sufficient. Optional `verify` accepts the same query objects as `rw_observe`; every query is preflighted before time advances and runs after the wait in the same public exchange. Event context and verification never choose an action.
+
+## Strategic affordances
+
+`rw_capabilities {"overview":true}` returns the compact domain map. Use `domain` for one area or `workflow` for an ordered `new_game`, `medical_event`, `combat_event`, `caravan` or `food_crisis` guide. These contain names and one-line purposes, not schemas, live availability or permission. Fetch only a selected exact contract with `{"tool":"NAME"}`.
+
+This overview replaces loading the complete one-line catalog at every session start. Search remains useful for a concept outside the curated map.
+
+## Decision observations and reuse
+
+`rw_observe` supports `preset:"decision"` with caller-selected `include` topics: `core`, `alerts`, `food`, `medical`, `mood`, `work`, `research`, `conditions`, and `world`. Add selected pawns and only the facets required. The implementation performs ordinary evidence-preserving reads but materializes one narrow packet rather than returning every bundled status field as separate sections.
+
+`reuse:true` may skip an upstream read only when the same tool/arguments are still current in this connection. Time advancement invalidates volatile facts; mutations conservatively invalidate every prior fact. Only explicitly stable facets such as biography, schedule reads and building assignments survive a wait. Reused sections say `reused:true` and retain their original evidence. Omit reuse when a genuinely fresh capture is required.
 
 ## Views
 
@@ -38,12 +54,12 @@ A response that would still be very large is bounded by a serialized payload bud
 
 One global value repeated across different subjects — a threat warning attached to every pawn read, for instance — is delivered once and afterwards referenced as `{"same_as":"th1"}`, with `refs` naming the evidence it came from. The field itself always stays present, so an appearance is never hidden, and risk kind, severity, subject and `requires_review` stay literal in every response. A changed value is never referenced, nor is anything at critical severity.
 
-References are valid only inside the connection that minted them. They are cleared on reconnect and on any presentation reset, so a reference never has to be interpreted across sessions. The original value always remains in evidence: `rw_retrieve {"ref":"th1"}` returns it literally, and an unknown reference is an error rather than a guess.
+References are valid only inside the connection that minted them. They are cleared on reconnect and on any presentation reset, so a reference never has to be interpreted across sessions. Small values remain literal when a reference would not be materially shorter. The original value always remains in evidence: `rw_retrieve {"ref":"th1"}` returns it literally, and an unknown reference is an error rather than a guess.
 
 ## Token-Efficient Agent Guidance
 
 - Never request the whole map when a bounded query answers the question. `list_things` accepts category, defName, faction, nearId or nearX/nearZ with radius, and limit; `get_area` accepts explicit bounds. Filtering at the source is faster than fetching and discarding.
-- **Pull the whole index once per session**: `rw_capabilities {}` with no query returns every tool name with a one-line description in one call. That is the complete action space, and it costs a fraction of advertising the schemas. Do this when entering a run, before deciding strategy — a capability you have never seen is one you will never think to search for. Then use `rw_capabilities {"query":"..."}` to narrow and `rw_capabilities {"tool":"..."}` for the one exact schema you need.
+- Pull `rw_capabilities {"overview":true}` once when strategic affordance awareness is needed, or request one domain/workflow. Fetch an exact schema only for a selected action. Do not load the full catalog by default.
 - Keep the default compact view. Escalate to `full` only when compact is genuinely insufficient — it is a local replay, not another game call.
 - Select `fields`/`row_fields` when only part of a response matters, and pass `limit` when a list is expected to be long.
 - Prefer `rw_wait` over repeated reads to see whether something finished. One finite event-driven wait replaces a polling loop.

@@ -141,15 +141,67 @@ class Facade(ControlFixture):
 
     def test_wait_injects_pause_always(self):
         self.responses.append({'event':'letter','cause':'threatAppeared','pausedAfter':True})
-        self.body('rw_wait',{'maxSeconds':30})
+        self.body('rw_wait',{'maxSeconds':30,'context':'none'})
         self.assertEqual(self.calls[-1]['arguments']['pause'],'always')
         self.assertEqual(self.calls[-1]['name'],'wait_for_event')
 
     def test_wait_without_confirmed_pause_still_guards(self):
         self.responses.extend([{'event':None,'cause':'timeout','pausedAfter':False},{'ok':True,'paused':True}])
-        value=self.body('rw_wait',{'maxSeconds':30})
+        value=self.body('rw_wait',{'maxSeconds':30,'context':'none'})
         self.assertIn('pause_guard',value)
         self.assertTrue((self.control.path/'pause-uncertain.json').exists())
+
+    def test_wait_auto_context_and_explicit_verification_share_one_public_call(self):
+        self.responses.extend([
+            {'event':True,'cause':'notification','pausedAfter':True,
+             '_notifications':[{'text':'P has an infection'}]},
+            {'loaded':True,'colonyName':'Fixture Colony','ticksGame':301000,'paused':True,'bundled':{
+                'list_colonists':{'colonists':[{'id':'p','name':'P','health':80}]},
+                'get_alerts':{'dangerByMap':[],'activeAlerts':[]},
+                'get_resources':{'resources':[{'defName':'MedicineHerbal','count':3}]}}},
+            {'id':'p','tab':'health','hediffs':[{'label':'Infection','severity':.1}]},
+            {'id':'p','tab':'health','hediffs':[{'label':'Infection','severity':.1}]}
+        ])
+        value=self.body('rw_wait',{'maxGameTicks':1000,'verify':[{'key':'patient','tool':'get_pawn','args':{'id':'p','tab':'health'}}]})
+        self.assertEqual([c['name'] for c in self.calls[-4:]],['wait_for_event','get_status','get_pawn','get_pawn'])
+        self.assertIn('medical',value['event_context']['topics'])
+        self.assertEqual(value['event_context']['affected_pawns'][0]['facet'],'health')
+        self.assertEqual(value['verification']['patient']['data']['id'],'p')
+        self.assertTrue(value['verification_complete']);self.assertEqual(value['verification_not_run'],[])
+        self.assertTrue((self.control.path/'composition.json').exists())
+        from tools.rimworld.composition import delivered
+        delivered(self.control,self.token,value['composition'])
+
+    def test_wait_verification_preflights_before_advancing(self):
+        before=len(self.calls)
+        with self.assertRaises(Error):
+            self.body('rw_wait',{'maxGameTicks':1000,
+                'verify':[{'key':'bad','tool':'order_pawn','args':{'id':'p','command':'Go'}}]})
+        self.assertEqual(before,len(self.calls));self.assertFalse((self.control.path/'composition.json').exists())
+
+    def test_independent_action_batch_preflights_and_stops_on_reported_failure(self):
+        self.add_tools('set_work_priority','draft')
+        self.responses.extend([{'ok':True,'pawn':'p','priority':0},{'ok':False,'error':'Target moved'}])
+        value=self.body('rw_act',{'independent':True,'actions':[
+            {'tool':'set_work_priority','args':{'id':'p','workType':'Cooking','priority':0}},
+            {'tool':'order_pawn','args':{'id':'p','command':'Haul'}},
+            {'tool':'draft','args':{'ids':'p','action':'undraft'}}]})
+        self.assertTrue(value['stopped']);self.assertEqual(value['not_run'],[2])
+        self.assertEqual([c['name'] for c in self.calls[-2:]],['set_work_priority','order_pawn'])
+        from tools.rimworld.composition import delivered
+        delivered(self.control,self.token,value['composition'])
+        before=len(self.calls)
+        with self.assertRaises(Error):
+            self.body('rw_act',{'independent':False,'actions':[{'tool':'order_pawn','args':{'id':'p','command':'Go'}}]},3)
+        self.assertEqual(before,len(self.calls))
+
+    def test_action_batch_preflights_every_step_before_dispatch(self):
+        before=len(self.calls)
+        with self.assertRaises(Error):
+            self.body('rw_act',{'independent':True,'actions':[
+                {'tool':'order_pawn','args':{'id':'p','command':'Go'}},
+                {'tool':'order_pawn','args':{'id':7,'command':'Invalid'}}]})
+        self.assertEqual(before,len(self.calls));self.assertFalse((self.control.path/'composition.json').exists())
 
     def test_capabilities_search_returns_names_not_schemas(self):
         found=self.body('rw_capabilities',{'query':'pawn'})
@@ -157,6 +209,17 @@ class Facade(ControlFixture):
         self.assertNotIn('inputSchema',canonical(found['matches']))
         one=self.body('rw_capabilities',{'tool':'get_pawn'},2)
         self.assertIn('inputSchema',one['tool'])
+
+    def test_capability_overview_and_workflow_preserve_affordances_without_schemas(self):
+        self.add_tools('main_menu','game_setup_status')
+        overview=self.body('rw_capabilities',{'overview':True})
+        self.assertIn('setup',overview['domains']);self.assertIn('combat',overview['domains'])
+        self.assertNotIn('inputSchema',canonical(overview))
+        setup=self.body('rw_capabilities',{'domain':'setup'},2)
+        self.assertIn('game_setup_status',[x['tool'] for x in setup['domains']['setup']])
+        workflow=self.body('rw_capabilities',{'workflow':'new_game'},3)
+        self.assertEqual(workflow['steps'][0]['tool'],'main_menu')
+        with self.assertRaises(Error):self.body('rw_capabilities',{'overview':True,'domain':'food'},4)
 
     def test_public_telemetry_includes_offline_tools_and_exact_response_bytes(self):
         value=self.body('rw_capabilities',{'tool':'get_pawn'})
@@ -237,6 +300,14 @@ class Facade(ControlFixture):
         resolved=self.body('rw_retrieve',{'ref':ref},4)
         self.assertEqual(resolved['value'],threat);self.assertEqual(resolved['field'],'_threatWarning')
         self.assertEqual(before,len(self.calls))
+
+    def test_small_repeated_values_remain_literal(self):
+        for pawn in ('a','b'):
+            self.responses.append({'id':pawn,'_paused':True})
+        first=self.body('rw_read',{'tool':'get_pawn','args':{'id':'a'}},1)
+        second=self.body('rw_read',{'tool':'get_pawn','args':{'id':'b'}},2)
+        self.assertIs(first['data']['_paused'],True);self.assertIs(second['data']['_paused'],True)
+        self.assertNotIn('refs',first);self.assertNotIn('refs',second)
 
     def test_changed_threat_is_never_referenced(self):
         self.responses.append({'id':'a','_threatWarning':{'hostiles':1}})

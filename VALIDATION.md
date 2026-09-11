@@ -1,6 +1,14 @@
-# Validation —0.8.0
+# Validation —0.9.0
 
-227 offline tests passed. The direct-upstream session tests were retained verbatim and now run under `--expose-upstream-tools`, which is what demonstrates the legacy surface still works. No live endpoint, game UI or saves were used for implementation testing.
+**237 offline tests pass**, including the new decision-loop regressions. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No live endpoint, game UI or saves were used for0.9.0 implementation testing.
+
+Serialized `tools/list` declarations are **13,455bytes** versus142,785for the upstream catalog (**10.6× smaller**). The complete strategic overview response is11,158bytes; targeted setup-domain and new-game-workflow responses are2,013and2,601bytes respectively. These are serialized bytes, not tokens. Targeted domain/workflow discovery is preferred when the whole overview is unnecessary.
+
+New offline evidence: capability overview/domain responses retain tool names and one-line purposes without schemas, and the staged `new_game` workflow begins at the main menu and routes through `game_setup_status`. A decision preset materializes requested core/alert/resource/risk facets and selected pawn details while removing the expanded raw sections from the model response. Opt-in reuse returns a cached schedule without another upstream call, survives time advancement for that stable facet, and re-reads a volatile pawn summary after advancement.
+
+`rw_wait` tests prove that pause remains injected, event context adds a post-wait status read inside the same public exchange, and explicit verification queries are schema/effect checked before advancement. The returned packet retains the wait evidence and durable composition. `rw_act` action arrays require the explicit `independent=true` assertion, preflight every step, stop after a reported error/risk and report untouched indexes; receipts remain outcomes only. Existing pending/delivery protections cover the compound marker.
+
+These tests establish routing, fail-stop behavior, invalidation and response shape—not lower wall time, better decisions or live event coverage. Independent live testing must measure whether packets actually remove model handovers and whether their added status reads are worthwhile.
 
 Live telemetry follow-up: every public local-tool call now appends `facade-telemetry.jsonl`, including `rw_capabilities` and `rw_retrieve`, with success/error status, selected capability or evidence selector, requested view and the exact UTF-8 size of the single model-facing text content. `rw_observe` and `rw_guard` pass distinct drivers into every underlying `Control.call`, so composed subreads no longer appear as unqualified agent operations. The journal explicitly excludes JSON-RPC framing and does not claim host delivery or token counts. Telemetry failure is non-blocking so measurement cannot turn a deliverable gameplay result into an uncertain operation.
 

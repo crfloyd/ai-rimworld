@@ -18,7 +18,7 @@ Do not mix implementation work into measured or active play. Do not let reportin
 
 ## Adaptive sparse loop
 
-Start from the handoff instead of rebuilding the whole colony model. Obtain one focused live observation sufficient to validate current risks. Make the decision, group already-reviewed ordinary commands where safe, then use one finite `rw_wait` with the longest horizon justified by current evidence. Inspect the returned event and only the affected facts needed for the next choice.
+Start from the handoff instead of rebuilding the whole colony model. Obtain one focused live observation sufficient to validate current risks. Make the decision, group already-reviewed independent commands or pawn job queues where safe, then use one finite `rw_wait` with the longest horizon justified by current evidence. Use its event context and preflighted post-wait verification to avoid a second model handover when those facts are predictably needed. Inspect only the affected facts still missing for the next choice.
 
 Treat stable information as stable until time advancement, a relevant mutation, an event or an explicit coverage limitation can invalidate it. Exact mutation receipts do not automatically require a broad verification sweep; verify consequential outcomes at the scope and time where they can actually have changed. Prefer a small explicit `rw_observe` over a broad preset when only a few related facts matter.
 
