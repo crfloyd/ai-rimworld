@@ -41,12 +41,13 @@ The real defects are three, and they compound.
 `safety.assess` treats any severity above `info` as a blocker, which sets `stop`, which sets
 `requires_review`. A routine capped timeout therefore presents as a safety stop.
 
-**That also forces an event packet on every quiet capped wait.** `wait_sequence` computes
+**That also forces an event packet on some quiet capped waits.** `wait_sequence` computes
 `event = data.event or data._notifications or body.requires_review`. Because `crisisCap` sets
-`requires_review`, a wait that advanced 2500 ticks with nothing happening still runs a
-post-wait `get_status` and builds a decision packet. Measured in the playtest: **47 of 52
-waits ran an event-context read**, most of them on quiet capped timeouts. Demoting the
-severity is not cosmetic; it removes an entire extra game read per quiet wait.
+`requires_review`, a wait that advanced 2500 ticks with nothing happening can still run a
+post-wait `get_status` and build a decision packet. Measured in the playtest: **47 of 52
+waits ran an event-context read**. Demoting the severity is not enough on its own; see the
+measured effect below. The extra reads that this coupling actually removes are 12, not most
+of the 47.
 
 **Nothing the agent is told to read mentions it.** `facade.md` is required reading before the
 first live call and never names `crisisCap` or `force`; it points at `wait_budget`, which is
@@ -80,11 +81,12 @@ regardless; across four quiet days the cap only bills round trips.
 2. **Drive event context from what the game reported, not from our review flags.** Change
    `wait_sequence` from `event = data.event or data._notifications or requires_review` to
    `event = data.event or data._notifications`. `requires_review` is the wrong proxy for "an
-   event happened", and `crisis_cap` is far from the only thing that sets it. On the playtest
-   receipts the other blockers riding along on quiet capped timeouts were `_threatWarning`
-   (`review`), `delta:pawnDamage` (`review` or `critical`, and it fires on *healing* too
-   because the upstream field mixes both), and `wait_event` (`review` for any non-timeout
-   cause). Demoting `crisis_cap` alone leaves every one of those in place.
+   event happened", and `crisis_cap` is far from the only thing that sets it. Quiet capped
+   timeouts in the playtest also carried `_threatWarning` (`review`) and `delta:pawnDamage`
+   (`review` or `critical`; it fires on *healing* too because the upstream field mixes both).
+   Separately, `wait_event` (`review` for any non-timeout cause) is another general blocker,
+   but it does not fire on `cause: timeout` and is not a rider on those quiet receipts.
+   Demoting `crisis_cap` alone leaves the timeout riders in place.
 3. **Name `crisisCap` and `force` in the `rw_wait` description and the `facade.md` wait
    section**, making explicit that `crisisCap` is upstream's crisis cap and `wait_budget` is
    our own deadline clamp, and that they are different things.
