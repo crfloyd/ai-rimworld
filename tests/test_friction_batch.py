@@ -213,3 +213,51 @@ class FrictionBatch(ControlFixture):
         self.assertTrue(value['deal']['dialog_open'])
         self.assertIn('list_unmanaged_items', value['deal']['confirm_goods'])
         self.assertNotIn('reverse', value['deal']['next'].lower())
+
+    # --- Task 5: event context matches the event --------------------------------------
+
+    def test_a_standing_colonist_warning_does_not_retrigger_a_threat_sweep(self):
+        from tools.rimworld.facade import event_topics
+        topics = event_topics({'data': STANDING})
+        self.assertNotIn('threat', topics)
+        self.assertNotIn('mood', topics)
+        self.assertEqual(topics[:2], ['core', 'alerts'])
+
+    def test_a_real_raid_still_pulls_threat_context(self):
+        from tools.rimworld.facade import event_topics
+        raid = {'cause': 'letter', 'event': 'Raid: tribal warriors are attacking',
+                '_threatWarning': {'count': 6, 'hostilesSample': [{'kind': 'Tribal', 'dist': 12}]}}
+        self.assertIn('threat', event_topics({'data': raid}))
+
+    def test_a_berserk_colonist_still_reaches_threat_through_the_letter(self):
+        from tools.rimworld.facade import event_topics
+        berserk = {'cause': 'letter', 'event': 'Tatyana has gone berserk and is attacking',
+                   '_threatWarning': {'hostilesSample': [{'kind': 'Colonist', 'dist': 0}]}}
+        topics = event_topics({'data': berserk})
+        self.assertIn('mood', topics)
+        self.assertIn('threat', topics)
+
+    def test_event_topics_ignore_our_own_field_names(self):
+        from tools.rimworld.facade import event_topics
+        noisy = {'cause': 'timeout', 'colonists': [{'name': 'a', 'mood': 90, 'mentalState': None}]}
+        self.assertNotIn('mood', event_topics({'data': noisy}))
+
+    def test_context_brief_skips_the_pawn_and_responder_sweep(self):
+        self.responses.extend([
+            {'_paused': True, 'cause': 'letter', 'event': 'Tatyana has gone berserk',
+             'ticksWaited': 400, 'pausedAfter': True},
+            fixture('status')])
+        before = len(self.calls)
+        value = self.body('rw_wait', {'maxSeconds': 30, 'context': 'brief'})
+        self.assertEqual(len(self.calls) - before, 2)
+        self.assertIn('core', value['event_context'])
+        self.assertNotIn('affected_pawns', value['event_context'])
+        self.assertIn('rw_observe', value['event_context']['detail'])
+
+    def test_context_none_reads_nothing_extra(self):
+        self.responses.extend([{'_paused': True, 'cause': 'letter', 'event': 'Tatyana has gone berserk',
+                                'ticksWaited': 400, 'pausedAfter': True}])
+        before = len(self.calls)
+        value = self.body('rw_wait', {'maxSeconds': 30, 'context': 'none'})
+        self.assertEqual(len(self.calls) - before, 1)
+        self.assertNotIn('event_context', value)

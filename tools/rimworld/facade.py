@@ -33,7 +33,7 @@ ACT_SCHEMA={'type':'object','properties':{'tool':STRING,'args':ARGS,'view':VIEW,
 WAIT_SCHEMA=obj({'maxSeconds':{'type':'integer','minimum':5,'maximum':600},
                  'maxGameTicks':{'type':'integer','minimum':1},'maxGameSeconds':{'type':'number','minimum':0},
                  'maxGameHours':{'type':'number','minimum':0},'maxGameDays':{'type':'number','minimum':0},
-                 'force':{'type':'boolean'},'view':VIEW,'context':{'enum':['auto','none']},
+                 'force':{'type':'boolean'},'view':VIEW,'context':{'enum':['auto','brief','none']},
                  'verify':{'type':'array','items':QUERY,'minItems':1,'maxItems':8}})
 RETRIEVE_SCHEMA=obj({'observation':STRING,'tool':STRING,'entity':STRING,'ref':STRING,
                      'view':VIEW,'fields':FIELDS})
@@ -58,7 +58,7 @@ TOOLS={
   'inputSchema':ACT_SCHEMA,'annotations':{'readOnlyHint':False}},
  'rw_wait':{'name':'rw_wait','description':
   'Advance supervised time until an event and return paused. Choose wall/game horizons; hard deadlines clamp them. '
-  'context defaults auto and adds a compact event decision packet; none disables it. verify runs preflighted reads after the wait '
+  'context defaults auto and adds a compact event decision packet; brief keeps only the status packet; none disables it. verify runs preflighted reads after the wait '
   'in the same exchange. Inspect pausedAfter and ticksWaited.',
   'inputSchema':WAIT_SCHEMA,'annotations':{'readOnlyHint':False}},
  'rw_retrieve':{'name':'rw_retrieve','description':
@@ -349,13 +349,40 @@ def run_reads(control,token,queries,memo,observed,driver,sequence=None):
     return sections,evidence,not_run,degraded
 
 
+def event_text(body):
+    """Only the event narrative: the wait cause, the event and its notifications.
+
+    The whole serialized body also carries our own field names and a standing
+    threat warning, so matching against it re-triggered the same deep sweep on
+    every later wait of a long-running situation.
+    """
+    data=body.get('data') if isinstance(body,dict) else None
+    if not isinstance(data,dict):return ''
+    parts=[data.get('cause'),data.get('event'),data.get('message')]
+    notes=data.get('_notifications')
+    if isinstance(notes,list):parts.extend(notes)
+    elif notes:parts.append(notes)
+    return canonical([p for p in parts if p]).lower()
+
+
+def nonhuman_hostiles(body):
+    """A standing warning about a berserk colonist is not an incoming threat."""
+    data=body.get('data') if isinstance(body,dict) else None
+    warning=data.get('_threatWarning') if isinstance(data,dict) else None
+    sample=warning.get('hostilesSample') if isinstance(warning,dict) else None
+    if not isinstance(sample,list):return False
+    return any(isinstance(row,dict) and str(row.get('kind','')).lower() not in ('colonist','')
+               for row in sample)
+
+
 def event_topics(body):
-    text=canonical(body).lower();topics=['core','alerts']
+    text=event_text(body);topics=['core','alerts']
     if any(word in text for word in ('food','meal','starv','malnutrition')):topics.append('food')
     if any(word in text for word in ('injur','infection','disease','bleed','poison','healed','damage')):topics.append('medical')
-    if any(word in text for word in ('break risk','mental','wander','berserk','tantrum','mood')):topics.append('mood')
-    if any(word in text for word in ('caravan','formation','arriv')):topics.append('world')
-    if any(word in text for word in ('raid','threat','hostile','attack','fire')):topics.append('threat')
+    if any(word in text for word in ('break risk','mental','wander','berserk','tantrum','mood','daze','binge')):topics.append('mood')
+    if any(word in text for word in ('caravan','formation','arriv','trader','visitor')):topics.append('world')
+    if any(word in text for word in ('raid','threat','hostile','attack','fire','siege','infestation','manhunter')) or nonhuman_hostiles(body):
+        topics.append('threat')
     return list(dict.fromkeys(topics))
 
 
@@ -504,7 +531,8 @@ def wait_sequence(control,token,args,setup,memo,observed):
         data=obs.get('data') if isinstance(obs,dict) else None
         event=bool(isinstance(data,dict) and (data.get('event') or data.get('_notifications'))) or bool(body.get('requires_review'))
         context_safe=not body.get('pause_guard') and not (control.path/'pause-uncertain.json').exists()
-        if args.get('context','auto')=='auto' and event and context_safe:
+        mode=args.get('context','auto')
+        if mode!='none' and event and context_safe:
             try:
                 sequence.record['phase']='event_context';sequence.save()
                 status=control.call(token,'get_status',{},driver='facade_wait_context')
@@ -519,7 +547,11 @@ def wait_sequence(control,token,args,setup,memo,observed):
                               coverage={'completeness':status_obs['completeness'],'missing':status_obs['missing']})
                 controls={k:status[k] for k in ('identity_mismatch','pause_guard') if k in status}
                 if controls:packet['control']=controls
-                packet.update(event_details(control,token,data or {},status_data,topics,memo,observed,sequence))
+                if mode=='auto':
+                    packet.update(event_details(control,token,data or {},status_data,topics,memo,observed,sequence))
+                else:
+                    packet['detail']=('brief: pawn facets, responders, threat rows and letters were not read. '
+                                      'Use context:"auto", or rw_observe for exactly the facets this decision needs.')
                 body['event_context']=packet
                 if status_obs['completeness']!='known' or controls:body['requires_review']=True
             except Error as exc:
