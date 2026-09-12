@@ -1,5 +1,86 @@
 # Changelog
 
+## 0.9.3
+
+- Siege post-mortem fixes, friction 5a-5g. A hostile faction finishing artillery arrives only in
+  `_delta.newBuildings`, which `safety.py` discarded: artillery classes there are now a critical
+  risk card and count as an event, so a plain `cause: timeout` wait that reports one builds a
+  packet and adds the `threat` topic. Ordinary construction stays unclassified, because delta
+  rows carry no faction and carding every finished table rebuilds alarm fatigue. The threat facet
+  gains `artillery`, hostile indirect-fire buildings with count, faction and position, keyed on
+  existence rather than distance, reporting its own truncation. A fire packet gains
+  `fires.enclosure` from one `room_graph` call: the hottest enclosed room with cell, role,
+  map-edge reachability and a `lethal` flag at 50 C. A wait ending on letters reports
+  `letter_severity`, so a `ThreatBig` siege and a funeral no longer read alike.
+- `force` now costs a sentence and leaves a trace. The first forced wait of a session requires
+  `force_reason` and journals it as an `advance_review`; every forced wait returns
+  `forced.basis`, and an absent `crisisCap` is reported as suppression rather than absence of
+  crisis. A changed threat signature, by hostile kind, artillery class or distance band, refuses
+  the next forced wait once and names the change; passing force again re-affirms.
+- CLI `--select` no longer hides a threat: dropping a risk-bearing key returns `selected` plus
+  `retained_risks`, matching the force-keep the facade's own `project` always had.
+- `ISSUES.md` and `STATE.md` declare that they are generated and overwritten, and `ISSUES.md`
+  names the command that closes an issue; `AGENTS.md` and `docs/memory.md` stop describing them
+  as hand-maintained. Every telemetry row carries `stream`, so a query can tell an empty result
+  from the wrong file.
+- `AGENTS.md` now holds `context` at `auto` while a threat letter is live, treats a `brief`
+  packet's own skipped-sweep line as a reason to stop, and treats `force` as a per-situation
+  judgement rather than a session setting.
+
+## 0.9.2
+
+- `rw resume` now includes `history_report`: the next History.md chapter day, days remaining, and whether it is already due, without opening the book.
+- Quiet crisis-capped timeouts are no longer treated as safety stops: `crisis_cap` is `info`, and wait event context now follows `data.event` or `_notifications` rather than `requires_review`. The `crisisCap` object stays literal. `rw_wait` and `docs/facade.md` now distinguish that upstream cap from the local `wait_budget` clamp, and `force:true` remains caller-opt-in by actual risk, never automatic. A wait that returns `ticksWaited: 0` with `cause: forcePaused` names the pausing window and a concrete `window_action`.
+- Upstream `truncated` with `returned` equal to the caller's `limit` is a complete bounded answer, not a degraded section. `largeOutput` and truncation below the requested limit still degrade. Receipt annotations (`rows_withheld`, `already_satisfied`, `deal`, empty float-menu cause) now run inside compositions as well as `rw_read`/`rw_act`. `rw_wait verify` materializes decision presets the same way `rw_observe` does.
+- Mutation receipts trim the standing `_threatWarning` block to its `count` and `nearestDist`; reads, waits and evidence keep the full block. The field, its risk card and `requires_review` stay, because their presence is also the fail-stop that `interruptions()` and the action batch depend on. A batch now continues past an *unchanged* standing threat and stops when a threat appears or changes mid-batch, mirroring the existing unchanged-dialog rule. `independent:true` batches may continue through `set_trade` while a dialog stays open and each receipt reports an applied row; the expected window passes through unchanged so a batch may mix `set_trade` and `window_action` on one trade dialog. `trade_action` always stops. A zero-tick `forcePaused` wait names a window only when one is actually force-pausing, and otherwise reports `none_found` rather than pointing at the inspect tab. Trade confirmation is `list_things` near the trader, not map-wide `list_unmanaged_items`. Combat, resume, food and trade workflow notes cover landing raids, `weapon` on `get_pawn` summary, `defName` scans and empty `order_pawn` options.
+- Notification re-wait (item 1b) is not in this release. An unknown thing id remains blocking.
+- Live check on `continuance` (2026-09-11, ticks 3896438–3908000) confirmed the wait-loop, honored-limit, verify-materialization, empty-options annotation, zero-tick window naming, and the slave medical-bed toggle. No trader was present, so `set_trade` batches and cancel-after-accept were not exercised, and `_threatWarning` was not attached on that map, so the mutation-receipt path was not exercised live. A code review then found that the first cut of that path removed two fail-stops; both are fixed here with offline regressions, and both remain unexercised live until a run with hostiles present.
+
+## 0.9.1
+
+- An upstream large-output guard or truncation flag no longer cancels the rest of a composition. The affected section is marked `degraded` with structured `retry` advice naming both exits, narrowing filters and `confirm:true`, while every sibling query still runs. Unconfirmed pause, identity mismatch, unparseable JSON, upstream errors and missing or malformed fields keep their original hard stop.
+- The decision preset reads `list_world_objects` with `kind` defaulting to `caravans` and gains a `visitors` topic over neutral map pawns, which is where a visiting trade caravan actually is. Automatic wait context uses the same narrow world read and adds map visitors. The `food` facet now states that suspended bills and loose piles are outside it.
+- Receipts carry facade interpretation alongside unedited upstream fields: an `order_pawn` refusal whose only offered option is the already-running form of the same job reports `already_satisfied` and no longer aborts an independent batch; `list_trade` names rows upstream counted but withheld; an accepted `trade_action` states whether the deal committed, whether a dialog is still open, and how to confirm goods that landed on the ground.
+- Event context is chosen from the event narrative rather than from a substring match over the whole serialized body, so a standing threat warning no longer re-triggers a full pawn and responder sweep on every later wait. `rw_wait` gains `context:"brief"` for the status packet without that sweep.
+- Capability domains now cover all 112 permitted catalog tools, up from 54. The default overview is a domain index of about 2,000 bytes rather than a 12,000-byte tool map; `domain`, `workflow` and `overview` with `full:true` drill in. Workflows carry operational notes, trade begins at finding the trader and ends at confirming delivered goods, food_crisis reaches bills before concluding there are no ingredients, and a new `build_structure` workflow explains interaction-spot placement refusals.
+- `rw_guard` abstains outright when any requested section is degraded. A bounded read is recoverable for an observation, never for a mutation gate.
+- The `capabilities` CLI subcommand serves `--overview`, `--full`, `--domain` and `--workflow`, matching the MCP tool. Argument mistakes return one JSON object naming the sibling command's flags instead of a usage dump, and a failed `--select` suggests real JSON Pointers from the response it received.
+
+## 0.9.0
+
+- Fixed automatic wait event context generating invalid `get_pawn tab=summary`; all pawn facets now share one expansion. Optional post-wait enrichment errors preserve the completed paused wait as partial/no-replay. Resume defaults to one-shot CLI unless the host supports interactive stdin, and unknown compositions expose a concrete reconciliation template.
+- Handoffs are now one replaceable compact transfer checkpoint rather than an immutable snapshot chain. They retain bounded current pointers and journal offsets without copying fact/knowledge bodies. Authorized memory compaction removes legacy copies and retains only selected current action tracking without claiming retired gameplay outcomes completed.
+- Current memory is now explicitly present-tense rather than chain-of-custody: informal STRATEGY supports several planning horizons and event-driven coalesced updates, ISSUES renders short action cards with full ID retrieval, and optional STATE is a bounded evidence index instead of a nested historical dump.
+- Fresh resume now returns controller-aware command templates and pointer-based checkpoint metadata by default; the compact checkpoint body requires `--full-output`. Strategy guidance forbids appending old handoff bodies because indexed journals already preserve evidence history.
+- Decision observations add a general threat facet and `resume_crisis` workflow; capability misses suggest close tool names, upstream pawn summary is documented as an omitted tab, and controller docs distinguish cached session metadata from a live process.
+- Every live player must read the audited operational `docs/facade.md` before its first facade call and after tooling changes; historical benchmark material was removed from that guide.
+- Onboarding, memory, control, history and knowledge guidance now agree on self-contained facade reads, local full retrieval, compatibility-only raw calls, conventional model-facing rows and model-handover-first efficiency. Offline spatial selections also return ordinary row arrays.
+- Compact reads are self-contained by default with separate change metadata. Delta-only output now requires `delta:true` plus an explicit same-scope `since` observation, preventing empty automatic responses when callers need current state.
+- Capability discovery adds a semantic trade domain/workflow, and trade-window reads lead with `list_trade`/`set_trade`/`trade_action` guidance instead of encouraging generic button scraping.
+- One-shot `call`/`observe`/`guard` commands add repeatable JSON-Pointer `--select`; local selection failures report completed-operation evidence and no-replay guidance. Shell guidance forbids `echo` round-trips that corrupt escaped JSON and requires one-pass parsing.
+- Caller-bounded partial results keep usable facts under `data`; successful same-dialog window batches tolerate only their expected persistent dialog flag; mental-break packets include the letter, affected pawn facets and nearby responders; verification manifests record requested and actual calls.
+- Model-facing row collections are conventional arrays of objects; lossless columnar packing is internal only, avoiding decoder failures and recovery calls during live decisions.
+- Presets always preserve the caller's exact key: one facet returns its section there, while multiple facets nest by name instead of inventing dotted top-level keys.
+- `rw_capabilities` adds compact domain overviews and staged workflow maps so the model can see strategic affordances without loading113 schemas.
+- `rw_observe` adds a materialized decision preset for selected core, alerts, food, medical, mood, work, research, conditions, world and pawn facets; opt-in reuse skips only connection-cached reads still valid under conservative wait/mutation invalidation.
+- `rw_wait` defaults to a compact post-event decision packet and accepts preflighted verification queries in the same exchange, reducing wait→read handovers. `context:none` preserves the prior response path.
+- `rw_act` accepts pre-reviewed action arrays only with `independent:true`, preflights the complete batch, executes sequentially, stops on a reported problem and retains durable delivery evidence. Pawn `queue:true` remains the preferred dependent job-chain mechanism.
+- Reference substitution now skips small values when the reference plus metadata would be larger.
+
+## 0.8.0
+
+- Live play now defaults to the current agent directly rather than a coordinator-delegated player. Guidance biases toward focused observations and the longest prudent event-driven wait while explicitly requiring closer attention whenever threats, medical deadlines, mood/food crises, caravan transitions, ambiguity or unfamiliar mechanics warrant it; delegation remains optional for bounded offline work.
+- Sparse-play guidance and the public action description now surface `order_pawn queue=true` for safe Shift-click-style job chains, with explicit exclusions for unstable tactical, medical and outcome-dependent sequences.
+- Session discovery serves seven local tools instead of the whole captured catalog: rw_capabilities, rw_read, rw_act, rw_wait, rw_retrieve, rw_observe and rw_guard. Advertised tool declarations fall from142,785to9,613bytes.
+- The113upstream tools remain reachable by name through rw_read/rw_act, with rw_capabilities returning ranked names for a query and one exact schema per selected tool.
+- Read and mutation are separated by the actual arguments, not the tool name; a misrouted call names the tool to use and dispatches nothing. Ordinary controller guards, evidence, safety assessment and telemetry are unchanged.
+- rw_wait injects pause always over wait_for_event; existing budget clamping and pause-guard repair are untouched.
+- Compact responses by default, with summary and full views replayed from stored evidence without another game call. fields/row_fields selection and limit report every omission; keys carrying warnings, risks or changes are never dropped.
+- A32,768-byte model payload budget bounds an unfiltered read, reporting evidence id, total, returned, truncated, reason and the native filters for that tool. Nothing is silently discarded.
+- One global value repeated across subjects is delivered once and then referenced; references are connection-scoped, cleared on reconnect or presentation reset, and always resolvable from evidence.
+- Upstream names are no longer served directly; session --expose-upstream-tools restores the previous surface and dispatch for saved orchestration.
+- Telemetry records a driver per call, so facade and legacy paths separate in metrics. Composed subcalls are tagged as `facade_observe`/`facade_guard`, and a public-call journal measures all seven local tools—including offline capability/retrieval calls—with exact model-facing text-response bytes. compare_views gains --facade and per-tool totals.
+
 ## 0.7.0
 
 - Shared composed reads exposed as rw_observe and CLI observe, with selected pawn/production presets and explicit queries.

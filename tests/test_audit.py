@@ -52,12 +52,15 @@ class Isolation(Workspace):
 
 
 class ObservationRegression(Workspace):
-    def test_full_health_conditions_survive_resume(self):
-        self.ingest('get_pawn', {'id': 'patient', 'tab': 'health'},
-                    {'id': 'patient', 'overallHealthPercent': 100, 'downed': False, 'dead': False,
-                     'hediffs': [{'label': 'Heatstroke (initial)', 'severity': 0.05}], 'capacities': {'moving': 95}})
+    def test_full_health_conditions_remain_retrievable_from_bounded_state_index(self):
+        result = self.ingest('get_pawn', {'id': 'patient', 'tab': 'health'},
+                             {'id': 'patient', 'overallHealthPercent': 100, 'downed': False, 'dead': False,
+                              'hediffs': [{'label': 'Heatstroke (initial)', 'severity': 0.05}], 'capacities': {'moving': 95}})
         brief = Campaign(self.root, 'example').refresh()
-        self.assertIn('Heatstroke', brief); self.assertIn('0.05', brief); self.assertIn('95', brief)
+        self.assertNotIn('Heatstroke', brief)
+        full = Campaign(self.root, 'example').observation(result['id'])['data']
+        self.assertEqual(full['hediffs'][0]['severity'], 0.05)
+        self.assertEqual(full['capacities']['moving'], 95)
 
     def test_filters_do_not_collide(self):
         keys = set()
@@ -167,7 +170,7 @@ class DeltaRegression(Workspace):
             self.assertEqual(self.camp.observation(self.camp.state()['last_observation'])['data']['ticksGame'], 149)
 
 class HandoffLearningRegression(Workspace):
-    def test_handoff_is_immutable_and_resume_surfaces_later_changes(self):
+    def test_handoff_is_replaceable_and_resume_surfaces_later_changes(self):
         from tools.rimworld.continuity import handoff
         from tools.rimworld.runs import resume_run
         obs = self.ingest('get_status', {}, fixture('status'))
@@ -178,11 +181,17 @@ class HandoffLearningRegression(Workspace):
         original = Path(shot['path']).read_bytes()
         before = {str(p): p.read_bytes() for p in self.camp.path.rglob('*') if p.is_file()}
         resumed = resume_run(self.root, 'example')
-        self.assertIn('Protect food', resumed['handoff']['snapshot']['strategy'])
+        self.assertNotIn('strategy',resumed['handoff']['snapshot'])
+        self.assertNotIn('Protect food',json.dumps(resumed))
+        self.assertEqual(Path(resumed['handoff']['snapshot']['current_files']['strategy']).name,'STRATEGY.md')
+        self.assertIn('Protect food',resume_run(self.root,'example',full=True)['handoff']['snapshot']['strategy'])
         self.assertEqual(before, {str(p): p.read_bytes() for p in self.camp.path.rglob('*') if p.is_file()})
         (self.camp.path / 'STRATEGY.md').write_text('New strategic decision')
         self.assertTrue(resume_run(self.root, 'example')['handoff']['changed_since_handoff']['strategy'])
-        self.assertEqual(Path(shot['path']).read_bytes(), original)
+        replacement = handoff(self.camp, 'New boundary', 'Follow new decision', 'Live state needs revalidation')
+        self.assertEqual(Path(replacement['path']), Path(shot['path']))
+        self.assertNotEqual(Path(shot['path']).read_bytes(), original)
+        self.assertEqual(resume_run(self.root, 'example')['handoff']['snapshot']['next_action'], 'Follow new decision')
 
     def test_decision_outcome_candidate_and_distinct_incidents_stay_local(self):
         from tools.rimworld.continuity import decide, outcome, incident, learning_packet

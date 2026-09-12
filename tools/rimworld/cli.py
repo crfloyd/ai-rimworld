@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 import time
 
@@ -27,18 +28,134 @@ def obj(text):
     return value
 
 
+def select_output(value, pointers):
+    """Select JSON Pointer paths once, without shell echo/parser round-trips."""
+    def one(pointer):
+        if pointer=='':return value
+        if not pointer.startswith('/'):raise Error('Selection paths use JSON Pointer syntax: /data/cause')
+        current=value
+        for encoded in pointer[1:].split('/'):
+            key=encoded.replace('~1','/').replace('~0','~')
+            if isinstance(current,dict) and key in current:current=current[key]
+            elif isinstance(current,list) and key.isdecimal() and int(key)<len(current):current=current[int(key)]
+            else:raise Error('Selection path is absent: '+pointer)
+        return current
+    selected=[one(pointer) for pointer in pointers]
+    result=selected[0] if len(selected)==1 else {pointer:item for pointer,item in zip(pointers,selected)}
+    dropped=dropped_risks(value,pointers)
+    if not dropped: return result
+    # Compact views list omitted_keys; pointer selection used to list nothing, so a
+    # ThreatBig siege letter could be filtered out of a wait with no trace at all.
+    return {'selected':result,'retained_risks':dropped,
+            'detail':'Selection dropped keys carrying these risks. Re-read the named pointers, '
+                     'or select fewer fields, before treating this response as complete.'}
+
+
+def dropped_risks(value,pointers):
+    """Risk cards whose subject no selected pointer keeps."""
+    if not isinstance(value,dict): return []
+    risks=[r for r in value.get('risks') or () if isinstance(r,dict) and r.get('severity')!='info']
+    kept=[p.rstrip('/') for p in pointers]
+    out=[]
+    for risk in risks:
+        ref=str(risk.get('value_ref') or '')
+        path=ref[1:] if ref.startswith('#') else ref
+        if any(p=='' or path==p or path.startswith(p+'/') or p.startswith(path+'/') for p in kept):
+            continue
+        out.append(risk)
+    return out
+
+
+def evidence_ids(value):
+    found=[]
+    def visit(node):
+        if isinstance(node,dict):
+            for key,item in node.items():
+                if key in ('id','e','evidence','composition') and isinstance(item,str) and item.startswith(('obs-','compose-')):
+                    found.append(item)
+                visit(item)
+        elif isinstance(node,list):
+            for item in node:visit(item)
+    visit(value)
+    return list(dict.fromkeys(found))
+
+
+FLAG_HELP={
+ 'observe':'observe takes --json JSON or --file FILE (not --args). Only call takes --args.',
+ 'guard':'guard takes --json JSON or --file FILE (not --args). Only call takes --args.',
+ 'call':'call takes TOOL --args JSON --token TOKEN. observe and guard take --json.',
+ 'retrieve':'retrieve reads local evidence and takes no --token. Use --observation OBS, or --tool/--entity.',
+ 'capabilities':'capabilities is offline: a bare query, or --tool NAME, --overview [--full], --domain NAME, --workflow NAME.',
+ 'spatial':'spatial selects inside a saved observation: --observation OBS with --rect or --ids.',
+ 'act':'act takes --json JSON --token TOKEN.',
+ 'batch':'batch takes --file FILE --token TOKEN.',
+}
+
+
+class Parser(argparse.ArgumentParser):
+    """One JSON object per failure, matching every other result on this surface.
+
+    A usage dump costs context and never names the sibling command whose flags
+    the caller actually wanted.
+    """
+    def parse_args(self, args=None, namespace=None):
+        # The root parser reports unrecognized arguments, so it needs to know
+        # which subcommand the caller was actually trying to use.
+        self.rw_argv = list(args) if args is not None else list(sys.argv[1:])
+        return super().parse_args(args, namespace)
+
+    def subcommand(self):
+        name=getattr(self,'rw_command',None)
+        if name:return name
+        known=getattr(self,'rw_subcommands',())
+        for token in getattr(self,'rw_argv',None) or ():
+            if token in known:return token
+        return None
+
+    def error(self, message):
+        name=self.subcommand()
+        body={'ok':False,'error':message,'game_contact':False}
+        if name:body['command']=name
+        if name in FLAG_HELP:body['use']=FLAG_HELP[name]
+        print(json.dumps(body,ensure_ascii=False),flush=True)
+        raise SystemExit(2)
+
+
+def pointer_examples(value, limit=12):
+    """Real JSON Pointers into the response the caller just received.
+
+    Breadth first: every top-level key is more useful as a suggestion than a
+    deep path under whichever key happens to sort first.
+    """
+    found=[];frontier=[(value,'',0)]
+    while frontier and len(found)<limit:
+        node,path,depth=frontier.pop(0)
+        if depth>2:continue
+        if isinstance(node,dict):
+            for key,child in node.items():
+                pointer=path+'/'+str(key).replace('~','~0').replace('/','~1')
+                found.append(pointer)
+                if isinstance(child,(dict,list)):frontier.append((child,pointer,depth+1))
+        elif isinstance(node,list) and node:
+            frontier.append((node[0],path+'/0',depth+1))
+    return found[:limit]
+
+
 def parser():
-    p = argparse.ArgumentParser(description="RimWorld evidence, control, memory and history support.")
+    p = Parser(description="RimWorld evidence, control, memory and history support.")
     p.add_argument("--full-output", action="store_true", help="Return full structured provenance/risk fingerprints; retrieve is always full.")
     p.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     p.add_argument("--campaign", "--run", dest="campaign", help="Explicit named run in campaigns/.")
     p.add_argument("--version", action="version", version=__version__)
-    sub = p.add_subparsers(dest="command", required=True)
+    sub = p.add_subparsers(dest="command", required=True, parser_class=Parser)
     q = sub.add_parser("mechanics", help="Shared sourced knowledge; no run required, no game contact.")
     q.add_argument("query", nargs="?", default=""); q.add_argument("--id"); q.add_argument("--limit", type=int, default=8)
     q.add_argument("--file", type=Path, help="Save a reviewed sourced mechanics record, never campaign state.")
     q = sub.add_parser("capabilities", help="Offline API discovery; run optional, no game contact.")
     q.add_argument("query", nargs="?", default=""); q.add_argument("--tool")
+    q.add_argument("--overview", action="store_true", help="Compact domain index over the whole catalog.")
+    q.add_argument("--full", action="store_true", help="With --overview, list every tool in every domain.")
+    q.add_argument("--domain"); q.add_argument("--workflow")
     q = sub.add_parser("spatial", help="Select full recorded entity properties by ID or rectangle.")
     q.add_argument("--observation", required=True); q.add_argument("--rect", nargs=4, type=int)
     q.add_argument("--ids", nargs="+")
@@ -51,7 +168,7 @@ def parser():
     q.add_argument("name")
     q = sub.add_parser("packet", help="Read a focused local decision packet with all urgent work retained.")
     q.add_argument("--topic"); q.add_argument("--entity")
-    q = sub.add_parser("handoff", help="Save an immutable run snapshot; no live game call.")
+    q = sub.add_parser("handoff", help="Replace the current transfer checkpoint; no live game call.")
     q.add_argument("--reason", required=True); q.add_argument("--next", required=True); q.add_argument("--uncertainties", required=True)
     for name in ("decide", "outcome", "incident"):
         q = sub.add_parser(name)
@@ -60,6 +177,8 @@ def parser():
     q.add_argument("id"); q.add_argument("--status", required=True); q.add_argument("--review", required=True); q.add_argument("--lesson")
     sub.add_parser("rebuild", help="Rebuild derived observation views/indexes without rewriting original journals.")
     sub.add_parser("brief", help="Regenerate a local current-fact brief; no live read.")
+    q = sub.add_parser("compact-memory", help="Authorized cleanup of stale action tracking and legacy handoff copies; no game call.")
+    q.add_argument("--review", required=True); q.add_argument("--keep-action", action="append", default=[])
     q = sub.add_parser("ingest", help="Ingest a recorded response without executing it.")
     q.add_argument("tool"); q.add_argument("--args", default="{}")
     q.add_argument("--response", type=Path, required=True)
@@ -68,6 +187,7 @@ def parser():
     q.add_argument("--source-captured-at")
     q = sub.add_parser("retrieve", help="Read full saved evidence selectively.")
     q.add_argument("--tool"); q.add_argument("--entity"); q.add_argument("--observation")
+    q.add_argument('--select',action='append',help='Return one or more JSON Pointer paths from the completed response.')
     q = sub.add_parser("retire", help="Remove resolved detail from working context while preserving evidence.")
     q.add_argument("--observation", required=True); q.add_argument("--evidence", required=True)
     q.add_argument("--reason", required=True)
@@ -75,7 +195,7 @@ def parser():
     q.add_argument("query"); q.add_argument("--entity"); q.add_argument("--limit", type=int, default=8)
     q = sub.add_parser("context", help="Retrieve situation-specific lessons and evidence pointers.")
     q.add_argument("topic"); q.add_argument("--entity")
-    q = sub.add_parser("issue")
+    q = sub.add_parser("issue", help="List current issue reviews, retrieve one full record, or update from a file.")
     q.add_argument("--file", type=Path); q.add_argument("--id")
     q = sub.add_parser("event", help="Record a decision, verification, observation or milestone.")
     q.add_argument("--file", type=Path, required=True)
@@ -115,6 +235,7 @@ def parser():
         source=q.add_mutually_exclusive_group(required=True)
         source.add_argument('--json'); source.add_argument('--file',type=Path)
         q.add_argument('--token',required=True)
+        q.add_argument('--select',action='append',help='Return one or more JSON Pointer paths from the completed response.')
     q = sub.add_parser("act", help="Issue one ordinary order with an inline intent and outcome contract.")
     q.add_argument("--json", required=True); q.add_argument("--token", required=True)
     q = sub.add_parser("call", help="Execute one ordinary MCP tool under an existing controller.")
@@ -122,10 +243,12 @@ def parser():
     q.add_argument("--intent"); q.add_argument("--family", default="general")
     q.add_argument("--track", action="store_true", help="Track a strategic outcome; requires --intent. Requests are always journaled.")
     q.add_argument("--check", type=Path); q.add_argument("--setup", action="store_true")
+    q.add_argument('--select',action='append',help='Return one or more JSON Pointer paths from the completed response.')
     q = sub.add_parser("batch", help="Bounded serialized operations; stops at failures or new events.")
     q.add_argument("--file", type=Path, required=True); q.add_argument("--token", required=True)
     q = sub.add_parser("session", help="Persistent standard MCP JSON-RPC over stdin/stdout; reuse owned control.")
     q.add_argument("--token", required=True); q.add_argument("--setup", action="store_true")
+    q.add_argument("--expose-upstream-tools", action="store_true", help="Also advertise the captured upstream catalog; the facade is the default surface.")
     q = sub.add_parser("shot")
     q.add_argument("op", choices=("windows", "add", "capture", "review"))
     q.add_argument("--file", type=Path); q.add_argument("--window", type=int)
@@ -134,6 +257,10 @@ def parser():
     q.add_argument("--evidence", nargs="+"); q.add_argument("--map-index", type=int)
     q = sub.add_parser("checkpoint")
     q.add_argument("--file", type=Path, help="Omit to inspect which checkpoint is due.")
+    p.rw_subcommands = set(sub.choices)
+    for name, child in sub.choices.items():
+        child.rw_command = name
+        child.rw_subcommands = p.rw_subcommands
     return p
 
 
@@ -144,8 +271,11 @@ def run(args):
         env=Campaign(args.root,args.campaign).meta.get('setup',{}) if args.campaign else None
         return search(args.root,args.query,args.id,args.limit,env)
     if args.command == "capabilities":
-        from .capabilities import discover
-        return discover(args.root,args.query,args.tool,Campaign(args.root,args.campaign) if args.campaign else None)
+        from .capabilities import discover, overview
+        campaign = Campaign(args.root, args.campaign) if args.campaign else None
+        if args.overview or args.domain or args.workflow:
+            return overview(args.root, campaign, args.domain, args.workflow, full=args.full)
+        return discover(args.root,args.query,args.tool,campaign)
     if args.command in ("runs", "list"):
         return list_runs(args.root)
     if args.command in ("init", "new", "resume"):
@@ -191,6 +321,11 @@ def run(args):
     if command == "rebuild": return campaign.rebuild()
     if command == "brief":
         return campaign.refresh()
+    if command == "compact-memory":
+        from .continuity import compact_handoffs
+        actions = campaign.compact_actions(args.review, args.keep_action)
+        handoffs = compact_handoffs(campaign, args.review)
+        return {"actions":actions,"handoffs":handoffs,"game_changed":False}
     if command == "ingest":
         return campaign.ingest(args.tool, obj(args.args), read_json(args.response), origin=args.origin,
                                tick=args.tick, seconds=args.seconds, source_captured_at=args.source_captured_at)
@@ -207,7 +342,8 @@ def run(args):
     if command == "context":
         return context(campaign, args.topic, args.entity)
     if command == "issue":
-        return campaign.issue(read_json(args.file), args.id) if args.file else campaign.issue_reviews()
+        if args.file: return campaign.issue(read_json(args.file), args.id)
+        return campaign.issue_record(args.id) if args.id else campaign.issue_reviews()
     if command == "event":
         value = read_json(args.file)
         if value.get("kind") == "decision":
@@ -267,7 +403,7 @@ def run(args):
                 "tools": [{"name": name, "effect": effect(name, {})} for name in catalog["tools"]]}
     if command == "session":
         from .session import serve
-        return serve(control, args.token, setup=args.setup)
+        return serve(control, args.token, setup=args.setup, expose_upstream=args.expose_upstream_tools)
     if command == "act":
         spec = obj(args.json); require_fields(spec, ("tool", "intent"))
         from .outcomes import contract
@@ -286,6 +422,11 @@ def run(args):
         return Composer(control,args.token).execute('rw_'+command,spec)
     if command == "call":
         from .composition import TOOLS, Composer
+        from . import facade
+        if args.tool in facade.TOOLS:
+            if args.intent or args.track or args.check:
+                raise Error('The facade uses its own explicit schema; tracking flags are not supported.')
+            return facade.dispatch(control,args.token,args.tool,obj(args.args),setup=args.setup)
         if args.tool in TOOLS:
             if args.intent or args.track or args.check or args.setup:
                 raise Error('Local composition uses its own explicit schema; tracking/setup flags are not supported.')
@@ -339,17 +480,32 @@ def run(args):
 
 
 def main(argv=None):
+    result=None
     try:
         args = parser().parse_args(argv)
         result = run(args)
         if args.command == "session": return 0
         from .presentation import present
         from .composition import TOOLS, delivered
-        local = args.command in ('observe','guard') or (args.command=='call' and args.tool in TOOLS)
-        print(result if isinstance(result, str) else json.dumps(result if args.full_output or args.command == "retrieve" or local else present(result), ensure_ascii=False, separators=(",", ":"), allow_nan=False), flush=True)
-        if local:
+        from . import facade
+        composed = (args.command in ('observe','guard') or (args.command=='call' and args.tool in TOOLS) or
+                    (isinstance(result,dict) and isinstance(result.get('composition'),str)))
+        local = composed or (args.command=='call' and args.tool in facade.TOOLS)
+        display=result if args.full_output or args.command == "retrieve" or local else present(result)
+        selection_error=None
+        if getattr(args,'select',None):
+            try:display=select_output(display,args.select)
+            except Error as exc:
+                selection_error=str(exc)
+                display={'ok':False,'phase':'local_selection','operation_completed':True,
+                         'error':selection_error,'evidence':evidence_ids(result),
+                         'available_top_level':list(result) if isinstance(result,dict) else None,
+                         'available_pointers':pointer_examples(display if isinstance(display,dict) else {}),
+                         'replay':'Do not replay the completed game operation; correct only the local selector.'}
+        print(display if isinstance(display, str) else json.dumps(display, ensure_ascii=False,separators=(",", ":"), allow_nan=False), flush=True)
+        if composed:
             delivered(Control(Campaign(args.root,args.campaign)),args.token,result['composition'])
-        return 0
+        return 2 if selection_error else 0
     except (Error, OSError, ValueError, KeyError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
         return 2

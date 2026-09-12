@@ -142,6 +142,25 @@ class Persistence(Workspace):
         self.assertEqual(value['origin'],'fixture')
         self.assertIn('data',value)
 
+    def test_cli_selects_once_and_marks_only_local_selector_failure(self):
+        import io
+        from contextlib import redirect_stdout
+        from tools.rimworld.cli import main
+        completed={'id':'obs-completed','data':{'cause':'timeout','ticksWaited':500}}
+        base=['--root',str(self.root),'--run','example','call','rw_read','--args','{}','--token','owner-test']
+        output=io.StringIO()
+        with patch('tools.rimworld.cli.run',return_value=completed),redirect_stdout(output):
+            code=main(base+['--select','/data/cause','--select','/data/ticksWaited'])
+        self.assertEqual(code,0);self.assertEqual(json.loads(output.getvalue()),
+            {'/data/cause':'timeout','/data/ticksWaited':500})
+        output=io.StringIO()
+        with patch('tools.rimworld.cli.run',return_value=completed),redirect_stdout(output):
+            code=main(base+['--select','/data/missing'])
+        failure=json.loads(output.getvalue())
+        self.assertEqual(code,2);self.assertTrue(failure['operation_completed'])
+        self.assertEqual(failure['phase'],'local_selection');self.assertIn('Do not replay',failure['replay'])
+        self.assertEqual(failure['evidence'],['obs-completed'])
+
 
     def test_hidden_handoff_reads_cannot_be_delta_baseline(self):
         from tools.rimworld.core import now

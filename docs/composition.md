@@ -1,6 +1,6 @@
 # Composed observations and guarded actions
 
-These are local tools advertised alongside the captured RimMolt catalog by `session` and `capabilities`. They use the same owned ordinary calls, evidence journal and uncertainty guards as individual tools. They do not install a game mod or infer strategy.
+These are local tools served by `session` and `capabilities` as part of the small public surface described in [facade](facade.md). They use the same owned ordinary calls, evidence journal and uncertainty guards as individual tools. They do not install a game mod or infer strategy.
 
 ## Ask for related facts once
 
@@ -13,12 +13,23 @@ Use `rw_observe` through the persistent MCP session, or `./rw --run NAME observe
 ]}
 ```
 
-Use real current IDs. `key` is the caller's label, not name resolution. Results are keyed `worker.summary`, `worker.needs`, `worker.health`, `stove.station`, etc. Each section has full `data` from the first JSON text block. The response gives a composition evidence ID and sequential capture interval; its manifest retains each section's individual observation ID, time and coverage. Use `provenance:true` (CLI `--full-output`) to include those per-section details inline. Incomplete coverage and skipped queries are always visible. Other content/media, text annotations and unfamiliar result properties remain present. Raw originals and the expanded recipe are retained in the campaign. Malformed/ambiguous JSON is explicitly unusable rather than actionable; original evidence is retained.
+Use real current IDs. `key` is the caller's label, not name resolution, and every preset preserves it. A single facet returns one section at that key (`sections.bywa.data`); multiple facets nest by name (`sections.tat.summary.data`, `sections.tat.gear.data`, `sections.tat.health.data`). Explicit queries remain flat at their exact keys. Each leaf section has full `data` from the first JSON text block. The response gives a composition evidence ID and sequential capture interval; its manifest retains each expanded section's individual observation ID, time and coverage. Use `provenance:true` (CLI `--full-output`) to include those per-section details inline. Incomplete coverage and skipped queries are always visible. Other content/media, text annotations and unfamiliar result properties remain present. Raw originals and the expanded recipe are retained in the campaign. Malformed/ambiguous JSON is explicitly unusable rather than actionable; original evidence is retained.
 
 | Preset | Default | Optional include sections |
 |---|---|---|
 | pawn, with id | summary | summary, needs, health, gear, bio, schedule |
 | production, with id | station, bills | station, bills, recipes, resources, worker, work_options |
+| decision | core, alerts | core, alerts, food, medical, mood, threat, work, research, conditions, world; optional selected pawn facets |
+
+Decision example:
+
+```json
+{"reuse":true,"queries":[{"key":"recovery","preset":"decision",
+  "include":["core","alerts","food","medical","mood","threat"],
+  "pawns":[{"id":"Human123","include":["health","needs"]}],"mood_below":35}]}
+```
+
+The result places the materialized packet under `decisions.recovery` and retains its evidence IDs. With `threat`, the nearby pawn read is anchored on the first selected pawn when supplied; include that pawn's summary/health/needs/gear when a current crisis needs them. Expanded raw sections are not duplicated in the default response. `reuse:true` is conservative and connection-scoped: waits invalidate volatile facts and mutations invalidate all prior facts; reused sections are labeled. Use a normal explicit query when an exact full response is the decision input.
 
 `detail:true` adds the game's hover details only to requested pawn needs/health. Production worker/work_options require worker_id. Resources are the game's aggregate resource result, not proof of reachable/unreserved ingredients. There is no invented work-priority getter. Recipes use actual list_recipes; recipe presence does not guarantee the chosen worker can perform it. Schedule uses the documented read form of set_schedule without assignment.
 
@@ -33,7 +44,11 @@ For another capability, include an explicit ordinary read:
 
 Presets select information; they are not an outcome whitelist. Unknown preset sections/invalid arguments fail preflight before any game call. Explicit reads still use the current captured tool contract and reviewed effect classification. At most32 expanded reads per request. Choose a narrow query; do not request every section by default.
 
+A section whose only problem is an upstream size guard is marked `degraded` with its retry advice, and the remaining queries still run. Honoring a caller `limit` (`truncated` with `returned` equal to `args.limit`) is a complete bounded answer, not degradation; the truncation metadata stays on the section. The response lists degraded keys under `degraded`; `stopped` still means everything after that point was abandoned for review. The decision preset's `world` topic now reads `list_world_objects` with `kind` defaulting to `caravans`, selectable with `world_kind`, so it never trips the guard on its own; the `visitors` topic reads neutral pawns on the current map.
+
 Captures are sequential, not atomic. No game-time advancement is requested, but normal reads can change UI selection and external clients can change state. Coverage/identity/pause problems stop remaining reads, which are listed under not_run. Partial bundled observations are also reported. Omitted sections remain unqueried, not healthy/empty. Direct tools remain available.
+
+`rw_wait verify` accepts these same query objects and preflights their expanded reads before time advances. Decision presets are materialized the same way as in `rw_observe`; the expanded raw status bundle is not returned. Pawn `summary` omits upstream `tab` in every path. If optional post-wait read-only enrichment fails locally after a durable paused wait, the facade returns the completed wait with `event_context_error`, `requires_review` and `no_replay`; it does not turn the wait itself into an unknown operation.
 
 ## Preselect one conditional action
 
@@ -47,6 +62,8 @@ Example: the agent has already decided a particular bed should return to ordinar
  "then":{"tool":"do_thing_action","args":{"id":"Bed123","label":"Medical"}},
  "verify":[{"key":"bed_after","tool":"inspect_thing","args":{"id":"Bed123"}}]}
 ```
+
+A guard abstains outright when any requested section is degraded. A bounded read is recoverable for an observation, never for a mutation gate.
 
 Predicates use RFC6901 JSON Pointers into section data. `match` optionally selects exactly one array row by exact fields; `field` then addresses that row. Supported comparisons: eq/ne/lt/lte/gt/gte. All predicates must be true for then. Known false chooses an explicitly supplied otherwise command, or does nothing. Missing values, type mismatches, duplicate matches, partial/bundled-incomplete data, unconfirmed pause and reported interruptions cause no action in either branch. False and numeric0 are distinct. No fuzzy action selection or name guessing.
 

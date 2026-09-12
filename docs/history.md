@@ -1,15 +1,15 @@
 # Illustrated history
 
-The historian owns the complete reporting workflow under [agent-flow](agent-flow.md); only the player captures live scenes. Keep two outputs: an operational report and the colony's narrative book. Both derive from real evidence. Neither raw tool logs nor plans are completed game events. Reporting proceeds from saved evidence while the player continues; no game calls from the historian.
+The current agent normally owns the complete reporting workflow under [agent-flow](agent-flow.md) after reaching a safe pause; only the live player captures scenes. A separately delegated historian is optional for work from already-saved evidence and makes no game calls. Keep two outputs: an operational report and the colony's narrative book. Both derive from real evidence. Neither raw tool logs nor plans are completed game events.
 
 ## Capture
 
-The player captures important transient scenes when safe, even between checkpoints, and hands the original paths, evidence IDs and actual ticks to the historian. Prefer the ordinary MCP screenshot tool when enabled: explicit map bounds frame the subject, include_ui=false leaves the real camera alone, and include_ui=true moves it. Preserve the original returned PNG. Enablement must follow the user's authorization; a disabled tool is not a captured image. Before taking a shot, use normal game controls to frame the relevant people, structures, landscape or battlefield. Never expose a pawn or prolong a crisis for a photograph.
+The player captures important transient scenes when safe, even between checkpoints, and preserves the original paths, evidence IDs and actual ticks for later reporting or an optional historian. Prefer the ordinary MCP screenshot tool when enabled: explicit map bounds frame the subject, include_ui=false leaves the real camera alone, and include_ui=true moves it. Preserve the original returned PNG. Enablement must follow the user's authorization; a disabled tool is not a captured image. Before taking a shot, use normal game controls to frame the relevant people, structures, landscape or battlefield. Never expose a pawn or prolong a crisis for a photograph.
 
 On macOS, shot windows dynamically lists current RimWorld windows using the system window inventory. With a current window ID:
 
 ```sh
-python3 rw --campaign NAME shot capture --window CURRENT_ID --tick GAME_TICK --subject 'Subject' --caption 'What is actually visible' --framing 'Explain the framing' --evidence OBS_OR_EVENT_ID --map-index ACTUAL_MAP_INDEX
+./rw --campaign NAME shot capture --window CURRENT_ID --tick GAME_TICK --subject 'Subject' --caption 'What is actually visible' --framing 'Explain the framing' --evidence OBS_OR_EVENT_ID --map-index ACTUAL_MAP_INDEX
 ```
 
 Alternatively import an original PNG with shot add --file PATH and the same metadata. The bytes are copied unchanged and hashed. The PNG header is checked; visual truth and readability still require inspection with the host's image tool.
@@ -18,7 +18,7 @@ After actually viewing the image, run shot review --id SHOT_ID --note 'Describe 
 
 ## Checkpoint
 
-checkpoint without a file reports the next checkpoint based on observed/derived game time. The default is every five in-game days. A crisis can delay writing; record the real capture and publication context. Do not backdate a later image as an earlier event.
+checkpoint without a file reports the next checkpoint based on observed/derived game time. The default is every five in-game days. `rw resume NAME` repeats that clock as `history_report` (`days_until`, `due`, `next_day`) so a player can see the deadline without opening History.md. A crisis can delay writing; record the real capture and publication context. Do not backdate a later image as an earlier event.
 
 Write a chapter file and a checkpoint JSON using templates/checkpoint.json. Use the returned relative screenshot paths in the chapter for portability. Renderers that require absolute paths can receive absolute links in chat; preserve portable links in the book when practical.
 

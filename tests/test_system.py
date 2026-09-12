@@ -38,7 +38,9 @@ def schema(properties):
 CATALOG = {
     "get_status": {"name": "get_status", "inputSchema": schema({})},
     "get_pawn": {"name": "get_pawn", "inputSchema": schema({
-        "id": {"type": "string"}, "tab": {"type": "string"}, "detail": {"type": "boolean"}})},
+        "id": {"type": "string"},
+        "tab": {"enum": ["health", "needs", "gear", "bio", "social", "log", "records", "training", "all"]},
+        "detail": {"type": "boolean"}})},
     "order_pawn": {"name": "order_pawn", "inputSchema": schema({
         "id": {"type": "string"}, "targetId": {"type": "string"}, "command": {"type": "string"},
         "x": {"type": "integer"}, "z": {"type": "integer"}})},
@@ -151,8 +153,32 @@ class MemoryTests(Workspace):
         fresh = Campaign(self.root, "example")
         self.assertIn(issue["id"], fresh.refresh())
         self.assertIn("Recovered and equipped", fresh.refresh())
+        self.assertEqual(fresh.issue_record(issue["id"])["rationale"], "Causing breaks")
+        current_view = (fresh.path / "ISSUES.md").read_text()
+        self.assertIn("Inspect conversion", current_view)
+        self.assertNotIn('"rationale"', current_view)
         with self.assertRaises(Error):
             fresh.issue({"status": "resolved"}, issue["id"])
+
+    def test_generated_current_views_are_bounded_indexes(self):
+        for number in range(30):
+            self.ingest("get_pawn", {"id": f"Pawn{number}"},
+                        {"id": f"Pawn{number}", "name": "P" + str(number),
+                         "job": "working", "hediffs": [{"label": "old detail " + "x" * 500}]})
+        state = (self.camp.path / "STATE.md").read_text()
+        self.assertIn("additional indexed scopes omitted", state)
+        self.assertNotIn("old detail", state)
+        self.assertLess(len(state.encode()), 20000)
+
+    def test_action_compaction_retires_tracking_without_claiming_outcomes(self):
+        first = self.camp.action("order_pawn", {"id":"PawnA"}, "Old movement", "movement")
+        self.camp.action_update(first["id"], "accepted", internal=True)
+        second = self.camp.action("order_pawn", {"id":"PawnB"}, "Keep this", "movement")
+        result = self.camp.compact_actions("Current memory reviewed", [second["id"]])
+        self.assertEqual(result["open_actions_retired"], 1)
+        self.assertFalse(result["outcome_asserted"])
+        self.assertNotIn(first["id"], self.camp._actions())
+        self.assertEqual(set(self.camp._actions(open_only=True)), {second["id"]})
 
     def test_action_acceptance_not_completion_and_fresh_check(self):
         action = self.fixture_action("order_pawn", {}, "Reach refuge", "movement",
@@ -352,6 +378,15 @@ class ControlTests(ControlFixture):
         self.control.reconcile(self.token, 'fixture terminal response', 'Reviewed terminal evidence', True)
         self.assertNotIn('pending', self.control.inspect())
 
+    def test_unknown_composition_inspect_surfaces_exact_recovery_template(self):
+        atomic_json(self.control.path/'composition.json', {
+            'request_id':'compose-fixture','status':'unknown','pid':99999999,
+            'observations':[{'id':'obs-terminal'}]})
+        inspected=self.control.inspect()
+        self.assertIn('controller reconcile',inspected['recovery']['command'])
+        self.assertIn('--evidence obs-terminal',inspected['recovery']['command'])
+        self.assertIn('--server-terminal',inspected['recovery']['command'])
+
     def test_prohibited_load_and_unvalidated_argument_do_not_send(self):
         count = len(self.calls)
         with self.assertRaises(Error):
@@ -395,7 +430,11 @@ class HistoryKnowledgeTests(Workspace):
         checkpoint(self.camp, spec)
         checkpoint(self.camp, spec)
         self.assertEqual((self.camp.path / 'History.md').read_text().count('# A fixture chapter'), 1)
-        self.assertEqual(self.camp.checkpoints()['next_day'], 10)
+        status = self.camp.checkpoints()
+        self.assertEqual(status['next_day'], 10)
+        self.assertEqual(status['interval_days'], 5)
+        self.assertGreater(status['days_until'], 0)
+        self.assertFalse(status['due'])
 
     def test_future_checkpoint_and_missing_image_refused(self):
         self.ingest('get_status', {}, fixture('status'))

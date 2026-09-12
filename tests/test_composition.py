@@ -42,12 +42,17 @@ class CompositionTests(ControlFixture):
         facts=[{'id':'p','mood':80,'newField':{'false':False,'zero':0}}, {'needs':[{'label':'Novel need','percent':24}]}]
         self.responses.extend(facts)
         r=self.execute({'queries':[{'key':'reed','preset':'pawn','id':'p','include':['summary','needs']}]})
-        self.assertEqual(list(r['sections']),['reed.summary','reed.needs'])
-        self.assertEqual([x['data'] for x in r['sections'].values()],facts)
+        self.assertEqual(list(r['sections']),['reed'])
+        self.assertEqual([r['sections']['reed'][name]['data'] for name in ('summary','needs')],facts)
         self.assertEqual([c['arguments'] for c in self.calls[self.base:]],[{'id':'p'},{'id':'p','tab':'needs'}])
         self.assertFalse(self.camp._actions())
         self.assertFalse((self.control.path/'composition.json').exists())
-        for sec in r['sections'].values():self.assertTrue(self.camp.has_observation(sec['source']['observation']))
+        for sec in r['sections']['reed'].values():self.assertTrue(self.camp.has_observation(sec['source']['observation']))
+
+    def test_single_preset_facet_keeps_caller_key(self):
+        self.responses.append({'id':'p','mood':80})
+        r=self.execute({'queries':[{'key':'pawn','preset':'pawn','id':'p','include':['summary']}]})
+        self.assertEqual(list(r['sections']),['pawn'])
 
     def test_production_maps_only_real_tools_without_invented_availability(self):
         self.add_tools('inspect_thing','list_bills','list_recipes','get_resources')
@@ -56,7 +61,7 @@ class CompositionTests(ControlFixture):
         r=self.execute({'queries':[{'key':'stove','preset':'production','id':'s','worker_id':'p',
             'include':['station','bills','recipes','resources','work_options']}]})
         self.assertEqual([c['name'] for c in self.calls[self.base:]],['inspect_thing','list_bills','list_recipes','get_resources','order_pawn'])
-        self.assertEqual(r['sections']['stove.work_options']['data'],facts[-1])
+        self.assertEqual(r['sections']['stove']['work_options']['data'],facts[-1])
         self.assertNotIn('ready',r)
 
     def test_preflight_all_reads_no_partial_dispatch_on_invalid_spec(self):
@@ -213,7 +218,7 @@ class CompositionTests(ControlFixture):
         req=lambda i,n,a:{'jsonrpc':'2.0','id':i,'method':'tools/call','params':{'name':n,'arguments':a}}
         self.responses.extend([{'id':'p','novel':9},{'id':'p'}]);out=io.StringIO()
         with patch.object(self.control,'ensure_paused',return_value={'confirmed':True}):
-            serve(self.control,self.token,io.StringIO(json.dumps(req(1,'rw_observe',self.spec()))+'\n'+json.dumps(req(2,'get_pawn',{'id':'p'}))+'\n'),out)
+            serve(self.control,self.token,io.StringIO(json.dumps(req(1,'rw_observe',self.spec()))+'\n'+json.dumps(req(2,'get_pawn',{'id':'p'}))+'\n'),out,expose_upstream=True)
         replies=[json.loads(l) for l in out.getvalue().splitlines()];self.assertIn('result',replies[1])
         self.assertEqual(json.loads(replies[0]['result']['content'][0]['text'])['sections']['pawn']['data']['novel'],9)
 
@@ -267,3 +272,85 @@ class CompositionTests(ControlFixture):
         spec['queries'] += [{'key':'q'+str(i),'tool':'get_pawn','args':{'id':'p'}} for i in range(15)]
         with self.assertRaises(Error):self.execute(spec,'rw_guard')
         self.assertEqual(len(self.calls),self.base)
+
+    def test_session_composition_tags_subcalls_and_records_public_payload(self):
+        session=Session(self.control,self.token)
+        self.responses.append({'id':'p','mood':50})
+        request={'jsonrpc':'2.0','id':7,'method':'tools/call','params':{
+            'name':'rw_observe','arguments':self.spec()}}
+        response=session.handle(request)
+        self.assertIn('result',response)
+        upstream=[json.loads(l) for l in (self.camp.path/'telemetry.jsonl').read_text().splitlines()]
+        self.assertEqual(upstream[-1]['driver'],'facade_observe')
+        public=json.loads((self.camp.path/'facade-telemetry.jsonl').read_text().splitlines()[-1])
+        text=response['result']['content'][0]['text']
+        self.assertEqual((public['public_tool'],public['view'],public['composed_queries']),('rw_observe','composed',1))
+        self.assertEqual(public['response_bytes'],len(text.encode()))
+
+    def test_decision_preset_materializes_selected_facts(self):
+        self.responses.extend([
+            {'loaded':True,'colonyName':'Fixture Colony','ticksGame':300100,'paused':True,
+             'maps':[{'mapIndex':0,'name':'Fixture','isPlayerHome':True}],'bundled':{
+                'list_colonists':{'loaded':True,'colonists':[{'id':'p','name':'P','health':75,'mood':20,'job':'resting'}]},
+                'get_alerts':{'loaded':True,'dangerByMap':[{'mapIndex':0,'dangerRating':'None'}],
+                              'activeAlerts':[{'label':'Low food'}]},
+                'get_resources':{'loaded':True,'resources':[{'defName':'MealSimple','count':4},{'defName':'Steel','count':50}]},
+                'get_research':{'loaded':True,'current':'X'}}},
+            {'id':'p','name':'P','health':75,'mood':20}
+        ])
+        spec={'queries':[{'key':'recovery','preset':'decision',
+              'include':['core','alerts','food','medical','mood','research'],
+              'pawns':[{'id':'p','include':['summary']}]}]}
+        result=Composer(self.control,self.token).execute('rw_observe',spec)
+        delivered(self.control,self.token,result['composition'])
+        packet=result['decisions']['recovery']
+        self.assertEqual(packet['core']['ticksGame'],300100)
+        self.assertEqual(packet['food']['resources'],[{'defName':'MealSimple','count':4}])
+        self.assertEqual(packet['medical'][0]['id'],'p');self.assertEqual(packet['mood'][0]['id'],'p')
+        self.assertEqual(packet['pawns'][0]['facets']['summary']['mood'],20)
+        self.assertNotIn('recovery.status',result['sections'])
+
+    def test_decision_threat_facet_anchors_near_selected_pawn(self):
+        self.add_tools('list_things')
+        self.responses.extend([
+            {'loaded':True,'colonyName':'Fixture Colony','ticksGame':300100,'paused':True,
+             'maps':[{'mapIndex':0,'name':'Fixture','isPlayerHome':True}],
+             '_threatWarning':{'count':1},'bundled':{
+                'list_colonists':{'loaded':True,'count':1,'colonists':[{'id':'p','name':'P','mentalState':'berserk'}]},
+                'get_alerts':{'loaded':True,'dangerByMap':[{'mapIndex':0,'dangerRating':'Low'}],
+                              'activeAlerts':[],'activeLetters':[],'recentMessages':[]}}},
+            {'things':[{'id':'p','hostile':True,'x':10,'z':10},{'id':'w','x':12,'z':10}]},
+            {'id':'p','name':'P','mentalState':'berserk','x':10,'z':10}
+        ])
+        spec={'queries':[{'key':'crisis','preset':'decision','include':['core','threat'],
+                          'pawns':[{'id':'p','include':['summary']}]}]}
+        result=Composer(self.control,self.token).execute('rw_observe',spec)
+        delivered(self.control,self.token,result['composition'])
+        packet=result['decisions']['crisis']
+        self.assertEqual(packet['threat']['warning']['count'],1)
+        self.assertEqual(packet['threat']['nearby']['things'][0]['id'],'p')
+        self.assertEqual(self.calls[-2]['arguments']['nearId'],'p')
+
+    def test_reuse_respects_stable_and_volatile_invalidation(self):
+        from tools.rimworld.facade import Memo
+        self.add_tools('set_schedule')
+        memo=Memo();memo.sync(self.camp)
+        self.responses.extend([{'ok':True,'mode':'read','id':'p','pawn':'P','schedule':[]},{'id':'p','mood':50}])
+        spec={'reuse':True,'queries':[{'key':'schedule','tool':'set_schedule','args':{'id':'p'}},
+                                      {'key':'summary','tool':'get_pawn','args':{'id':'p'}}]}
+        remember=lambda e:memo.remember(self.camp,e)
+        first=Composer(self.control,self.token,memo=memo,on_observation=remember).execute('rw_observe',spec)
+        delivered(self.control,self.token,first['composition']);before=len(self.calls)
+        second=Composer(self.control,self.token,memo=memo).execute('rw_observe',spec)
+        delivered(self.control,self.token,second['composition'])
+        self.assertEqual(before,len(self.calls));self.assertTrue(second['sections']['schedule']['reused'])
+        memo.invalidate('advance');self.responses.append({'id':'p','mood':49})
+        third=Composer(self.control,self.token,memo=memo,on_observation=remember).execute('rw_observe',spec)
+        delivered(self.control,self.token,third['composition'])
+        self.assertEqual(len(self.calls)-before,1)  # schedule survives time; summary does not
+        memo.invalidate('mutation');self.responses.extend([
+            {'ok':True,'mode':'read','id':'p','pawn':'P','schedule':[]},{'id':'p','mood':48}])
+        before=len(self.calls)
+        fourth=Composer(self.control,self.token,memo=memo,on_observation=remember).execute('rw_observe',spec)
+        delivered(self.control,self.token,fourth['composition'])
+        self.assertEqual(len(self.calls)-before,2)  # mutation conservatively invalidates both

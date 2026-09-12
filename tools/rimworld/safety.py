@@ -28,6 +28,18 @@ def pawn_change_severity(rows):
     return 'unknown' if uncertain else 'review' if new_conditions else 'info'
 
 
+ARTILLERY = ('mortar', 'artillery', 'shellcannon')
+
+
+def artillery(rows):
+    """Indirect-fire buildings outrange every proximity signal the tooling has."""
+    if not isinstance(rows, list): return False
+    for row in rows:
+        name = (row.get('def', '') + ' ' + row.get('label', '')) if isinstance(row, dict) else str(row)
+        if any(word in name.lower() for word in ARTILLERY): return True
+    return False
+
+
 def signals(obs):
     d = obs['data']; result = []
     def add(kind, value, severity='review'):
@@ -61,14 +73,25 @@ def signals(obs):
         if d.get('pausedAfter') is not True: add('pause_unconfirmed', {'pausedAfter': d.get('pausedAfter', 'missing')}, 'critical')
         if d.get('cause') not in ('timeout', 'gameHours', 'gameTicks', 'gameDays', 'budget', 'timeElapsed'):
             add('wait_event', {'cause': d.get('cause'), 'event': d.get('event')})
-        add('crisis_cap', d.get('crisisCap'), 'critical')
+        add('crisis_cap', d.get('crisisCap'), 'info')
     if '_delta' in d:
         delta = d.get('_delta', {})
         if isinstance(delta, dict):
             for key, value in delta.items():
-                if key not in ('newItems', 'removedItems', 'newBuildings', 'removedBuildings'):
-                    severity = pawn_change_severity(value) if key == 'pawnDamage' else ('critical' if 'damage' in key.lower() else 'unknown')
-                    add('delta:' + key, value, severity)
+                if key in ('newItems', 'removedItems'): continue
+                if key in ('newBuildings', 'removedBuildings'):
+                    # A siege builds its mortars in a delta and nowhere else: dangerRating
+                    # stays "None" and _threatWarning is proximity-gated. Dropping these
+                    # rows is what let two Turret_Mortar arrive without a single card.
+                    #
+                    # Building rows carry no faction, so def class is the only honest
+                    # discriminator. Card the artillery classes only: carding every
+                    # finished table would rebuild the alarm fatigue this is here to fix.
+                    if artillery(value):
+                        add('delta:' + key, value, 'critical' if key == 'newBuildings' else 'review')
+                    continue
+                severity = pawn_change_severity(value) if key == 'pawnDamage' else ('critical' if 'damage' in key.lower() else 'unknown')
+                add('delta:' + key, value, severity)
         elif delta: add('unmodeled_delta', delta, 'unknown')
     if obs['tool'] == 'list_colonists' and isinstance(d.get('colonists'), list):
         for pawn in d['colonists']:

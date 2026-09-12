@@ -2,7 +2,27 @@
 
 Only one cooperating agent owns the game endpoint. Read the selected run's rules/current handoff; establish that the previous operator handed off. `controller inspect` is local. Claim with `controller claim --owner NAME --control-available --basis REASON`; retain its token. Connect/discover once, read actual get_status and bind the reviewed identity. Reuse a valid existing session; unfamiliar tool names call for offline capability discovery, not reconnecting.
 
+## Resume quickstart
+
+Keep global `--run` before the subcommand. `./rw resume NAME` returns equivalent `next_commands` adjusted for current local controller state.
+
+```sh
+./rw resume NAME
+./rw --run NAME controller inspect
+./rw --run NAME controller claim --owner OWNER --control-available --basis 'HANDOFF BASIS'
+./rw --run NAME call rw_read --token TOKEN --args '{"tool":"get_status","args":{}}'
+./rw --run NAME bind --observation OBS --expected 'IDENTITY JSON' --basis 'REVIEW BASIS' --token TOKEN
+```
+
+Do not claim when inspect shows an owner or unresolved request. A retained `session` object in controller inspection is cached RimMolt protocol metadata, not a running stdio process. Reuse it through ordinary calls/session; run `connect` only when the catalog/session is absent, stale, or the documented control flow requires a reconnect.
+
 Ownership prevents cooperating clients from interleaving. It cannot stop unrelated software or a human changing the game. All game reads may pause/change UI. Other agents remain offline while a player owns control. Never infer the authorized save from a colony name alone, and never reinterpret resume as permission to start/load another game.
+
+## Transport choice
+
+Use one-shot `./rw --run NAME call/observe/wait` commands by default. They are the intended facade, journal evidence normally, and fit hosts that execute isolated shell commands. Do not build a pipe, background stdin feeder or handwritten JSON-RPC wrapper.
+
+Use the persistent connection only when the host directly supports reliable interactive stdin or provides a native MCP client. It can preserve connection-scoped references/cache and avoid process launches, but it is an optional optimization rather than an onboarding requirement.
 
 ## Persistent connection
 
@@ -12,16 +32,18 @@ After ownership and binding, run:
 ./rw --run NAME session --token TOKEN
 ```
 
-This accepts ordinary newline-delimited MCP JSON-RPC on stdin/stdout. It keeps the process open, avoiding repeated host shell launches. A native MCP client can use the same stdio interface; in the desktop executor, retain the process session ID and use its stdin tool. Send one request per line and await its matching reply. Do not send precommitted mutations after a wait before reviewing the returned event.
+This accepts ordinary newline-delimited MCP JSON-RPC on stdin/stdout. It keeps the process open, avoiding repeated host shell launches. A native MCP client can use the same stdio interface; a host without direct interactive stdin must use one-shot CLI calls. Send one request per line and await its matching reply. Do not send precommitted mutations after a wait before reviewing the returned event.
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_status","arguments":{}}}
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"wait_for_event","arguments":{"maxSeconds":60,"maxGameHours":4,"pause":"always"}}}
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rw_read","arguments":{"tool":"get_status","args":{}}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"rw_wait","arguments":{"maxSeconds":60,"maxGameHours":4}}}
 ```
 
-The response forwards ordinary MCP content, media and unfamiliar fields. The existing explicit hidden-AI-targeting exclusion remains. A short additional text block provides an evidence ID and any coverage/control limitation. No positional deltas or risk-policy cards are inserted into this path. `tools/list` exposes the selected run's captured catalog with capture date; refresh via connect/rebind if the server announces a change. No strategy or automatic continuation runs inside the connection.
+`tools/list` serves the small local surface described in [facade](facade.md) with the captured catalog's capture date; the upstream tools stay reachable by name through `rw_read`/`rw_act` and discoverable through `rw_capabilities`. Refresh via connect/rebind only if the server announces a change or cached session/catalog is unavailable. `--expose-upstream-tools` is compatibility/testing-only and requires explicit authorization; ordinary play does not use it.
 
-`call TOOL --args JSON --token TOKEN` remains available for single calls. Raw requests/results and normalized evidence are automatic. Routine calls need no intention/goal bookkeeping. `act`, explicit `--track` or checks remain for deliberate strategic outcome tracking. These require a meaningful intention and actual outcome proof; a receipt cannot prove arrival, treatment, delivery or construction.
+Facade responses are self-contained and compact by default: current game facts, evidence ID, risk cards, optional change metadata and any coverage/control limitation. `rw_read view:full` makes a new live capture; `rw_retrieve` replays an existing observation locally. Under compatibility-only `--expose-upstream-tools`, a raw upstream call keeps its previous shape with a short metadata block. The existing hidden-AI-targeting exclusion remains on both paths. No strategy or automatic continuation runs inside the connection.
+
+For one-shot facade use, call `rw_read`, `rw_act`, `rw_wait`, `rw_capabilities`, or `rw_retrieve` and place the upstream name inside that tool's arguments. Direct raw upstream CLI calls are compatibility-only, not the ordinary player path. Raw requests/results and normalized evidence are automatic. Routine calls need no intention/goal bookkeeping. `act`, explicit `--track` or checks remain for deliberate strategic outcome tracking. These require a meaningful intention and actual outcome proof; a receipt cannot prove arrival, treatment, delivery or construction.
 
 For initial-game UI only, `session --setup` or `call --setup` permits authorized setup actions under a reviewed main-menu binding. After the world loads, inspect and bind the new game identity before ordinary play. This never authorizes debug actions or tactical reloads.
 
@@ -31,21 +53,25 @@ For a persistent desktop terminal, an empty stdin poll may consume its entire ef
 
 Collect one outstanding response inside a bounded executor operation using short internal polls, rather than returning every empty poll to the model. Keep host collection bounds separate from the agent's chosen game-time horizon. Collection ends at a parsed complete response with the exact request ID, or a bounded deadline/error. It must never send another game action or replay the request.
 
+For one-shot CLI calls, prefer repeated `--select /json/pointer` options over piping the response through ad hoc Python. Selection happens once after the operation completes; multiple pointers return one object. A missing selector reports `phase:"local_selection"`, `operation_completed:true`, evidence IDs and an explicit no-replay warning, then acknowledges any durable compound delivery normally. Correct the selector, not the completed game call.
+
+If shell capture is unavoidable, parse it once. Never use `echo "$R"` to feed captured JSON: zsh may interpret escaped newlines or tabs and corrupt otherwise valid JSON. Use `printf '%s' "$R"` or `print -r -- "$R"`, and derive every needed value in one parser invocation. A local parser failure after a complete response is not a failed mutation or wait and never authorizes replay.
+
 Carry the real session/request IDs and a partial-line buffer across collection calls. Preserve complete notifications, unrelated replies, media, errors and unknown properties. Check truncation/exit metadata; malformed or clipped output is uncertainty, not an empty result. A substring match for an ID is insufficient: the remainder of the JSON record may not have arrived. If the host cell itself yields, retain and resume that cell instead of starting another collector. On a deadline retain the handle/buffer and continue collecting the same request; follow the normal reconciliation rules for delivery loss.
 
 When presenting executor output, avoid stringifying the entire result around an already serialized stdout string. Emit the original output and a compact handle/exit/truncation envelope, without semantic filtering. Keep large original data retrievable and narrow subsequent queries. The trial's ad-hoc collector was experimental; a reusable implementation still requires focused complete/partial/error/media/truncation tests. This guidance does not certify an untested collector or alter the MCP protocol.
 
 ## Composed requests
 
-`rw_observe` and `rw_guard` are advertised by the persistent session alongside upstream tools; see [composition](composition.md). CLI observe/guard use the same engine. Compound requests retain a durable composition marker between subcalls and until output flush. Inspect/reconcile both that marker and any underlying pending request before release or further actions. No manual acknowledgement or automatic continuation is introduced.
+`rw_observe` and `rw_guard` are advertised alongside the other facade tools; see [composition](composition.md). CLI observe/guard use the same engine. Compound requests retain a durable composition marker between subcalls and until output flush. Inspect/reconcile both that marker and any underlying pending request before release or further actions. No manual acknowledgement is introduced.
 
 ## Time and uncertainty
 
-Use the normal wait_for_event arguments. There are no client combat/medical category caps. The agent chooses a finite horizon based on actual risk. maxSeconds must be an integer5–600; pause must be always. Game-time bounds must be finite/nonnegative. Existing typed hard issue deadlines still shorten the tick budget and are reported; a due deadline blocks advancement. The server's crisis cap/force option remains visible and must be used according to actual risk, never automatically.
+Use `rw_wait` with a finite horizon based on actual risk; it validates the underlying wait arguments and injects `pause:always`. There are no client combat/medical category caps. `maxSeconds` must be an integer5–600 and game-time bounds finite/nonnegative. Existing typed hard issue deadlines shorten the tick budget and are reported; a due deadline blocks advancement. The server's crisis cap/force option remains visible and must be used according to actual risk, never automatically.
 
 A wall timeout and a game-time limit can both produce the server's `cause: timeout`; inspect ticksWaited and pausedAfter. HTTP timeout covers the wait plus15seconds but is not cancellation. Only one wait may be active. Retain/poll its actual host handle; use short offline reasoning while it runs, with no concurrent game calls.
 
-The pending-operation file is written before dispatch. Timeout, lost response, process exit, malformed delivery or local persistence failure cannot authorize replay. New calls remain blocked until the original operation is proven terminal and reconciled. `controller handle` can record the real process handle; `controller reconcile` requires original evidence and an explicit server-terminal attestation. A dead PID alone is not proof.
+The pending-operation file is written before dispatch. Timeout, lost response, process exit, malformed delivery or local persistence failure cannot authorize replay. New calls remain blocked until the original operation is proven terminal and reconciled. `controller inspect` supplies a concrete reconciliation command template when it finds an unknown composition. `controller handle` can record the real process handle; `controller reconcile` requires original evidence and an explicit server-terminal attestation. A dead PID alone is not proof.
 
 `pause --emergency` is the sole uncertainty exception: ordinary idempotent pause, without clearing the original pending request. Failed/missing pause remains urgent. A session attempts pause on EOF; that is a fallback, not the primary handoff proof. Before closing the connection, request and inspect normal pause/status. A killed process may not run cleanup; the server wait remains finite and its outcome must still be reconciled.
 

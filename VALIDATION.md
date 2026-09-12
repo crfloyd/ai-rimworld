@@ -1,13 +1,120 @@
-# Validation —0.7.0
+# Validation —0.9.3
 
-198 offline tests passed, including25new composition and transport cases. Existing173tests still pass with updated discovery counts. No live endpoint, game UI or saves were used for implementation testing. Source review found and tests now cover root-plus-bundle coverage, explicit threat warning abstention, duplicate/nonfinite JSON, recovery manifest/handle visibility and failed delivery after action.
+Siege post-mortem batch, friction 5a-5g. **368 offline tests pass**, 31 of them new in
+`tests/test_siege_postmortem.py`, each written before its fix and each confirmed failing first.
+No game/MCP/UI calls or save changes were used. Fixtures are the recorded payloads from
+`continuance` ticks 4636041-4708677, including the 13:21:15 delta verbatim.
 
-Paired-read replay:12recent compatible saved pawn-query pairs, identical argument expansion (including hover-detail semantics), through fake controllers. Two individual MCP requests become one composed request; both still execute two ordinary backend reads. Individual reads could already be grouped in one host exchange, so this replay does not measure a reduction in actual model handovers. The old CLI observe also grouped explicit queries; the new interface adds shared discovery, presets, mapped results and guarded sequences. Total input-plus-content-text bytes37799→38099 (+0.8%); serialized wire45426→47328 (+4.2%). This does not establish lower model tokens or faster decisions. It trades negligible payload overhead for a combined observation; broader presets can overfetch. Full per-section provenance is opt-in and always retained in manifests/original observations.
+Reproduced before fixing: the 13:21:15 wait payload, whose `_delta.newBuildings` names two
+`Turret_Mortar`, produced no risk card at all, and the packet it should have built came back
+with topics `['core', 'alerts']` — the original blind spot, now a regression. Artillery in
+`newBuildings` is `critical` and sets `stop`; in `removedBuildings` it is `review`; a
+player-built table raises nothing, because delta rows carry no faction and def class is the only
+available discriminator. The same wait now builds a packet on a plain `cause: timeout`.
 
-A fresh offline agent read ordinary AGENTS/API/control instructions and discovered rw_observe/rw_guard, then expressed the supplied two tasks in one request each. It used four capability lookups and no implementation/test reads. This is discovery/contract evidence, not a live adoption result. Actual gameplay/decision-quality comparison remains pending a fresh resumed player.
+The threat facet's `artillery` term is proven independent of distance: a fixture whose pawn
+scan returns no hostiles still reports two mortars at (15,92) and (15,96) for `Psyck Crew`.
+`fires.enclosure` picks the hottest non-outdoors room from one `room_graph` call, never the
+`outdoors` node even when that node is hotter, and reports unknown rather than safe when the
+node list is in an unrecognised shape. `letter_severity` separates a `ThreatBig` siege from a
+`NeutralEvent` funeral and takes the worst of a mixed batch.
 
-The composition marker is cleared only after output flush. Known output failures and interrupted subcalls remain blocked for inspection/reconciliation; no replay or automatic time advancement. A host silently discarding successfully flushed output remains an unavoidable delivery boundary, not permission to retry a mutation.
+`force` regressions: the first forced wait of a session without `force_reason` is refused and
+the reason is journalled as an `advance_review` when given; `force_reason` never reaches the
+game call; a later force in the same session need not restate it; an unchanged dormant cluster
+never refuses across three forced waits; a new hostile kind refuses the next forced wait once,
+names `Mercenary_Gunner`, and passing force again proceeds; an unforced wait is never refused.
+`select_output` returns `selected` plus `retained_risks` when a risk-bearing pointer is dropped,
+and is unchanged when the risk itself is selected or no risks exist.
 
-Earlier five-dayE and direct-MCP A/B/C/D results remain in docs/PLAY-LOOP-EXPERIMENT.md; they do not validate this new API. Original run evidence stays campaign-local. No expertise, combat-quality or win-rate claim is made.
+Advertised `tools/list` is **14,273 bytes** against the 14,278-byte budget. The `force_reason`
+schema addition was paid for by shortening the `rw_wait` description; `letter_severity` is
+documented in `docs/facade.md` rather than on the advertised surface.
 
-After verified player release, deployed read-only smoke passed through the persistent session and CLI. Both local tools were advertised; rw_observe returned status plus two requested pawn tabs. Before/after game tick remained unchanged, paused was true, session exited0 and controller inspection showed no pending/composition record. Only observations and normal EOF pause were used. Guarded mutation behavior remains covered by fake-server tests, not a live combat experiment. Run-local records: reference/experiments/composition-0.7-session-smoke.jsonl and composition-0.7-cli-smoke.json.
+Deviations from the recommendations as filed, all recorded in `docs/friction.md`: 5a cannot gate
+on faction, because no faction field exists in a building delta. 5b is served by the event packet
+rather than by a new alert, because the alert list is upstream. 5c uses one `room_graph` call
+rather than a per-room threshold sweep in the alerts facet. 5g is partly fixed: both telemetry
+files are current and serve different transports, so each row now names its `stream` instead of
+one file being retired, and a missing key still returns zero rows rather than raising.
+
+Not established: these are offline behaviour regressions. No live run has exercised the
+artillery term, the enclosure term or the force re-check against a real map, and `room_graph`'s
+node key is undocumented upstream, so the tolerant reader is unverified live. Whether any of
+this improves play is unmeasured.
+
+# Validation —0.9.2
+
+Review of the 0.9.2 wait-loop batch found two safety regressions in the mutation-receipt path and both are fixed with regressions that fail without the fix. Deleting `_threatWarning` from a mutation receipt also deleted the signal two interlocks read: `interruptions()` keys on that field, so `rw_guard` stopped stopping after its action, and popping `requires_review` removed the check that halted an `independent:true` batch when a threat appeared mid-batch. Both were reproduced directly before the fix. The receipt now keeps the field, its risk card and `requires_review`, and sheds only the row payloads: a recorded block measured 420 bytes before and 111 after, so 74% of the saving is retained without removing the interlock. To keep the original decision-loop goal, a batch continues past an unchanged standing threat and stops only on a new or changed one; the signature is taken from raw observation data because connection references replace a repeated block with `same_as`. Three further review findings are fixed: a zero-tick `forcePaused` wait no longer names a non-pausing window, the `set_trade` continuation token passes the expected window through so mixed `set_trade`/`window_action` batches no longer fail-stop in either order, and a `set_trade` receipt that applied no row stops the batch. The advertised surface stayed inside its 14,278-byte budget by moving the rw_read/rw_wait routing hint out of the always-loaded description into the `gate()` error that already names the correct tool at the moment it matters.
+
+**328 offline tests pass**, including the 0.9.1 live-friction follow-up covering crisis-cap salience, event-context decoupling, zero-tick pause naming, honored caller limits, composition annotation, wait-verify materialization, mutation threat omission, `set_trade` same-dialog batches and workflow-note corrections, alongside every earlier regression batch. No game/MCP/UI calls or save changes were used for 0.9.2 implementation testing. Notification re-wait (item 1b) is not implemented. An unknown thing id remains blocking.
+
+A quiet `crisisCap` timeout with `cause: timeout` does not set `requires_review` and does not run a post-wait `get_status`; the same wait still carrying `_threatWarning` and a healing `pawnDamage` delta also skips event context; a `cause: threatAppeared` wait with `data.event` still builds its packet. `force` is never injected. A `ticksWaited: 0` `forcePaused` wait reads `list_windows` and returns a named dismissal; a progressing wait does not. Upstream `truncated` with `returned == args.limit` stays `known`; `returned < limit` and `largeOutput` still degrade siblings-continue. `rw_wait verify` with `preset:"decision"` returns `decisions` rather than the raw status bundle. Mutation receipts omit `_threatWarning`; reads and waits keep it.
+
+These tests establish routing and response shape—not fewer live waits, better force decisions or a measured play improvement. Advertised `tools/list` is 14,164 bytes against the 14,278-byte budget.
+
+Live check on `continuance`, 2026-09-11, ticks 3896438–3908000, paused throughout except supervised `rw_wait`. This is not a measured playtest of colony quality.
+
+Confirmed on this colony:
+
+- Quiet `crisisCap` timeout (`obs-be90ac6ebcce4b05b28d4e70bbbe77bf`, composition `compose-acba194259364fef807fb0d3791423cc`): `crisis_cap` is `info`, no `requires_review`, no `event_context` read; only the requested verify `get_status` ran. `force` was not sent. Later waits with a real letter or notification still built event context.
+- Decision `threat` with hardcoded `limit: 20`: `matched: 54`, `returned: 20`, `truncated: true`, observe stayed complete with no `degraded`.
+- `rw_wait verify` with `preset: "decision"` returned `decisions.now.core`; `verification` was empty.
+- Zero-tick `forcePaused` wait (`obs-4f216567ce1247b29d49edac1df1c33d`): a bed-use confirm `Dialog_MessageBox` was already open; the wait named it under `pausing_window` with `window_action`. The dialog came from changing bed assignment, not from the wait.
+- Empty `order_pawn` listings inside `rw_observe` carried `empty_options` (`compose-1937b310e40f48b1b4226ac1d27ac5da`).
+- `list_things category=building nearId=… radius=12 limit=20` returned 20 nearest walls of 107 matches and missed Campfire182321; `defName: Campfire` found it (`compose-b81f0baffa9043399fb768ad95429487` plus the earlier defName read). Same failure mode as the 0.9.1 PassiveCooler note.
+- Slave medical bed, same id `Bed74667`, paused: `obs-f3f74d2f24b04e87b1ffd99d5968067f` slave / medical off, then `obs-7af48854d9c4417fa447f008de662a4a` slave / medical on. Restored afterward.
+
+Not exercised: `_threatWarning` was absent on reads, so mutation omission has no live proof here. No trader and no comms console, so `set_trade` batches, goods-near-trader, and `trade_action cancel` after accept remain unverified. The 0.9.1 confirmed-working list is unchanged.
+
+# Validation —0.9.1
+
+**336 offline tests pass**, including the new live-friction batch covering recoverable coverage, receipt annotation, event-context scoping, complete capability coverage and command-line parity, alongside every earlier regression batch. No game/MCP/UI calls or save changes were used for0.9.1 implementation testing.
+
+Recoverable coverage is separated from blocking coverage by cause, not by severity guesswork. A fixture reproducing the recorded `list_world_objects` guard (58,785 chars,263 items) now degrades one section and still runs its siblings; regressions confirm that an upstream error, a malformed field list and an unconfirmed pause each still stop every later query with the original `Identity, pause, JSON or coverage requires review` reason. The same rule covers `rw_wait verify`, which reports `verification_degraded` separately from `verification_not_run`.
+
+Capability coverage is now enforced by test rather than by curation. All112 permitted catalog tools appear in a domain; `load_game` is the one denied tool and is excluded explicitly. The default overview is1,990 serialized bytes against12,008 for the previous map, which named only54 tools; `overview` with `full:true` returns29,294 bytes and one domain returns about2,100. A stale phantom entry (`manage_zone`, absent from the catalog and silently dropped) was removed by the coverage test.
+
+A regression proves `rw_guard` dispatches nothing when any requested section is degraded, so the recoverable class never widens a mutation gate.
+
+Recorded-session baseline for the next live comparison, taken from `campaigns/continuance/telemetry.jsonl`:304 facade calls and926,845 model-facing bytes, of which `rw_wait` accounted for416,195 and its automatic event context for387,143 across36 waits. Neither the32,768-byte payload backstop, the32-query composition cap nor the16-action batch cap fired once, so none was changed. `rw_observe` stopped on4 of76 calls, discarding9 sub-queries; independent action batches stopped on2 of3, discarding5 of9 actions. These are baseline measurements, not a claim that the changes improved live play; that requires the next measured run.
+
+**252 offline tests pass**, including the complete live-friction, fresh-onboarding, bounded-current-memory, replaceable-checkpoint, action-compaction and post-wait recovery regression batches. The direct-upstream session tests remain behind `--expose-upstream-tools`, demonstrating legacy compatibility. No game/MCP/UI calls or save changes were used for0.9.0 implementation testing.
+
+The latest live resume exposed an event-context defect after a successful paused wait: automatic enrichment generated upstream `get_pawn tab=summary`, although summary requires omitting `tab`. The saved composition proved the failure occurred in `event_context`, not caller verification. The shared pawn mapping now supplies the argument shape, the fixture enforces the real tab enum, and a regression verifies summary omission. A separate regression proves a local optional-enrichment failure returns durable wait evidence with partial/no-replay status and leaves the composition ready to deliver rather than unknown.
+
+Current-memory coverage confirms that generated STATE omits large nested medical bodies while preserving exact observation retrieval, caps its pointer sample, reports omitted indexed scopes and retains current risk summaries. ISSUES exposes concise current action cards while exact-ID retrieval returns the full journal record. The live campaign's generated views were migrated locally from412KB STATE,12KB ISSUES and24KB STRATEGY to approximately17KB,1.8KB and2.3KB respectively; these campaign files are excluded from the source commit and the measurements are not a gameplay-quality claim.
+
+Transfer-checkpoint coverage confirms that a second handoff replaces the same `current.json`, the compact body excludes copied facts/knowledge/full action records, integrity checks and changed-since markers remain, and authorized migration removes legacy `handoff-*` copies. In `continuance`, migration removed52legacy files and100,276,261bytes; the handoff directory is now28KB. Action compaction retired85stale open trackers without asserting outcomes and then removed all172historical tracking rows, reducing actions.jsonl from336,322bytes to0because no current outcome was deliberately retained. Current obligations remain in STRATEGY/ISSUES and ordinary evidence/history remains in its separate stores.
+
+Fresh-resume coverage confirms the default result does not duplicate checkpoint strategy/rules/packet text, exposes current-file pointers and returns controller-aware command templates with global `--run` placement. `--full-output` recovers the compact transfer checkpoint. Invalid exact capability names provide close suggestions, and a threat decision preset anchors a bounded pawn listing around the first selected pawn while retaining status threat/mental-state context.
+
+Serialized `tools/list` declarations are **13,545bytes** versus142,785for the upstream catalog (**10.5× smaller**). The complete strategic overview response is11,884bytes; targeted setup-domain/new-game-workflow responses are2,013/2,601bytes, while trade domain/workflow responses are887/685bytes. These are serialized bytes, not tokens. Targeted domain/workflow discovery is preferred when the whole overview is unnecessary.
+
+New offline evidence: capability overview/domain responses retain tool names and one-line purposes without schemas, and the staged `new_game` workflow begins at the main menu and routes through `game_setup_status`. A decision preset materializes requested core/alert/resource/risk facets and selected pawn details while removing the expanded raw sections from the model response. Opt-in reuse returns a cached schedule without another upstream call, survives time advancement for that stable facet, and re-reads a volatile pawn summary after advancement.
+
+Model-boundary tests confirm compact `list_things` rows are ordinary sliceable arrays even when the internal compact observation chose `columns-v1`. Caller projection, limits, payload truncation and full evidence recovery remain intact.
+
+Repeated-read tests confirm default compact output retains the current list and reports unchanged state separately. Delta-only output requires an explicit complete same-session/same-tool/same-arguments base and is rejected before dispatch when that contract is incomplete. Bounded partial lists retain usable rows under `data` with explicit partial/truncation metadata. Trade-window output includes a bounded semantic trade listing, omits duplicated generic geometry with a full-evidence recovery path, and capability workflow discovery exposes the dedicated list/set/finalize path without schemas.
+
+Same-dialog batch coverage proves successful text-field actions continue when `_dialogOpen` is the only review signal while ordinary failures still stop untouched steps. Berserk packet coverage includes abbreviated-name matching, full threat letter, health/needs/gear facets and nearby responders. Wait manifests record every verification observation with requested and actual tool/arguments. CLI selector coverage distinguishes a completed operation from a missing local JSON Pointer and emits no-replay guidance.
+
+`rw_wait` tests prove that pause remains injected, event context adds a post-wait status read inside the same public exchange, and explicit verification queries are schema/effect checked before advancement. The returned packet retains the wait evidence and durable composition. `rw_act` action arrays require the explicit `independent=true` assertion, preflight every step, stop after a reported error/risk and report untouched indexes; receipts remain outcomes only. Existing pending/delivery protections cover the compound marker.
+
+These tests establish routing, fail-stop behavior, invalidation and response shape—not lower wall time, better decisions or live event coverage. Independent live testing must measure whether packets actually remove model handovers and whether their added status reads are worthwhile.
+
+Live telemetry follow-up: every public local-tool call now appends `facade-telemetry.jsonl`, including `rw_capabilities` and `rw_retrieve`, with success/error status, selected capability or evidence selector, requested view and the exact UTF-8 size of the single model-facing text content. `rw_observe` and `rw_guard` pass distinct drivers into every underlying `Control.call`, so composed subreads no longer appear as unqualified agent operations. The journal explicitly excludes JSON-RPC framing and does not claim host delivery or token counts. Telemetry failure is non-blocking so measurement cannot turn a deliverable gameplay result into an uncertain operation.
+
+Advertised tool declarations: **142,785→9,613bytes, a14.9x reduction**, measured by serializing the exact `tools/list` payload both ways. This is the fixed per-session cost and the only large, certain saving in this release; a byte-budget test fails the build if the served surface grows past14,278bytes.
+
+The **2,513-call** replay figures below are the0.8.0automatic-delta baseline, not a size prediction for0.9.0self-contained defaults: presented bytes3,348,959→3,084,306, a7.9% reduction. The0.9.0comparison tool now measures self-contained compact data plus separate change metadata; explicit delta mode must be benchmarked as a distinct caller policy. These are serialized bytes, not model tokens, and not a decision-quality result.
+
+The reference mechanism addresses redundancy the existing delta cannot reach: the per-scope delta suppressed6,748bytes of repeated `_threatWarning` across the corpus while305,036bytes survived it, because identical global values recur across *different* scopes rather than within one lineage. Substitution is keyed on the value, not the lineage. The field always remains present, risk kind/severity/subject and `requires_review` stay literal, a changed or critical value is never referenced, and references are cleared on reconnect or presentation reset. Tests cover the referenced repeat, the changed-value case, reset invalidation and an unknown reference.
+
+The32,768-byte payload budget **never fired on the recorded corpus** — the95th percentile presented response was4,241bytes and the99.5th was9,357, with one call of58,171in2,493. It is a backstop against an unfiltered read, verified by a synthetic900-row list_things case that truncates, reports true totals and native filters, and recovers in full through rw_retrieve. Ordinary play is unaffected by it.
+
+Effect classification remains argument-dependent and is re-derived per call exactly as composition preflight does; tests confirm `order_pawn` with a command, `set_schedule` with an assignment and `get_status` with arguments are refused by rw_read without dispatch, while the same tools without those arguments succeed as reads. Controller guards were verified to still fire through the facade, and the emergency pause route was verified to remain available while a request is unresolved — that path is the only recovery when `pending.json` exists, so hiding upstream names without it would have removed it.
+
+Two implementation defects were found and fixed by these tests rather than by review: presenting the stored observation instead of the ingest delta view silently dropped every risk card and delta, and a per-lineage substitution rule defeated exactly the cross-scope deduplication the mechanism exists for.
+
+Not established: model-token savings, faster decisions, better play or any win-rate claim. The5,721-byte cost of rw_observe/rw_guard is59% of the served surface, so further surface reduction means shortening those two declarations. The facade *defers* schema cost rather than removing it — a session that looks up many schemas through rw_capabilities recovers less than the headline; that call volume has not been measured in real play. Live gameplay behavior, adoption by a fresh player and decision quality all remain pending the user's fresh-player test.

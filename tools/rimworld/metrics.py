@@ -53,7 +53,7 @@ def metrics(campaign):
     reviews = campaign.issue_reviews()
     return {"tooling_version": __version__, "campaign": campaign.meta["id"],
             "automatic_telemetry": {key: distribution(key) for key in
-                ("rpc_seconds", "persistence_seconds", "total_seconds", "context_bytes", "raw_bytes", "since_previous_call_seconds")},
+                ("rpc_seconds", "persistence_seconds", "total_seconds", "context_bytes", "raw_bytes", "model_bytes", "since_previous_call_seconds")},
             "telemetry_origins": dict(Counter(row.get("driver", "unknown") for row in telemetry)),
             "loop_timing_limits": "since_previous_call includes agent, orchestration, user/idle and local work; it is not isolated model reasoning time. Server event-to-pause timing is unavailable unless supplied by the server.",
             "pause_guards": [{"id": e["id"], "result": e["summary"]} for e in events if e.get("kind") == "pause_guard"],
