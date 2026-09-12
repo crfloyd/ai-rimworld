@@ -430,7 +430,11 @@ class HistoryKnowledgeTests(Workspace):
         checkpoint(self.camp, spec)
         checkpoint(self.camp, spec)
         self.assertEqual((self.camp.path / 'History.md').read_text().count('# A fixture chapter'), 1)
-        self.assertEqual(self.camp.checkpoints()['next_day'], 10)
+        status = self.camp.checkpoints()
+        self.assertEqual(status['next_day'], 10)
+        self.assertEqual(status['interval_days'], 5)
+        self.assertGreater(status['days_until'], 0)
+        self.assertFalse(status['due'])
 
     def test_future_checkpoint_and_missing_image_refused(self):
         self.ingest('get_status', {}, fixture('status'))

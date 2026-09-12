@@ -6,6 +6,12 @@ still open. Active implementation scope is in `PLAN.md`.
 ## Open tooling friction
 
 Current open items, with evidence and recommended fixes, live in [friction.md](docs/friction.md).
+Items 5a-5g came out of the 2026-09-12 siege post-mortem on `continuance` and were revised
+after an independent review corrected the first draft. All seven are now implemented and
+covered by `tests/test_siege_postmortem.py`; `friction.md` records where each fix deviates from
+the recommendation as filed. Two pieces stay open and are upstream or unresolved: the alert
+list still names no siege and attributes no fire cause, and a telemetry query for a key the
+file lacks still returns zero rows rather than raising.
 They came from the measured 0.9.1 live playtest on `continuance`, 2026-09-11. The 0.9.2 batch
 landed 1a, 1c, 2a, 3a–3c, `set_trade` same-dialog batches, trade confirmation near the trader,
 and documentation 4a–4d.

@@ -18,7 +18,7 @@ After actually viewing the image, run shot review --id SHOT_ID --note 'Describe 
 
 ## Checkpoint
 
-checkpoint without a file reports the next checkpoint based on observed/derived game time. The default is every five in-game days. A crisis can delay writing; record the real capture and publication context. Do not backdate a later image as an earlier event.
+checkpoint without a file reports the next checkpoint based on observed/derived game time. The default is every five in-game days. `rw resume NAME` repeats that clock as `history_report` (`days_until`, `due`, `next_day`) so a player can see the deadline without opening History.md. A crisis can delay writing; record the real capture and publication context. Do not backdate a later image as an earlier event.
 
 Write a chapter file and a checkpoint JSON using templates/checkpoint.json. Use the returned relative screenshot paths in the chapter for portability. Renderers that require absolute paths can receive absolute links in chat; preserve portable links in the book when practical.
 

@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from test_system import Workspace
+from test_system import Workspace, fixture
 from tools.rimworld.continuity import handoff, compact_handoffs
 from tools.rimworld.runs import resume_run
 from tools.rimworld.observations import evidence_index
@@ -23,6 +23,20 @@ class StartupNavigation(Workspace):
         self.assertIn('novel infection',json.dumps(index['details']))
         self.assertEqual(self.camp.observation(result['id'])['data'],original['data'])
         self.assertLess(len(json.dumps(index)),len(json.dumps(original)))
+
+    def test_resume_reports_history_due_without_opening_the_book(self):
+        self.ingest('get_status', {}, fixture('status'))
+        before = {str(p): p.read_bytes() for p in self.camp.path.rglob('*') if p.is_file()}
+        result = resume_run(self.root, 'example')
+        report = result['history_report']
+        self.assertEqual(report['interval_days'], 5)
+        self.assertEqual(report['next_day'], 5)
+        self.assertEqual(report['observed_or_derived_day'], 5)
+        self.assertEqual(report['days_until'], 0)
+        self.assertTrue(report['due'])
+        self.assertFalse(report['open_book_on_resume'])
+        self.assertTrue(report['write_after_safe_pause'])
+        self.assertEqual(before, {str(p): p.read_bytes() for p in self.camp.path.rglob('*') if p.is_file()})
 
     def test_resume_defaults_to_index_but_full_compact_checkpoint_remains_available(self):
         self.ingest('get_status',{}, {'loaded':True,'ticksGame':1,'warning':{'novel':['fact']*100}})

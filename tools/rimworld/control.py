@@ -346,6 +346,7 @@ class Control:
                 from .presentation import present
                 gap = wall_started - previous_timing["ended_at"] if previous_timing.get("ended_at") else None
                 append_json(self.campaign.path / "telemetry.jsonl", {"at": now(), "version": __version__,
+                    "stream": "game_calls",
                     "request_id": request_id, "tool": tool, "rpc_seconds": elapsed,
                     "persistence_seconds": persistence_seconds, "total_seconds": time.monotonic()-started,
                     "raw_bytes": len(canonical(payload).encode()), "context_bytes": len(canonical(present(result)).encode()),

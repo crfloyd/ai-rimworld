@@ -41,7 +41,29 @@ def select_output(value, pointers):
             else:raise Error('Selection path is absent: '+pointer)
         return current
     selected=[one(pointer) for pointer in pointers]
-    return selected[0] if len(selected)==1 else {pointer:item for pointer,item in zip(pointers,selected)}
+    result=selected[0] if len(selected)==1 else {pointer:item for pointer,item in zip(pointers,selected)}
+    dropped=dropped_risks(value,pointers)
+    if not dropped: return result
+    # Compact views list omitted_keys; pointer selection used to list nothing, so a
+    # ThreatBig siege letter could be filtered out of a wait with no trace at all.
+    return {'selected':result,'retained_risks':dropped,
+            'detail':'Selection dropped keys carrying these risks. Re-read the named pointers, '
+                     'or select fewer fields, before treating this response as complete.'}
+
+
+def dropped_risks(value,pointers):
+    """Risk cards whose subject no selected pointer keeps."""
+    if not isinstance(value,dict): return []
+    risks=[r for r in value.get('risks') or () if isinstance(r,dict) and r.get('severity')!='info']
+    kept=[p.rstrip('/') for p in pointers]
+    out=[]
+    for risk in risks:
+        ref=str(risk.get('value_ref') or '')
+        path=ref[1:] if ref.startswith('#') else ref
+        if any(p=='' or path==p or path.startswith(p+'/') or p.startswith(path+'/') for p in kept):
+            continue
+        out.append(risk)
+    return out
 
 
 def evidence_ids(value):

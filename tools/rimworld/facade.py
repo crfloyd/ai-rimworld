@@ -36,7 +36,8 @@ ACT_SCHEMA={'type':'object','properties':{'tool':STRING,'args':ARGS,'view':VIEW,
 WAIT_SCHEMA=obj({'maxSeconds':{'type':'integer','minimum':5,'maximum':600},
                  'maxGameTicks':{'type':'integer','minimum':1},'maxGameSeconds':{'type':'number','minimum':0},
                  'maxGameHours':{'type':'number','minimum':0},'maxGameDays':{'type':'number','minimum':0},
-                 'force':{'type':'boolean'},'view':VIEW,'context':{'enum':['auto','brief','none']},
+                 'force':{'type':'boolean'},'force_reason':{'type':'string','minLength':12},
+                 'view':VIEW,'context':{'enum':['auto','brief','none']},
                  'verify':{'type':'array','items':QUERY,'minItems':1,'maxItems':8}})
 RETRIEVE_SCHEMA=obj({'observation':STRING,'tool':STRING,'entity':STRING,'ref':STRING,
                      'view':VIEW,'fields':FIELDS})
@@ -65,8 +66,8 @@ TOOLS={
   'inputSchema':ACT_SCHEMA,'annotations':{'readOnlyHint':False}},
  'rw_wait':{'name':'rw_wait','description':
   'Advance supervised time until an event and return paused. Horizons clamp as wait_budget. '
-  'crisisCap is the upstream 2500-tick crisis cap, not wait_budget; force:true bypasses it by actual risk, never automatically. '
-  'context auto/brief/none; verify runs preflighted post-wait reads. Inspect pausedAfter, ticksWaited and crisisCap.',
+  'crisisCap is the upstream 2500-tick cap; force:true bypasses it by risk and needs force_reason once a session. '
+  'context auto sweeps letters. Inspect pausedAfter, ticksWaited and crisisCap.',
   'inputSchema':WAIT_SCHEMA,'annotations':{'readOnlyHint':False}},
  'rw_retrieve':{'name':'rw_retrieve','description':
   'Recover already-captured evidence. observation replays one stored response (view full is the complete original), '
@@ -157,7 +158,7 @@ def journal(control, name, body, started, *, tool=None, view=None, game_contact=
                      trade_context=bool(body.get('trade')),
                      partial_data=body.get('completeness')=='partial' and 'data' in body)
         if body.get('truncated'): entry['reason']=body.get('reason')
-    append_json(control.campaign.path/'telemetry.jsonl',entry)
+    append_json(control.campaign.path/'telemetry.jsonl',dict(entry,stream='game_calls'))
     return body
 
 
@@ -433,7 +434,13 @@ def run_reads(control,token,queries,memo,observed,driver,sequence=None):
 def event_happened(data):
     """An event is what the game reported, not our review flags."""
     if not isinstance(data,dict): return False
-    return bool(data.get('event') or data.get('_notifications'))
+    if data.get('event') or data.get('_notifications'): return True
+    # A siege that finishes its mortars during a plain timeout reports them here and
+    # nowhere else. No letter, no notification, no proximity warning: the construction
+    # delta is the whole signal, so it has to be worth a packet on its own.
+    from .safety import artillery
+    delta=data.get('_delta')
+    return bool(isinstance(delta,dict) and artillery(delta.get('newBuildings')))
 
 
 def pausing_dialog(data):
@@ -489,13 +496,22 @@ def nonhuman_hostiles(body):
                for row in sample)
 
 
+def built_artillery(body):
+    """Construction is silent: it names no threat word the narrative match can find."""
+    from .safety import artillery
+    data=body.get('data') if isinstance(body,dict) else None
+    delta=data.get('_delta') if isinstance(data,dict) else None
+    return bool(isinstance(delta,dict) and artillery(delta.get('newBuildings')))
+
+
 def event_topics(body):
     text=event_text(body);topics=['core','alerts']
     if any(word in text for word in ('food','meal','starv','malnutrition')):topics.append('food')
     if any(word in text for word in ('injur','infection','disease','bleed','poison','healed','damage')):topics.append('medical')
     if any(word in text for word in ('break risk','mental','wander','berserk','tantrum','mood','daze','binge')):topics.append('mood')
     if any(word in text for word in ('caravan','formation','arriv','trader','visitor')):topics.append('world')
-    if any(word in text for word in ('raid','threat','hostile','attack','fire','siege','infestation','manhunter')) or nonhuman_hostiles(body):
+    if (any(word in text for word in ('raid','threat','hostile','attack','fire','siege','infestation','manhunter'))
+            or nonhuman_hostiles(body) or built_artillery(body)):
         topics.append('threat')
     return list(dict.fromkeys(topics))
 
@@ -533,6 +549,76 @@ def event_letter_ids(value):
 def responder_row(row):
     keys=('id','name','label','kind','x','z','distance','weapon','health','mood','downed','drafted','hostile','mentalState','incapableOf')
     return {key:row[key] for key in keys if key in row}
+
+
+def artillery_term(control,token,sequence,observed):
+    """Hostile indirect fire, reported by existence rather than by distance.
+
+    `dangerRating` and `_threatWarning` are both proximity signals, so a mortar
+    shelling from 123 cells reads as "None" on every map. This term is keyed on a
+    hostile artillery building existing at all.
+    """
+    from .safety import artillery
+    value=control.call(token,'list_things',{'category':'building','faction':'hostile','limit':60},
+                       driver='facade_wait_context')
+    if observed:observed(value['id'])
+    sequence.observed('event_artillery',value);obs=control.campaign.observation(value['id'])
+    data=obs['data'];rows=data.get('things') or []
+    guns=[r for r in rows if isinstance(r,dict) and artillery([r])]
+    term={'count':len(guns),
+          'buildings':[{k:r[k] for k in ('id','def','label','faction','x','z') if k in r} for r in guns],
+          'factions':sorted({r['faction'] for r in guns if r.get('faction')}),
+          'evidence':obs['id'],'completeness':obs['completeness'],'missing':obs['missing']}
+    matched,returned=data.get('matched'),data.get('returned')
+    if type(matched) is int and type(returned) is int and returned<matched:
+        # Absence under truncation is not evidence of absence.
+        term['coverage']={'matched':matched,'returned':returned,
+                          'detail':'Hostile buildings were truncated; a mortar may be unlisted. '
+                                   'Re-read with defName or a higher limit before concluding none exist.'}
+    return term
+
+
+LETHAL_C=50
+
+
+def room_nodes(data):
+    """Node key is not documented; accept either spelling and say when neither fits."""
+    for key in ('rooms','nodes'):
+        rows=data.get(key) if isinstance(data,dict) else None
+        if isinstance(rows,list): return [r for r in rows if isinstance(r,dict)]
+    return None
+
+
+def fire_enclosure(control,token,sequence,observed):
+    """The hottest enclosed room, whether or not anyone thought to ask about it.
+
+    `get_conditions` reports outdoorC only. Through a fire that took interior air to
+    147 C it read 11 to 25 C, so the number that named the cause of death sat on no
+    default surface at all: it needed a room read at a cell nobody had reason to guess.
+    """
+    value=control.call(token,'room_graph',{'stats':False},driver='facade_wait_context')
+    if observed:observed(value['id'])
+    sequence.observed('event_rooms',value);obs=control.campaign.observation(value['id'])
+    rows=room_nodes(obs['data'])
+    term={'evidence':obs['id'],'completeness':obs['completeness'],'missing':obs['missing']}
+    if rows is None:
+        return dict(term,temperature=None,lethal=False,
+                    detail='room_graph returned an unrecognised shape, so interior temperature is '
+                           'unknown rather than safe. Read room_graph directly before assuming.')
+    indoor=[r for r in rows if str(r.get('role','')).lower()!='outdoors'
+            and type(r.get('temperature')) in (int,float)]
+    if not indoor: return dict(term,temperature=None,lethal=False,detail='No enclosed room reported.')
+    hottest=max(indoor,key=lambda r:r['temperature'])
+    temp=hottest['temperature'];lethal=temp>=LETHAL_C
+    term.update(temperature=temp,role=hottest.get('role'),cellCount=hottest.get('cellCount'),
+                cell={k:hottest[k] for k in ('x','z') if k in hottest} or None,
+                sealed=hottest.get('canReachMapEdge') is False,lethal=bool(lethal))
+    if lethal:
+        term['detail']=('Interior air is lethal. A roofed, sealed room has nowhere to vent, so firefighting '
+                        'inside it burns the firefighters, and a downed pawn cannot be rescued there: the '
+                        'rescue job needs a bed in a safe temperature. Vent the roof and put beds outside '
+                        'the heat before sending anyone in.')
+    return term
 
 
 def context_data(data):
@@ -600,13 +686,16 @@ def event_details(control,token,wait_data,status_data,topics,memo,observed,seque
                             'nearby_pawns':[responder_row(r) for r in rows if isinstance(r,dict) and not r.get('hostile')],
                             'responders':responders,
                             'anchor':nearby.get('id') if nearby else None,'radius':50 if nearby else None,
-                            'evidence':obs['id'],'completeness':obs['completeness'],'missing':obs['missing']}
+                            'evidence':obs['id'],'completeness':obs['completeness'],'missing':obs['missing'],
+                            'artillery':artillery_term(control,token,sequence,observed)}
         if 'fire' in text:
             value=control.call(token,'list_fires',{},driver='facade_wait_context')
             if observed:observed(value['id'])
             sequence.observed('event_fires',value);obs=control.campaign.observation(value['id'])
             details['fires']={'data':obs['data'],'evidence':obs['id'],
                               'completeness':obs['completeness'],'missing':obs['missing']}
+            enclosure=fire_enclosure(control,token,sequence,observed)
+            if enclosure:details['fires']['enclosure']=enclosure
     if 'world' in topics:
         value=control.call(token,'list_world_objects',{'kind':'caravans'},driver='facade_wait_context')
         if observed:observed(value['id'])
@@ -627,12 +716,89 @@ def event_details(control,token,wait_data,status_data,topics,memo,observed,seque
     return details
 
 
+SEVERITY={'ThreatBig':5,'Death':4,'ThreatSmall':3,'NegativeEvent':2}
+
+
+def letter_severity(data):
+    """`cause` flattens a siege and a funeral into the same word; the rank does not."""
+    notes=data.get('_notifications') if isinstance(data,dict) else None
+    types=[str(n.get('type')) for n in notes if isinstance(n,dict) and n.get('type')] if isinstance(notes,list) else []
+    if not types: return None
+    return max(types,key=lambda t:(SEVERITY.get(t,1),t))
+
+
+BANDS=((15,'0-15'),(40,'15-40'),(80,'40-80'))
+
+
+def threat_signature(data):
+    """What a caller could have seen when they judged force to be safe."""
+    from .safety import artillery
+    if not isinstance(data,dict): return None
+    warning=data.get('_threatWarning') if isinstance(data.get('_threatWarning'),dict) else {}
+    sample=warning.get('hostilesSample') if isinstance(warning.get('hostilesSample'),list) else []
+    nearest=warning.get('nearestDist')
+    band=None
+    if type(nearest) in (int,float):
+        band=next((label for edge,label in BANDS if nearest<edge),'80+')
+    delta=data.get('_delta') if isinstance(data.get('_delta'),dict) else {}
+    rows=delta.get('newBuildings') if isinstance(delta.get('newBuildings'),list) else []
+    return {'kinds':sorted({str(r.get('kind')) for r in sample if isinstance(r,dict) and r.get('kind')}),
+            'band':band,
+            'artillery':sorted({str(r.get('def')) for r in rows if isinstance(r,dict) and artillery([r])})}
+
+
+def force_recheck(control,args):
+    """A justification written about dormant scythers must not silently cover a siege.
+
+    Refuse once when the picture changed since force was last justified, name what
+    changed, and let the caller re-affirm by passing force again against current facts.
+    """
+    path=control.path/'force-signature.json'
+    state=read_json(path) if path.exists() else {}
+    if not args.get('force'):
+        return None
+    reason=args.get('force_reason')
+    if not state.get('stated') and not reason:
+        raise Error('force bypasses the crisis cap, so state why once per session: pass force_reason '
+                    'with the basis against current facts. Nothing in the run journal records why force '
+                    'was used, which is how a justification written about dormant mechs covered a siege.')
+    if reason:
+        control.campaign.event({'kind':'advance_review','force_reason':reason,
+                                'summary':'force bypassed the crisis cap: '+reason})
+        state=dict(state,stated=True)
+    current,basis=state.get('current'),state.get('forced_at')
+    if state.get('refused'):
+        atomic_json(path,dict(state,refused=False,forced_at=current))
+        return current
+    if current is None or basis is None or current==basis:
+        atomic_json(path,dict(state,forced_at=current))
+        return current
+    changed=[]
+    for key in ('kinds','artillery'):
+        new=sorted(set(current.get(key) or ())-set(basis.get(key) or ()))
+        if new:changed.append(key+': '+', '.join(new))
+    if current.get('band')!=basis.get('band'):
+        changed.append('nearest hostile band: %s to %s'%(basis.get('band'),current.get('band')))
+    atomic_json(path,dict(state,refused=True))
+    raise Error('force was justified against a different threat picture; re-affirm it against current facts. '
+                'Changed since force was last justified — '+'; '.join(changed or ['threat signature'])+
+                '. Pass force again to proceed, or drop force and let the crisis cap set the boundary.')
+
+
+def record_signature(control,data):
+    path=control.path/'force-signature.json'
+    state=read_json(path) if path.exists() else {}
+    atomic_json(path,dict(state,current=threat_signature(data)))
+
+
 def wait_sequence(control,token,args,setup,memo,observed):
     view=args.get('view','compact');verify=args.get('verify') or []
     if verify:
         for query in expand(verify):preflight(control,query)
-    call_args=dict({k:v for k,v in args.items() if k not in ('view','context','verify')},pause='always')
+    call_args=dict({k:v for k,v in args.items()
+                    if k not in ('view','context','verify','force_reason')},pause='always')
     gate(classify(control,'wait_for_event',call_args),'wait_for_event','wait')
+    basis=force_recheck(control,args)
     sequence=Sequence(control,token,'rw_wait',args).start()
     try:
         sequence.record['phase']='wait';sequence.save()
@@ -641,7 +807,16 @@ def wait_sequence(control,token,args,setup,memo,observed):
         if observed:observed(value['id'])
         sequence.observed('wait',value)
         obs=control.campaign.observation(value['id'])
+        record_signature(control,obs.get('data') if isinstance(obs,dict) else None)
+        worst=letter_severity(obs.get('data') if isinstance(obs,dict) else None)
         body=shape(control.campaign,obs,view) if view!='compact' else presented(control,value,args,memo,'wait_for_event')
+        if worst:body['letter_severity']=worst
+        if args.get('force'):
+            # Upstream drops crisisCap entirely once force bypasses it, so without this
+            # the response cannot say a cap existed, let alone what it was overriding.
+            body['forced']={'basis':basis,'detail':'The crisis cap was bypassed for this call. '
+                            'crisisCap is absent because force suppressed it, not because no crisis exists. '
+                            'Re-state the basis against current facts before forcing again.'}
         data=obs.get('data') if isinstance(obs,dict) else None
         if isinstance(data,dict) and data.get('cause')=='forcePaused' and data.get('ticksWaited')==0:
             try:

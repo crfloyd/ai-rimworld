@@ -1,3 +1,48 @@
+# Validation —0.9.3
+
+Siege post-mortem batch, friction 5a-5g. **368 offline tests pass**, 31 of them new in
+`tests/test_siege_postmortem.py`, each written before its fix and each confirmed failing first.
+No game/MCP/UI calls or save changes were used. Fixtures are the recorded payloads from
+`continuance` ticks 4636041-4708677, including the 13:21:15 delta verbatim.
+
+Reproduced before fixing: the 13:21:15 wait payload, whose `_delta.newBuildings` names two
+`Turret_Mortar`, produced no risk card at all, and the packet it should have built came back
+with topics `['core', 'alerts']` — the original blind spot, now a regression. Artillery in
+`newBuildings` is `critical` and sets `stop`; in `removedBuildings` it is `review`; a
+player-built table raises nothing, because delta rows carry no faction and def class is the only
+available discriminator. The same wait now builds a packet on a plain `cause: timeout`.
+
+The threat facet's `artillery` term is proven independent of distance: a fixture whose pawn
+scan returns no hostiles still reports two mortars at (15,92) and (15,96) for `Psyck Crew`.
+`fires.enclosure` picks the hottest non-outdoors room from one `room_graph` call, never the
+`outdoors` node even when that node is hotter, and reports unknown rather than safe when the
+node list is in an unrecognised shape. `letter_severity` separates a `ThreatBig` siege from a
+`NeutralEvent` funeral and takes the worst of a mixed batch.
+
+`force` regressions: the first forced wait of a session without `force_reason` is refused and
+the reason is journalled as an `advance_review` when given; `force_reason` never reaches the
+game call; a later force in the same session need not restate it; an unchanged dormant cluster
+never refuses across three forced waits; a new hostile kind refuses the next forced wait once,
+names `Mercenary_Gunner`, and passing force again proceeds; an unforced wait is never refused.
+`select_output` returns `selected` plus `retained_risks` when a risk-bearing pointer is dropped,
+and is unchanged when the risk itself is selected or no risks exist.
+
+Advertised `tools/list` is **14,273 bytes** against the 14,278-byte budget. The `force_reason`
+schema addition was paid for by shortening the `rw_wait` description; `letter_severity` is
+documented in `docs/facade.md` rather than on the advertised surface.
+
+Deviations from the recommendations as filed, all recorded in `docs/friction.md`: 5a cannot gate
+on faction, because no faction field exists in a building delta. 5b is served by the event packet
+rather than by a new alert, because the alert list is upstream. 5c uses one `room_graph` call
+rather than a per-room threshold sweep in the alerts facet. 5g is partly fixed: both telemetry
+files are current and serve different transports, so each row now names its `stream` instead of
+one file being retired, and a missing key still returns zero rows rather than raising.
+
+Not established: these are offline behaviour regressions. No live run has exercised the
+artillery term, the enclosure term or the force re-check against a real map, and `room_graph`'s
+node key is undocumented upstream, so the tolerant reader is unverified live. Whether any of
+this improves play is unmeasured.
+
 # Validation —0.9.2
 
 Review of the 0.9.2 wait-loop batch found two safety regressions in the mutation-receipt path and both are fixed with regressions that fail without the fix. Deleting `_threatWarning` from a mutation receipt also deleted the signal two interlocks read: `interruptions()` keys on that field, so `rw_guard` stopped stopping after its action, and popping `requires_review` removed the check that halted an `independent:true` batch when a threat appeared mid-batch. Both were reproduced directly before the fix. The receipt now keeps the field, its risk card and `requires_review`, and sheds only the row payloads: a recorded block measured 420 bytes before and 111 after, so 74% of the saving is retained without removing the interlock. To keep the original decision-loop goal, a batch continues past an unchanged standing threat and stops only on a new or changed one; the signature is taken from raw observation data because connection references replace a repeated block with `same_as`. Three further review findings are fixed: a zero-tick `forcePaused` wait no longer names a non-pausing window, the `set_trade` continuation token passes the expected window through so mixed `set_trade`/`window_action` batches no longer fail-stop in either order, and a `set_trade` receipt that applied no row stops the batch. The advertised surface stayed inside its 14,278-byte budget by moving the rw_read/rw_wait routing hint out of the always-loaded description into the `gate()` error that already names the correct tool at the moment it matters.

@@ -54,7 +54,11 @@ class Session:
             row['reuse_requested']=args.get('reuse') is True
         if error is not None: row['error']=str(error)
         try:
-            append_json(self.control.campaign.path/'facade-telemetry.jsonl',row)
+            # Two telemetry files sit side by side with different schemas. Name the
+            # stream in every row so a query that finds nothing can tell an empty
+            # result from the wrong file.
+            append_json(self.control.campaign.path/'facade-telemetry.jsonl',
+                        dict(row,stream='public_tool_calls'))
         except Exception:
             # Evidence and the gameplay response are more important than optional
             # measurement. A missing row is detectable against the MCP transcript.

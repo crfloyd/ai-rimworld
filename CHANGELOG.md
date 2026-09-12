@@ -1,7 +1,35 @@
 # Changelog
 
+## 0.9.3
+
+- Siege post-mortem fixes, friction 5a-5g. A hostile faction finishing artillery arrives only in
+  `_delta.newBuildings`, which `safety.py` discarded: artillery classes there are now a critical
+  risk card and count as an event, so a plain `cause: timeout` wait that reports one builds a
+  packet and adds the `threat` topic. Ordinary construction stays unclassified, because delta
+  rows carry no faction and carding every finished table rebuilds alarm fatigue. The threat facet
+  gains `artillery`, hostile indirect-fire buildings with count, faction and position, keyed on
+  existence rather than distance, reporting its own truncation. A fire packet gains
+  `fires.enclosure` from one `room_graph` call: the hottest enclosed room with cell, role,
+  map-edge reachability and a `lethal` flag at 50 C. A wait ending on letters reports
+  `letter_severity`, so a `ThreatBig` siege and a funeral no longer read alike.
+- `force` now costs a sentence and leaves a trace. The first forced wait of a session requires
+  `force_reason` and journals it as an `advance_review`; every forced wait returns
+  `forced.basis`, and an absent `crisisCap` is reported as suppression rather than absence of
+  crisis. A changed threat signature, by hostile kind, artillery class or distance band, refuses
+  the next forced wait once and names the change; passing force again re-affirms.
+- CLI `--select` no longer hides a threat: dropping a risk-bearing key returns `selected` plus
+  `retained_risks`, matching the force-keep the facade's own `project` always had.
+- `ISSUES.md` and `STATE.md` declare that they are generated and overwritten, and `ISSUES.md`
+  names the command that closes an issue; `AGENTS.md` and `docs/memory.md` stop describing them
+  as hand-maintained. Every telemetry row carries `stream`, so a query can tell an empty result
+  from the wrong file.
+- `AGENTS.md` now holds `context` at `auto` while a threat letter is live, treats a `brief`
+  packet's own skipped-sweep line as a reason to stop, and treats `force` as a per-situation
+  judgement rather than a session setting.
+
 ## 0.9.2
 
+- `rw resume` now includes `history_report`: the next History.md chapter day, days remaining, and whether it is already due, without opening the book.
 - Quiet crisis-capped timeouts are no longer treated as safety stops: `crisis_cap` is `info`, and wait event context now follows `data.event` or `_notifications` rather than `requires_review`. The `crisisCap` object stays literal. `rw_wait` and `docs/facade.md` now distinguish that upstream cap from the local `wait_budget` clamp, and `force:true` remains caller-opt-in by actual risk, never automatic. A wait that returns `ticksWaited: 0` with `cause: forcePaused` names the pausing window and a concrete `window_action`.
 - Upstream `truncated` with `returned` equal to the caller's `limit` is a complete bounded answer, not a degraded section. `largeOutput` and truncation below the requested limit still degrade. Receipt annotations (`rows_withheld`, `already_satisfied`, `deal`, empty float-menu cause) now run inside compositions as well as `rw_read`/`rw_act`. `rw_wait verify` materializes decision presets the same way `rw_observe` does.
 - Mutation receipts trim the standing `_threatWarning` block to its `count` and `nearestDist`; reads, waits and evidence keep the full block. The field, its risk card and `requires_review` stay, because their presence is also the fail-stop that `interruptions()` and the action batch depend on. A batch now continues past an *unchanged* standing threat and stops when a threat appears or changes mid-batch, mirroring the existing unchanged-dialog rule. `independent:true` batches may continue through `set_trade` while a dialog stays open and each receipt reports an applied row; the expected window passes through unchanged so a batch may mix `set_trade` and `window_action` on one trade dialog. `trade_action` always stops. A zero-tick `forcePaused` wait names a window only when one is actually force-pausing, and otherwise reports `none_found` rather than pointing at the inspect tab. Trade confirmation is `list_things` near the trader, not map-wide `list_unmanaged_items`. Combat, resume, food and trade workflow notes cover landing raids, `weapon` on `get_pawn` summary, `defName` scans and empty `order_pawn` options.

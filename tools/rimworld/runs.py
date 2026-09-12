@@ -84,6 +84,9 @@ def resume_run(root, name, *, full=False):
     from .continuity import resume_snapshot, runtime_snapshot
     campaign=Campaign(root,name)
     result['handoff'] = resume_snapshot(campaign, full=full)
+    result['history_report'] = dict(campaign.checkpoints(),
+                                   open_book_on_resume=False,
+                                   write_after_safe_pause=True)
     runtime=runtime_snapshot(campaign)
     commands=[f'./rw --run {name} controller inspect']
     if runtime.get('owner'):

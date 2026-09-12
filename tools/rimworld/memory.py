@@ -550,8 +550,12 @@ class Campaign:
         self._save_projection(state)
         open_issues = self.issue_reviews(state)
         issue_lines = ["# Current issues", "",
-                       "This is current working memory, not an incident history. Replace or close stale items.",
-                       "Full record: `./rw --run %s issue --id ISSUE_ID`." % self.meta["name"], ""]
+                       "Generated from the issue store on every refresh: edits to this file are overwritten "
+                       "without warning. Change an issue through the command, not the text.",
+                       "",
+                       "This is current working memory, not an incident history. Replace or close stale items "
+                       "with `./rw --run %s issue --id ISSUE_ID`, which is also the full record."
+                       % self.meta["name"], ""]
         for issue in sorted(open_issues, key=lambda i: (not i.get("critical", False), i.get("title", ""))):
             flags = [name for name, enabled in (("critical", issue.get("critical")),
                                                 ("due", issue.get("revisit_due")),
@@ -584,6 +588,7 @@ class Campaign:
         lines = ["# Evidence index (optional)", "", f"Campaign: {self.meta['name']} ({self.meta['id']}).",
                  f"Generated: {now()}. Tick: {state['latest_tick']} ({state.get('tick_basis', 'unknown')}).",
                  f"Session: {self.meta.get('session_id') or 'unbound; live identity not verified'}.",
+                 "Generated on every refresh: edits to this file are overwritten without warning.",
                  "Recorded observations are not a live connection. Revalidate before game control.",
                  "This page is a bounded navigation aid, not required startup reading and not a colony narrative.", ""]
         if state.get("clock_warning"):
@@ -677,6 +682,8 @@ class Campaign:
         tick = state["latest_tick"]
         day = tick / self.meta["ticks_per_day"] if tick is not None else None
         return {"next_day": next_day, "observed_or_derived_day": day,
+                "days_until": None if day is None else next_day - day,
+                "interval_days": interval,
                 "due": None if day is None else day >= next_day,
                 "time_basis": state.get("tick_basis", "unknown")}
 

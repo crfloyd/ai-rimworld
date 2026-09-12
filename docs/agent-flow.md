@@ -8,7 +8,7 @@ Only one agent or process may issue game/MCP/UI calls. It owns current `STRATEGY
 
 The same agent normally proceeds through these phases sequentially:
 
-1. Read the run rules, current strategy/issues and small resume handoff.
+1. Read the run rules, current strategy/issues, the small resume handoff and its `history_report` due marker. Do not open History.md unless writing the chapter or a decision needs it.
 2. Claim sole control, reuse or establish one session, inspect and bind the actual game.
 3. Play with the adaptive loop below.
 4. At a stop or checkpoint, verify pause and pending-operation state before continuity or report work.

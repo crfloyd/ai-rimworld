@@ -215,7 +215,8 @@ class Facade(ControlFixture):
             {'id':195,'label':'Berserk: Tatyana','text':'The final straw was intense pain','ok':True},
             {'things':[{'id':'p','label':'Tatyana','hostile':True,'x':10,'z':10},
                        {'id':'w','label':'Ward','hostile':False,'x':12,'z':10,'weapon':'SMG'}]},
-            {'id':'w','name':'Ward','health':100,'mood':60,'x':12,'z':10,'weapon':'SMG'}
+            {'id':'w','name':'Ward','health':100,'mood':60,'x':12,'z':10,'weapon':'SMG'},
+            {'matched':0,'returned':0,'things':[]}
         ])
         value=self.body('rw_wait',{'maxGameHours':1})
         context=value['event_context']
@@ -226,7 +227,10 @@ class Facade(ControlFixture):
         self.assertEqual(context['threats']['anchor'],'p')
         self.assertEqual(context['threats']['nearby_pawns'][0]['label'],'Ward')
         self.assertEqual(context['threats']['responders'][0]['data']['weapon'],'SMG')
-        self.assertEqual(self.calls[-2]['arguments']['nearId'],'p')
+        pawn_scan=next(c for c in self.calls if c['name']=='list_things'
+                       and c['arguments'].get('category')=='pawn')
+        self.assertEqual(pawn_scan['arguments']['nearId'],'p')
+        self.assertEqual(context['threats']['artillery']['count'],0)
         from tools.rimworld.composition import delivered
         delivered(self.control,self.token,value['composition'])
 

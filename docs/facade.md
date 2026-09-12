@@ -33,6 +33,32 @@ A batch also continues past an unchanged standing `_threatWarning`. A threat tha
 
 When a wait reports `data.event` or `_notifications`, `context:auto` (the default) performs one post-wait status read and returns a materialized packet with core/alerts plus event-relevant food, medical, mood, threat/fire or world facets. Review flags such as a standing `_threatWarning`, `crisisCap`, or a healing `pawnDamage` delta do not by themselves trigger that packet. A wait that returns `ticksWaited: 0` with `cause: forcePaused` also names the pausing window and a concrete `window_action` that clears it. Event pawn matching accepts IDs, full names and unambiguous name/nickname tokens. Mental-break threats include the event letter, affected health/needs/gear and nearby pawn positions/readiness around the hostile pawn; ordinary threats include current hostiles and fires include the fire list. Use `context:none` when the wait result alone is sufficient. `context:"brief"` keeps the post-wait status packet and skips the pawn facet, responder, threat-row and letter sweep; use it for a routine wait inside a situation you already understand, and `auto` when the event is new. Event topics are chosen from the event narrative itself, not from a standing threat flag, so a berserk colonist does not re-trigger a full sweep on every later wait. The threat flag is on every response regardless, so nothing is hidden; only the extra reads stop. Optional `verify` accepts the same query objects as `rw_observe`; decision presets are materialized the same way as in `rw_observe`. Every query is preflighted before time advances and runs after the wait in the same public exchange. The durable manifest records requested and actual verification tool/arguments plus reuse. Event context and verification never choose an action.
 
+Four terms exist because a siege killed six colonists on 2026-09-12 while every summary read
+benign; see the [post-mortem](postmortem-2026-09-12-siege.md) and friction items 5a-5g.
+A hostile faction finishing artillery arrives only in `_delta.newBuildings`, so an artillery
+class there is a critical risk card and counts as an event in its own right: a plain
+`cause: timeout` wait that reports one still builds a packet and still adds the `threat` topic.
+Ordinary construction stays unclassified, because building rows carry no faction and carding
+every finished table would rebuild the alarm fatigue that made `force` feel routine. The threat
+facet carries `artillery`: hostile indirect-fire buildings with count, faction and position,
+keyed on existing at all rather than on distance, because `dangerRating` and `_threatWarning`
+are both proximity signals and read "None" through a mortar shelling from 123 cells. When the
+event is a fire, the packet adds `fires.enclosure`: the hottest enclosed room from `room_graph`,
+with its cell, role, whether it can reach the map edge, and a `lethal` flag above 50 C.
+`get_conditions` reports outdoor temperature only, which stayed between 11 and 25 C while
+interior air reached 147 C. A wait that ends on letters also reports `letter_severity`, the
+worst `_notifications` type in the batch, because `cause: "letter"` reads the same for a
+`ThreatBig` siege and a funeral notice.
+
+`force` now costs a sentence. The first forced wait of a session must pass `force_reason`, which
+is journalled as an `advance_review` event, because nothing in the run journal recorded why
+force was ever used. Every forced wait returns `forced.basis`, the threat signature it was
+justified against, since upstream omits `crisisCap` entirely once force bypasses it: its absence
+means force suppressed it, not that no crisis exists. If that signature changes, a new hostile
+kind, new artillery, or a nearest-hostile band crossing, the next forced wait is refused once
+and names what changed. Pass `force` again to re-affirm against current facts, or drop it and
+let the crisis cap set the boundary.
+
 ## Strategic affordances
 
 `rw_capabilities {"overview":true}` returns a domain index: every domain with its tool count and a one-line purpose, covering the whole catalog in about two kilobytes. Drill in with `domain`, or pass `full:true` for every tool in every domain. Use `domain` for one area or `workflow` for an ordered `new_game`, `resume_crisis`, `medical_event`, `combat_event`, `caravan`, `food_crisis` or `trade` guide. An unknown exact tool returns close-name suggestions before requiring another search. These contain names and one-line purposes, not live availability or permission; fetch only a selected exact contract with `{"tool":"NAME"}`. When `get_window_ui` detects a trade dialog, the facade also reads a bounded semantic `list_trade` view and reduces generic geometry to control counts.
